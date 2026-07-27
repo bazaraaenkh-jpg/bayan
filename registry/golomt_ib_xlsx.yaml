@@ -1,0 +1,42 @@
+# Голомт Банк — интернэт банкны Excel хуулга
+id: golomt.internet_bank.xlsx.v1
+bank: golomt
+channel: internet_bank
+file_type: xlsx
+account_kind: current_mnt
+status: active
+
+fingerprint:
+  filename_pattern: ".*(statement|golomt|голомт).*"
+  sheet_keywords: ["ДАНСНЫ ХУУЛГА", "Голомт", "OperativeAccountStatement"]
+  column_signature:
+    - "Гүйлгээний огноо"
+    - "Гүйлгээний утга"
+  min_score: 2
+
+metadata_block:
+  account_no:      { anchor: "Дансны дугаар", direction: right }
+  period:          { anchor: "Гүйлгээний огноо", direction: right }
+  opening_balance: { anchor: "Эхний үлдэгдэл", direction: right, type: amount, optional: true }
+  closing_balance: { anchor: "Эцсийн үлдэгдэл", direction: right, type: amount, optional: true }
+
+table:
+  header_row_match: ["Гүйлгээний огноо", "Гүйлгээний утга"]
+  stop_row_match: ["Нийт орлого", "Нийт зарлага"]
+  columns:
+    posted_at:            { aliases: ["Гүйлгээний огноо", "Огноо"], format: "%Y-%m-%dT%H:%M:%S|%Y-%m-%dT%H:%M|%Y-%m-%d %H:%M:%S|%Y-%m-%d|%d-%m-%Y|%Y.%m.%d %H:%M:%S|%Y.%m.%d %H:%M|%Y.%m.%d" }
+    debit:                { aliases: ["Зарлага", "Дебит"], type: amount, optional: true }
+    credit:               { aliases: ["Орлого", "Кредит"], type: amount, optional: true }
+    balance_after:        { aliases: ["Эцсийн үлдэгдэл", "Үлдэгдэл"], type: amount, optional: true }
+    counterparty_account: { aliases: ["Харьцсан данс", "Харьцах данс"], optional: true }
+    counterparty_name:    { aliases: ["Харьцсан дансны нэр"], optional: true }
+    description:          { aliases: ["Гүйлгээний утга", "Утга", "Тайлбар"] }
+    channel_ref:          { aliases: ["Лавлагааны дугаар", "Journal"], optional: true }
+  amount_locale: { thousands: ",", decimal: "." }
+  direction_mode: separate
+  continuation_rule: date_empty_merge_up
+
+validation:
+  balance_chain: optional
+  opening_closing_tie: optional
+

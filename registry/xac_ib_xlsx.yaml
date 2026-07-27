@@ -1,0 +1,41 @@
+# Хас Банк — интернэт банкны Excel хуулга
+id: xac.internet_bank.xlsx.v1
+bank: xac
+channel: internet_bank
+file_type: xlsx
+account_kind: current_mnt
+status: active
+
+fingerprint:
+  filename_pattern: ".*(xac|хас).*"
+  sheet_keywords: ["Хас банк", "XacBank", "Банк хоорондын шилжүүлгийн шимтгэл"]
+  column_signature:
+    - "Гүйлгээний дугаар"
+    - "Харьцсан данс"
+  min_score: 2
+
+metadata_block:
+  account_no:      { anchor: "Данс", direction: right, optional: true }
+  period:          { anchor: "Хугацаа", direction: right, optional: true }
+  opening_balance: { anchor: "Эхний үлдэгдэл", direction: right, type: amount, optional: true }
+  closing_balance: { anchor: "Эцсийн үлдэгдэл", direction: right, type: amount, optional: true }
+
+table:
+  header_row_match: ["Огноо", "Орлого", "Зарлага"]
+  stop_row_match: ["Нийт"]
+  columns:
+    posted_at:            { aliases: ["Огноо"], format: "%Y-%m-%d %H:%M:%S|%Y-%m-%d|%Y.%m.%d" }
+    counterparty_account: { aliases: ["Харьцсан данс"], optional: true }
+    channel_ref:          { aliases: ["Гүйлгээний дугаар"], optional: true }
+    description:          { aliases: ["Гүйлгээний утга", "Утга"] }
+    credit:               { aliases: ["Орлого"], type: amount, optional: true }
+    debit:                { aliases: ["Зарлага"], type: amount, optional: true }
+    balance_after:        { aliases: ["Үлдэгдэл"], type: amount, optional: true }
+  amount_locale: { thousands: ",", decimal: ".", negative: "minus" }
+  direction_mode: separate
+  continuation_rule: date_empty_merge_up
+
+validation:
+  balance_chain: optional
+  opening_closing_tie: optional
+

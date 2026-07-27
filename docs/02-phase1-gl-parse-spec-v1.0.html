@@ -1,0 +1,431 @@
+<title>Bayan AI — Үе 1: GL цөм + Parse Pipeline</title>
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --ink: #22302b;
+    --ink-soft: #55645d;
+    --ink-faint: #8a978f;
+    --line: #dde2dc;
+    --accent: #1b6e53;
+    --accent-soft: #e3efe9;
+    --gold: #a97b1e;
+    --gold-soft: #f5ecd8;
+    --danger: #a33c2e;
+    --danger-soft: #f7e7e3;
+    --code-bg: #eef1ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171d1a; --surface: #1f2723; --ink: #e4e9e4; --ink-soft: #a8b4ac;
+      --ink-faint: #74817a; --line: #323d36; --accent: #4fb890; --accent-soft: #24352d;
+      --gold: #d3a44a; --gold-soft: #33301f; --danger: #d97b6c; --danger-soft: #3a2622;
+      --code-bg: #262f29;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #171d1a; --surface: #1f2723; --ink: #e4e9e4; --ink-soft: #a8b4ac;
+    --ink-faint: #74817a; --line: #323d36; --accent: #4fb890; --accent-soft: #24352d;
+    --gold: #d3a44a; --gold-soft: #33301f; --danger: #d97b6c; --danger-soft: #3a2622;
+    --code-bg: #262f29;
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f6f2; --surface: #ffffff; --ink: #22302b; --ink-soft: #55645d;
+    --ink-faint: #8a978f; --line: #dde2dc; --accent: #1b6e53; --accent-soft: #e3efe9;
+    --gold: #a97b1e; --gold-soft: #f5ecd8; --danger: #a33c2e; --danger-soft: #f7e7e3;
+    --code-bg: #eef1ec;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.65; margin: 0; font-size: 16px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px 96px; }
+
+  header.doc { border-bottom: 3px double var(--line); padding: 56px 0 32px; margin-bottom: 40px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gold); font-weight: 600; margin-bottom: 14px;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(28px, 5vw, 40px); font-weight: 700;
+    margin: 0 0 12px; line-height: 1.18; text-wrap: balance;
+  }
+  .subtitle { color: var(--ink-soft); font-size: 17.5px; max-width: 64ch; margin: 0 0 24px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 28px; font-size: 13px; color: var(--ink-faint); }
+  .meta b { color: var(--ink-soft); font-weight: 600; }
+  .meta a { color: var(--accent); }
+
+  nav.toc {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 20px 24px; margin-bottom: 48px; font-size: 14.5px;
+  }
+  nav.toc .toc-title {
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 600; margin-bottom: 10px;
+  }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 40px; }
+  nav.toc li { margin-bottom: 5px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  @media (max-width: 620px) { nav.toc ol { columns: 1; } }
+
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 25px; margin: 64px 0 6px; line-height: 1.25; text-wrap: balance;
+  }
+  h2 .num {
+    color: var(--gold); font-size: 15px; font-family: "Segoe UI", sans-serif;
+    font-weight: 700; letter-spacing: 0.08em; display: block; margin-bottom: 4px;
+  }
+  h2::after { content: ""; display: block; width: 48px; height: 3px; background: var(--accent); margin-top: 12px; }
+  h3 { font-size: 18px; font-weight: 700; margin: 36px 0 8px; }
+  h4 { font-size: 15.5px; font-weight: 700; margin: 24px 0 6px; }
+  p { margin: 12px 0; max-width: 74ch; }
+  ul, ol { max-width: 74ch; padding-left: 24px; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+  .lede { font-size: 17px; color: var(--ink-soft); }
+
+  table {
+    border-collapse: collapse; width: 100%; font-size: 13.5px;
+    margin: 18px 0; font-variant-numeric: tabular-nums;
+  }
+  .table-scroll { overflow-x: auto; margin: 18px 0; }
+  .table-scroll table { margin: 0; min-width: 680px; }
+  th {
+    text-align: left; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); border-bottom: 2px solid var(--line);
+    padding: 8px 12px 8px 0; font-weight: 600;
+  }
+  td { border-bottom: 1px solid var(--line); padding: 9px 12px 9px 0; vertical-align: top; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+
+  .callout {
+    border-left: 4px solid var(--accent); background: var(--accent-soft);
+    border-radius: 0 6px 6px 0; padding: 14px 18px; margin: 20px 0; font-size: 15px;
+  }
+  .callout.gold { border-left-color: var(--gold); background: var(--gold-soft); }
+  .callout.danger { border-left-color: var(--danger); background: var(--danger-soft); }
+  .callout .c-label {
+    font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    font-weight: 700; color: var(--accent); margin-bottom: 4px;
+  }
+  .callout.gold .c-label { color: var(--gold); }
+  .callout.danger .c-label { color: var(--danger); }
+  .callout p { margin: 4px 0; }
+
+  code, .mono {
+    font-family: Consolas, "Cascadia Mono", Menlo, monospace;
+    font-size: 0.88em; background: var(--code-bg);
+    padding: 1px 6px; border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px;
+    padding: 16px 18px; overflow-x: auto; font-size: 13px; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  .footnote {
+    margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-faint);
+  }
+  .footnote a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+
+<header class="doc">
+  <div class="eyebrow">Bayan AI · Үе 1 · Техникийн нарийвчилсан тодорхойлолт v1.0</div>
+  <h1>GL цөм ба Банкны хуулгын Parse Pipeline</h1>
+  <p class="subtitle">Монголын арилжааны банкуудын хуулгын форматын ялгааг template-registry аргаар шийдэж, задлалтын 100% математик баталгаа бүхий давхар бичилтийн цөм дээр буулгах инженерийн тодорхойлолт.</p>
+  <div class="meta">
+    <span><b>Огноо:</b> 2026-07-12</span>
+    <span><b>Хамрах хүрээ:</b> Үе 1 (8 долоо хоног)</span>
+    <span><b>Эх баримт:</b> <a href="https://claude.ai/code/artifact/bd74dc19-b43b-4ac0-ab02-b51f5ab2ae42">Системийн даалгавар v1.4</a></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc-title">Агуулга</div>
+  <ol>
+    <li><a href="#format">Монголын банкуудын хуулгын форматын каталог</a></li>
+    <li><a href="#registry">Format Registry — форматыг кодлохгүйгээр тодорхойлох</a></li>
+    <li><a href="#canonical">Каноник гүйлгээний схем</a></li>
+    <li><a href="#pipeline">Pipeline-ийн инженерийн тодорхойлолт</a></li>
+    <li><a href="#gl">GL цөмийн тодорхойлолт</a></li>
+    <li><a href="#ai">Fable 5 ашиглалтын тодорхойлолт</a></li>
+    <li><a href="#test">Туршилтын багц ба хүлээн авах шалгуур</a></li>
+  </ol>
+</nav>
+
+<h2 id="format"><span class="num">01</span>Монголын банкуудын хуулгын форматын каталог</h2>
+<p class="lede">Гол зарчим: банк бүрийн форматыг <strong>кодоор бичихгүй, өгөгдлөөр тодорхойлно</strong>. Шинэ банк, шинэ хувилбар нэмэгдэхэд програмист хэрэггүй — Format Registry-д нэг descriptor нэмнэ.</p>
+
+<p>Доорх хүснэгт нь таван том банкны интернэт/корпорэйт банкнаас гардаг хуулгын <em>түгээмэл</em> шинжүүд. Бодит descriptor-уудыг Үе 1-ийн эхний 2 долоо хоногт банк бүрээс жинхэнэ хуулга цуглуулж баталгаажуулна (§7-гийн туршилтын багц).</p>
+
+<div class="table-scroll"><table>
+  <tr><th>Шинж</th><th>Хаан</th><th>Голомт</th><th>ХХБ</th><th>Хас</th><th>Төрийн банк</th></tr>
+  <tr><td>Файлын төрөл</td><td>xlsx, PDF</td><td>xlsx/csv, PDF</td><td>xls/xlsx, PDF</td><td>xlsx, PDF</td><td>xlsx, PDF</td></tr>
+  <tr><td>Толгой мета-блок</td><td>Данс, нэр, хугацаа, эхний/эцсийн үлдэгдэл — хүснэгтийн дээр</td><td>Мөн адил, мөрийн байрлал өөр</td><td>Мөн адил + салбарын мэдээлэл</td><td>Мөн адил</td><td>Мөн адил</td></tr>
+  <tr><td>Дебит/Кредит</td><td>Тусдаа 2 багана</td><td>Тусдаа 2 багана</td><td>Тусдаа 2 багана</td><td>Тусдаа 2 багана эсвэл нэг дүн +/-</td><td>Тусдаа 2 багана</td></tr>
+  <tr><td>Гүйлгээний дараах үлдэгдэл</td><td>Байдаг</td><td>Байдаг</td><td>Байдаг</td><td>Байдаг</td><td>Ихэвчлэн байдаг</td></tr>
+  <tr><td>Огнооны формат</td><td>YYYY.MM.DD [hh:mm]</td><td>YYYY-MM-DD / DD-MM-YYYY</td><td>DD.MM.YYYY г.м.</td><td>YYYY.MM.DD</td><td>YYYY.MM.DD</td></tr>
+  <tr><td>Дүнгийн формат</td><td>1,234,567.89</td><td>1,234,567.89</td><td>1,234,567.89 / xls тоон нүд</td><td>Ялгаатай</td><td>Ялгаатай</td></tr>
+  <tr><td>Харьцсан данс</td><td>Тусдаа багана эсвэл утга дотор</td><td>Тусдаа багана</td><td>Утга дотор түгээмэл</td><td>Ялгаатай</td><td>Утга дотор түгээмэл</td></tr>
+  <tr><td>PDF онцлог</td><td>Хуудас бүрд толгой давтагдана, утга олон мөрд тасардаг</td><td>Мөн адил</td><td>Мөн адил</td><td>Мөн адил</td><td>Скан хэлбэрээр ирэх нь элбэг</td></tr>
+</table></div>
+
+<h3>1.1 Форматын ялгаанаас үүсдэг 9 ангиллын асуудал</h3>
+<div class="table-scroll"><table>
+  <tr><th>#</th><th>Асуудал</th><th>Шийдэл (pipeline-ийн аль шатанд)</th></tr>
+  <tr><td>F1</td><td>Мета-блок ба хүснэгтийн эхлэл банк бүрд өөр мөрөнд</td><td>Descriptor-т <code>header_row_match</code> түлхүүр үгсээр хайж олно (Шат 2)</td></tr>
+  <tr><td>F2</td><td>Баганын нэр, дараалал өөр («Зарлага» vs «Дебит гүйлгээ» vs «Debit»)</td><td>Descriptor-ийн <code>columns</code> alias жагсаалтаар канон талбарт буулгана (Шат 2)</td></tr>
+  <tr><td>F3</td><td>Огноо 4+ өөр форматтай, заримд нь цаг дагалддаг</td><td>Descriptor-т date format; таарахгүй бол format-inference + validation (Шат 3)</td></tr>
+  <tr><td>F4</td><td>Дүн: мянгатын таслал, тоон нүд vs текст нүд, хаалтаар сөрөг</td><td>Amount parser — descriptor-ийн locale тохиргоогоор; үр дүн үргэлж minor unit бүхэл тоо (Шат 3)</td></tr>
+  <tr><td>F5</td><td>Дебит/кредит тусдаа vs нэг баганад +/- тэмдэгтэй</td><td><code>debit_credit: separate | signed</code> хоёр горим (Шат 3)</td></tr>
+  <tr><td>F6</td><td>PDF-д гүйлгээний утга олон мөрд тасарч, хуудасны толгой давтагдана</td><td>Row-continuation rule: огноо/дүнгүй мөрийг өмнөх мөрийн утгад залгана; толгойн мөрийг regex-ээр хасна (Шат 2Б)</td></tr>
+  <tr><td>F7</td><td>Хуучин xls (BIFF), CSV-ийн encoding (UTF-8 vs Windows-1251)</td><td>Encoding sniffing + xls/xlsx хоёр уншигч (Шат 2А)</td></tr>
+  <tr><td>F8</td><td>Валютын данс, картын хуулга өөр бүтэцтэй</td><td>Тусдаа descriptor (банк × суваг × данс төрөл); Үе 1-д MNT харилцах, бусад нь Үе 2</td></tr>
+  <tr><td>F9</td><td>Банк форматаа шинэчилдэг (баганын нэр, дараалал өөрчлөгдөх)</td><td>Descriptor-ууд хувилбартай (<code>version</code>); fingerprint таарахгүй бол унтрахгүй — Шат 1-ийн AI fallback + админд мэдэгдэл</td></tr>
+</table></div>
+
+<div class="callout danger">
+  <div class="c-label">Хамгийн том эрсдэл — «чимээгүй буруу» задлалт</div>
+  <p>Хуулга parse-ийн аюул нь унших боломжгүй файл биш (энэ нь харагддаг алдаа), харин <strong>буруу уншсан ч зөв юм шиг харагдах</strong> явдал: багана мөрөөсөө шилжих, огноо сар/өдөр солигдох, мянгатын таслал андуурагдах. Иймд ямар ч задлалтын үр дүн §4.4-ийн validation gate-ийг давахгүйгээр систем рүү нэвтэрч чадахгүй байх нь энэ баримтын хатуу шаардлага.</p>
+</div>
+
+<h2 id="registry"><span class="num">02</span>Format Registry — форматыг өгөгдлөөр тодорхойлох</h2>
+<p>Банк бүрийн формат нэг descriptor (YAML) байна. Descriptor нь fingerprint (таних), extraction (задлах), validation (шалгах) гурван хэсэгтэй:</p>
+
+<pre><code># format_registry/khan_ib_xlsx_v2026_1.yaml
+id: khan.internet_bank.xlsx.v2026-1
+bank: khan
+channel: internet_bank          # internet_bank | corporate | branch_print
+file_type: xlsx
+account_kind: current_mnt       # Үе 1: зөвхөн MNT харилцах
+status: active
+
+fingerprint:                    # Шат 1-д таних дүрэм — оноо цуглуулах зарчмаар
+  filename_pattern: ".*statement.*|.*huulga.*"     # +1 оноо
+  sheet_keywords: ["Дансны хуулга", "Хуулгын хугацаа"] # +3 оноо
+  column_signature:             # +5 оноо (хамгийн хүчтэй дохио)
+    - "Гүйлгээний огноо"
+    - "Дебит гүйлгээ"
+    - "Кредит гүйлгээ"
+    - "Үлдэгдэл"
+  min_score: 6                  # энэ оноонд хүрвэл descriptor сонгогдоно
+
+metadata_block:                 # хүснэгтийн дээрх мета мэдээлэл
+  account_no:      { anchor: "Дансны дугаар", direction: right }
+  account_name:    { anchor: "Хаяг, нэр",     direction: right }
+  period:          { anchor: "Хуулгын хугацаа", direction: right, format: "range" }
+  opening_balance: { anchor: "Эхний үлдэгдэл", direction: right, type: amount }
+  closing_balance: { anchor: "Эцсийн үлдэгдэл", direction: right, type: amount }
+
+table:
+  header_row_match: ["Гүйлгээний огноо", "Үлдэгдэл"]  # энэ 2 үг нэг мөрөнд байвал толгой
+  stop_row_match: ["Нийт дүн", "Гүйлгээний тоо"]      # хүснэгтийн төгсгөл
+  columns:
+    posted_at:       { aliases: ["Гүйлгээний огноо", "Огноо"], format: "%Y.%m.%d %H:%M|%Y.%m.%d" }
+    branch:          { aliases: ["Салбар"], optional: true }
+    debit:           { aliases: ["Дебит гүйлгээ", "Зарлага", "Debit"], type: amount }
+    credit:          { aliases: ["Кредит гүйлгээ", "Орлого", "Credit"], type: amount }
+    balance_after:   { aliases: ["Үлдэгдэл", "Эцсийн үлдэгдэл"], type: amount }
+    counterparty_account: { aliases: ["Харьцсан данс"], optional: true }
+    description:     { aliases: ["Гүйлгээний утга", "Утга"] }
+  amount_locale: { thousands: ",", decimal: ".", negative: "minus|paren" }
+  direction_mode: separate      # separate | signed
+  continuation_rule: date_empty_merge_up   # PDF-д: огноогүй мөр = өмнөхийн үргэлжлэл
+
+validation:
+  balance_chain: required       # мөр бүр: prev_balance - debit + credit = balance_after
+  opening_closing_tie: required # мета-блокийн үлдэгдэлтэй тулгах
+  row_count_source: metadata_optional   # "Гүйлгээний тоо" байвал тулгана
+</code></pre>
+
+<h3>2.1 Registry-ийн ажиллагааны дүрэм</h3>
+<ul>
+  <li><strong>Сонголт:</strong> Шат 1-д бүх идэвхтэй descriptor-ийн fingerprint-ийг файлтай тулгаж оноо тооцно. Хамгийн өндөр оноотой нь <code>min_score</code>-оос давбал сонгогдоно; хоёр descriptor ойролцоо оноотой бол хоёуланг нь ажиллуулж validation gate давсныг нь авна.</li>
+  <li><strong>Таарахгүй бол:</strong> алдаа биш — Шат 1-ийн AI ангилагч (Fable 5) файлын эхний 100 мөрийг хараад хамгийн ойр descriptor-ийг санал болгох эсвэл «шинэ формат» гэж тэмдэглэнэ. Шинэ формат админ самбарт очиж, тэндээс шинэ descriptor-ийг <strong>AI-аар үүсгүүлж</strong> (жишээ файлаас draft descriptor гаргах), хүн баталгаажуулж registry-д нэмнэ.</li>
+  <li><strong>Хувилбарын амьдралын мөчлөг:</strong> descriptor бүр <code>active / deprecated / draft</code> статустай; банк формат солиход хуучныг deprecated болгож шинийг нэмнэ — хуучин хуулга дахин боловсруулагдах үед хуучин descriptor хэвээр ажиллана.</li>
+  <li><strong>Хэмжилт:</strong> descriptor бүрээр амжилтын хувь (validation gate давсан хувь) хянагдана; 98%-иас буусан descriptor админд анхааруулга өгнө (банк формат өөрчилсний дохио).</li>
+</ul>
+
+<h2 id="canonical"><span class="num">03</span>Каноник гүйлгээний схем</h2>
+<p>Ямар ч банкны, ямар ч форматын хуулга задлагдсаны дараа <strong>ганц ижил хэлбэрт</strong> орно. Pipeline-ийн Шат 3-аас хойшхи бүх код зөвхөн энэ схемтэй ажиллана:</p>
+
+<pre><code>bank_txn {
+  id                  uuid          -- системийн дотоод ID
+  statement_id        uuid          -- аль хуулгаас гарсан
+  company_id          uuid          -- tenant
+  bank_account_id     uuid          -- дотоод дансны бүртгэлтэй холбоос
+  seq_no              int           -- хуулга доторх дараалал (1-ээс)
+  posted_at           timestamptz   -- ISO 8601, UTC+8
+  direction           enum(debit, credit)
+  amount_minor        bigint        -- мөнгө 100 (₮ → мөнгө); хэзээ ч float биш
+  currency            char(3)       -- Үе 1: MNT
+  balance_after_minor bigint | null -- гүйлгээний дараах үлдэгдэл (байвал)
+  counterparty_account text | null  -- цэвэрлэгдсэн (зөвхөн цифр)
+  counterparty_name    text | null  -- утгаас ялгасан бол
+  description_raw     text          -- эх утга, өөрчлөхгүй
+  description_norm    text          -- цэвэрлэсэн (олон зай, том/жижиг, орос-монгол хольц)
+  channel_ref         text | null   -- банкны гүйлгээний дугаар (байвал)
+  canonical_hash      char(64)      -- SHA-256, доорх томъёогоор
+  extraction_path     enum(excel, pdf_text, vision)
+  extraction_confidence numeric     -- vision зам: 2 уншилтын тохирц; бусад: 1.0
+}
+
+canonical_hash = SHA256(
+  bank_account_id ‖ posted_at(минут хүртэл) ‖ direction ‖
+  amount_minor ‖ counterparty_account ‖ normalize(description_raw)
+)</code></pre>
+
+<div class="callout">
+  <div class="c-label">Давхардлын хамгаалалт — 3 давхарга</div>
+  <p>(1) Файлын түвшин: SHA-256 ижил файл дахин орохыг хаана. (2) Гүйлгээний түвшин: <code>canonical_hash</code> дээр unique constraint — сар дамнуулан давхацсан хуулга (жишээ нь 1-6 сар, дараа нь 4-7 сар) оруулахад зөвхөн шинэ гүйлгээ нэмэгдэнэ. (3) Ижил хугацаанд, ижил дүнтэй, ижил утгатай <em>жинхэнэ</em> хоёр гүйлгээ байж болох тул hash-д <code>seq_no</code>-ийн оронд мөрийн дараалсан давталтын индексийг нэмнэ (ижил hash 2 дахь удаа гарвал suffix ‖2).</p>
+</div>
+
+<h2 id="pipeline"><span class="num">04</span>Pipeline-ийн инженерийн тодорхойлолт</h2>
+
+<h3>4.1 Шат 0-1 — Хүлээн авалт, таних</h3>
+<ul>
+  <li>Upload үйлчилгээ: xlsx/xls/csv/pdf, ≤ 30MB; virus scan; объект санд <code>company_id/statement_id/original.ext</code> замаар хадгална; файлын SHA-256-аар давхардлыг татгалзана.</li>
+  <li>Файлын төрлийг өргөтгөлөөр биш magic bytes-аар тогтооно (xlsx=zip, xls=OLE2, pdf=%PDF).</li>
+  <li>Registry fingerprinting (§2.1). Үр дүн: <code>statement.descriptor_id</code> эсвэл <code>needs_ai_routing</code>.</li>
+  <li>Боловсруулалт async ажилладаг (queue); нябод progress харагдана. 10,000 мөртэй Excel ≤ 30 сек, 100 хуудастай PDF ≤ 5 мин зорилт.</li>
+</ul>
+
+<h3>4.2 Шат 2 — Гурван зам задлалт</h3>
+<div class="table-scroll"><table>
+  <tr><th>Зам</th><th>Оролт</th><th>Технологи</th><th>Онцлог дүрэм</th></tr>
+  <tr><td>А — Хүснэгт</td><td>xlsx, xls, csv</td><td>openpyxl / xlrd / csv + encoding sniffing (UTF-8 → CP1251 fallback)</td><td>Тоон нүдийг тоогоор нь авна (текст рүү хөрвүүлэхгүй); нэгтгэсэн нүд (merged cell)-ийг задална; descriptor-ийн header_row_match-аар толгой олно</td></tr>
+  <tr><td>Б — Текст PDF</td><td>Текст давхаргатай PDF</td><td>pdfplumber (lattice → stream fallback)</td><td>Хуудас бүрийн давтагдах толгой/хөл regex-ээр хасагдана; continuation_rule-аар тасарсан утга нийлнэ; багана x-координатаар тогтворжуулна</td></tr>
+  <tr><td>В — Vision</td><td>Скан PDF, зураг, Зам Б чадаагүй PDF</td><td>Fable 5 vision + structured output</td><td>Хуудас бүр 2 удаа (T=0 ба T=0.4) уншигдана; мөр бүрээр тулгаж зөрсөн мөрийг <code>low_confidence</code> тэмдэглэнэ; хуудас хоорондын үлдэгдэл залгамжийг шалгана</td></tr>
+</table></div>
+<p>Зам Б-ийн чанарын хаалт: текст PDF-ээс гарсан мөрийн тоо metadata-гийн гүйлгээний тоотой эсвэл үлдэгдлийн гинжтэй таарахгүй бол автоматаар Зам В руу дахин явуулна (per-page fallback).</p>
+
+<h3>4.3 Шат 3 — Нормчлол</h3>
+<ul>
+  <li><strong>Огноо:</strong> descriptor format → амжилтгүй бол хуулгын хугацааны мужид багтах ганц утга өгдөг format-ыг таамаглана; хоёрдмол байвал (01.02 vs 02.01) validation gate шийднэ — буруу таамаглал үлдэгдлийн гинжийг заавал тасалдаг.</li>
+  <li><strong>Дүн:</strong> текст → minor unit бүхэл тоо. Мянгат/бутархайн тэмдэгт descriptor-оос; хаалт/хасах = сөрөг; хоосон = 0 биш NULL.</li>
+  <li><strong>Чиглэл:</strong> separate горимд дебит ба кредит хоёулаа утгатай мөр алдаа; signed горимд тэмдэгээр тогтооно.</li>
+  <li><strong>Утга:</strong> <code>description_raw</code> хэвээр; <code>description_norm</code> = olon зай нэгтгэх, IBAN/данс, ebarimt дугаар, огноог pattern-аар ялгаж <code>counterparty_account</code>, <code>channel_ref</code> талбарт салгана.</li>
+</ul>
+
+<h3>4.4 Шат 4 — Validation Gate (хатуу хаалт)</h3>
+<pre><code>ШАЛГАЛТ V1 — Үлдэгдлийн гинж (balance_after байгаа үед, мөр бүрд):
+    balance_after[i] == balance_after[i-1] - debit[i] + credit[i]
+    balance_after[0] == opening_balance - debit[0] + credit[0]
+
+ШАЛГАЛТ V2 — Нийлбэрийн тулгалт (үргэлж):
+    opening_balance + Σcredit - Σdebit == closing_balance
+
+ШАЛГАЛТ V3 — Мөрийн тоо: metadata-д заасан бол таарах ёстой
+ШАЛГАЛТ V4 — Огноо: бүх мөр хуулгын мужид, үл буурах дарааллаар
+ШАЛГАЛТ V5 — Залгамж: өмнөх хуулгын closing == энэ хуулгын opening
+             (ижил дансны өмнөх statement байвал; зөрвөл "цоорхой" анхааруулга)
+ШАЛГАЛТ V6 — Давхардал: canonical_hash unique</code></pre>
+<ul>
+  <li>V1 тасарсан цэг = алдаатай мөрийн байршил. UI дээр тухайн мөрийг эх файлын (PDF бол хуудасны зургийн) хажууд харуулж, нябо гараар засна эсвэл Зам В-ээр дахин уншуулна. <strong>Бүх хуулгыг дахин оруулах шаардлага хэзээ ч гарахгүй.</strong></li>
+  <li>balance_after байхгүй форматад V1 боломжгүй тул V2 + V5 хатуу, мөн тухайн descriptor <code>reduced_assurance: true</code> гэж тэмдэглэгдэж vision double-pass заавал ажиллана.</li>
+  <li>Gate давсан хуулга <code>parsed_verified</code> статустай болж л дараагийн шатанд орно. Энэ шалгалтууд нь LLM биш, цэвэр детерминистик код — тестээр 100% хамрагдана.</li>
+</ul>
+
+<h3>4.5 Шат 5-6 — AI ангилалт ба Review (Үе 1-ийн хүрээ)</h3>
+<p>Үе 1-д ангилалтын бүрэн pipeline-ийн суурь хувилбар орно: дүрэм давхарга (нябо-гийн regex/keyword дүрэм) → Fable 5 batch ангилалт (§6) → итгэлцлийн 3 сагс → Review UI (бөөнөөр батлах, засах, дүрэм болгон хадгалах). Компанийн санах ойн RAG нь Үе 2-т, гэхдээ өгөгдлийн бүтэц нь (батлагдсан ангилалт бүр хадгалагдах) Үе 1-ээс бэлэн байна.</p>
+
+<h2 id="gl"><span class="num">05</span>GL цөмийн тодорхойлолт</h2>
+
+<h3>5.1 Өгөгдлийн загвар</h3>
+<pre><code>company        (id, name, reg_no, fiscal_year_start, vat_payer, ...)
+account        (id, company_id, code, name, kind, parent_id, currency,
+                normal_side enum(debit,credit), is_postable bool, active bool)
+journal_entry  (id, company_id, entry_no, entry_date, memo,
+                source_type enum(bank_txn, manual, salary, depreciation,
+                                 inventory, wip, fx_reval, closing, reversal),
+                source_id uuid null,       -- анхан шатны баримтын холбоос
+                status enum(draft, posted, reversed),
+                reversal_of uuid null,
+                posted_by, posted_at, created_by, created_at)
+journal_line   (id, entry_id, line_no, account_id,
+                debit_minor bigint, credit_minor bigint,   -- яг нэг нь > 0
+                counterparty_id null, cost_center_id null, description)
+period_lock    (company_id, year, month, locked_by, locked_at)
+audit_log      (id, company_id, actor_id, action, entity, entity_id,
+                before jsonb, after jsonb, at)   -- append-only</code></pre>
+
+<h3>5.2 Инвариантууд (DB түвшинд албадана)</h3>
+<div class="table-scroll"><table>
+  <tr><th>#</th><th>Инвариант</th><th>Хэрэгжилт</th></tr>
+  <tr><td>G1</td><td>Бичилт бүрд Σдебит = Σкредит</td><td>Deferred constraint trigger — тэнцээгүй transaction commit хийгдэхгүй</td></tr>
+  <tr><td>G2</td><td>Posted бичилт өөрчлөгдөхгүй, устгагдахгүй</td><td>UPDATE/DELETE trigger хориглоно; засвар = reversal + шинэ бичилт (source холбоостой)</td></tr>
+  <tr><td>G3</td><td>Түгжсэн сард бичилт орохгүй</td><td>period_lock шалгах trigger (entry_date-аар)</td></tr>
+  <tr><td>G4</td><td>Зөвхөн is_postable данс руу бичнэ (бүлэг данс руу шууд бичихгүй)</td><td>FK + check</td></tr>
+  <tr><td>G5</td><td>AI-ийн гаралт шууд журналд орохгүй</td><td>AI санал тусдаа <code>classification_suggestion</code> хүснэгтэд; зөвхөн хүний батлах үйлдэл journal_entry үүсгэнэ</td></tr>
+  <tr><td>G6</td><td>Дэд модулийн баримт хадгалагдахдаа журналын бичилтээ атомоор үүсгэнэ</td><td>Нэг DB transaction — BAAZ-ийн «ЕЖ-д холбогдоогүй гүйлгээ» ангиллын төлөв энэ системд оршин байх боломжгүй</td></tr>
+  <tr><td>G7</td><td>Tenant тусгаарлалт</td><td>PostgreSQL row-level security (company_id)</td></tr>
+</table></div>
+
+<h3>5.3 Дансны төлөвлөгөө</h3>
+<ul>
+  <li>Сангийн яамны ЖДБ-ийн стандарт дансны төлөвлөгөөг seed болгож суулгана (Мөнгө 10-11, Авлага 12, Бараа материал 21, ДҮ 214x, ҮХ 25, Өр төлбөр 31-33, Өмч 41, Орлого 51, ББӨ 61, Зардал 71 гэх бүтэцтэй, 4-8 оронтой шатлал).</li>
+  <li>Компани бүр өөрийн хуулбараа засаж болно; банкны данс бүр дансны төлөвлөгөөний data (11xx-ийн доод түвшний) данстай 1:1 холбогдоно — BAAZ-ийн <code>11010101 Харилцах /банк, дансны дугаар/</code> загварыг баримтална.</li>
+  <li>Гүйлгээ баланс materialized view-ээр (сар × данс огтлол) — 100 мянган бичилттэй компанид ≤ 1 сек.</li>
+</ul>
+
+<h3>5.4 API гадаргуу (Үе 1)</h3>
+<pre><code>POST /companies/{id}/statements            — хуулга upload
+GET  /statements/{id}                      — статус + validation үр дүн
+GET  /statements/{id}/transactions         — каноник гүйлгээнүүд + AI саналууд
+POST /suggestions/approve                  — бөөнөөр батлах → журнал үүснэ (G5)
+POST /journal-entries                      — гар бичилт
+POST /journal-entries/{id}/reverse         — reversal
+GET  /reports/trial-balance?from&to
+GET  /reports/balance-sheet, /income-statement   — СТ-1, СТ-2 ноорог
+POST /periods/{y}/{m}/lock                 — сарын түгжээ</code></pre>
+
+<h2 id="ai"><span class="num">06</span>Fable 5 ашиглалтын тодорхойлолт</h2>
+<div class="table-scroll"><table>
+  <tr><th>Хэрэглээ</th><th>Модель</th><th>Горим</th><th>Тайлбар</th></tr>
+  <tr><td>Vision задлалт (Зам В)</td><td>claude-fable-5</td><td>Vision + structured output (хатуу JSON schema)</td><td>Хуудас бүр тусдаа дуудлага; хуудасны эхний/эцсийн үлдэгдэл давхар гаргуулж залгамж шалгана; 2 pass тохирц &lt; 100% бол мөр түвшинд low_confidence</td></tr>
+  <tr><td>Гүйлгээний ангилалт</td><td>Haiku 4.5 → Fable 5</td><td>Batch (50 гүйлгээ/дуудлага), structured output</td><td>Эхлээд Haiku; итгэлцэл &lt; 0.9 гүйлгээнүүд Fable 5 руу эскалаци. Prompt-д: дансны төлөвлөгөө (кэшлэгдэнэ), нябо-гийн дүрмүүд, компанийн профайл</td></tr>
+  <tr><td>Шинэ форматын routing/descriptor draft</td><td>claude-fable-5</td><td>Ганц дуудлага, админ баталгаажуулна</td><td>Жишээ файлын эхний 100 мөрөөс YAML descriptor-ийн ноорог гаргана</td></tr>
+</table></div>
+<ul>
+  <li><strong>Structured output:</strong> бүх дуудлага JSON schema-гаар хязгаарлагдана — чөлөөт текст гаргахгүй тул parse-ийн хоёр дахь алдааны эх үүсвэр байхгүй.</li>
+  <li><strong>Prompt caching:</strong> дансны төлөвлөгөө + дүрмүүд + заавар нэг кэшлэгдсэн префикс — ижил компанийн batch-үүд 90% хямд.</li>
+  <li><strong>PII:</strong> хувь хүний регистр, картын дугаарыг API руу явуулахын өмнө <code>[REG]</code>, <code>[CARD]</code> токеноор маскална; ангилалтад нөлөөгүй.</li>
+  <li><strong>Өртгийн төсөв:</strong> 1 компани × 1 сар (1,000 гүйлгээ, 20 хуудас PDF) ≈ vision 40 дуудлага + ангилалт 20 batch — хэмжилт Үе 1-ийн пилотоор баталгаажиж, компанийн сарын AI өртөг SaaS үнийн ≤ 15% байх зорилттой.</li>
+</ul>
+
+<h2 id="test"><span class="num">07</span>Туршилтын багц ба хүлээн авах шалгуур</h2>
+<h3>7.1 Golden dataset</h3>
+<ul>
+  <li>5 банк × 2 суваг (интернэт xlsx, PDF) × 3 сар = <strong>30 бодит хуулга</strong>; аажимдаа 100 хуулга хүртэл өргөжүүлнэ. Мөр бүрийн үнэн утга (огноо, дүн, чиглэл, үлдэгдэл) гараар баталгаажсан CSV хавсарна.</li>
+  <li>Эвдрэлийн багц: тасархай PDF, скан муутай зураг, encoding эвдэрсэн CSV, багана сольсон Excel, давхардуулж оруулсан хуулга — бүгд validation gate-д баригдах ёстой (per-case unit test).</li>
+</ul>
+<h3>7.2 Хүлээн авах шалгуур (Үе 1 хаагдах нөхцөл)</h3>
+<div class="table-scroll"><table>
+  <tr><th>#</th><th>Шалгуур</th><th>Хэмжилт</th></tr>
+  <tr><td>A1</td><td>Golden dataset-ийн Зам А/Б хуулгууд 100% validation gate давна</td><td>CI-д автомат</td></tr>
+  <tr><td>A2</td><td>Vision зам: мөрийн түвшний нарийвчлал ≥ 99.5%, алдаатай мөр бүр low_confidence тэмдэглэгдсэн байх (илрээгүй алдаа = 0)</td><td>Golden CSV-тэй тулгалт</td></tr>
+  <tr><td>A3</td><td>Gate давсан хуулгын дүн журналд орсны дараа гүйлгээ баланс банкны дансны үлдэгдэлтэй мөнгө бүрээр таарна</td><td>СТ тулгалтын тест</td></tr>
+  <tr><td>A4</td><td>G1-G7 инвариант бүрд эвдэх оролдлогын тест (тэнцээгүй бичилт, түгжсэн сар, posted засах...) — бүгд татгалзагдана</td><td>Unit + integration</td></tr>
+  <tr><td>A5</td><td>10,000 мөрт Excel ≤ 30 сек, 100 хуудаст PDF ≤ 5 мин</td><td>Performance тест</td></tr>
+  <tr><td>A6</td><td>Пилот нябо Хаан банкны бодит 3 сарын хуулгаар СТ-1/СТ-2 ноорог гаргаж, гараар хөтөлсөн тайлантайгаа тулгаж зөрүүгүй</td><td>Пилот хэрэглэгчийн баталгаа</td></tr>
+</table></div>
+
+<div class="callout gold">
+  <div class="c-label">Үе 1-ийн эхний 2 долоо хоногийн даалгавар</div>
+  <p>Кодоос өмнө: (1) 5 банкны бодит хуулгын дээж цуглуулах (таны болон пилот нябо нарын дансууд), (2) банк бүрийн descriptor-ийн ноорог бичих, (3) golden dataset-ийн эхний 10 хуулгыг гараар баталгаажуулах. Форматын бодит баримт материал цугласны дараа л extraction кодыг бичиж эхэлнэ — таамагласан форматад код бичихгүй.</p>
+</div>
+
+<div class="footnote">
+  Bayan AI · Үе 1 техникийн тодорхойлолт v1.0 · 2026-07-12 · Эх баримт: <a href="https://claude.ai/code/artifact/bd74dc19-b43b-4ac0-ab02-b51f5ab2ae42">Системийн даалгавар v1.4</a>
+</div>
+
+</div>

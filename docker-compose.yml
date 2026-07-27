@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: bayan-db
+    restart: always
+    environment:
+      POSTGRES_DB: bayan_ai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bayan_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: bayan-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BAYAN_DB_URL: postgresql+psycopg://postgres:password@db:5432/bayan_ai
+    ports:
+      - "8377:8377"
+    volumes:
+      - ./storage:/app/storage
+
+  frontend:
+    build:
+      context: ./bayan ai
+    container_name: bayan-frontend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/bayan_ai
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: bayan-ai-super-secret-key-32chars!!
+      NEXT_PUBLIC_APP_NAME: Bayan AI
+    ports:
+      - "3000:3000"
+
+  nginx:
+    image: nginx:alpine
+    container_name: bayan-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - backend
+      - frontend
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: bayan-certbot
+    restart: always
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit 0 sigterm; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  db-backup:
+    image: postgres:15-alpine
+    container_name: bayan-db-backup
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backups:/backups
+    entrypoint: |
+      sh -c '
+      echo "0 1 * * * pg_dump -h db -U postgres bayan_ai > /backups/backup_\$$(date +\%F).sql" > /etc/crontabs/root
+      crond -f -l 8
+      '
+    environment:
+      PGPASSWORD: password
+
+volumes:
+  postgres_data:

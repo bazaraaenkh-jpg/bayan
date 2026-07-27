@@ -1,0 +1,27 @@
+# Нууц санхүүгийн мэдээлэл — хэзээ ч commit хийхгүй
+samples/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Локал DB
+*.db
+
+# Environment variables & secrets
+.env
+.env*
+.env.local
+
+# Local archives and untracked folders
+Bazaraa/
+Bazaraa.rar
+Account ai system/
+bayan ai/
+~$*
+*.docx
+*.pptx
+*.rar
+

@@ -1,0 +1,43 @@
+# Хаан Банк — интернэт банкны Excel хуулга
+id: khan.internet_bank.xlsx.v1
+bank: khan
+channel: internet_bank
+file_type: xlsx
+account_kind: current_mnt
+status: active
+
+fingerprint:
+  filename_pattern: ".*(statement|huulga|хуулга|хаан).* "
+  sheet_keywords: ["Депозит дансны дэлгэрэнгүй хуулга", "Дансны хуулга", "Хаан банк", "Deposit Account Statement"]
+  column_signature:
+    - "Гүйлгээний огноо"
+    - "Гүйлгээний утга"
+  min_score: 2
+
+metadata_block:
+  account_no:      { anchor: "IBAN", direction: right, optional: true }
+  account_name:    { anchor: "Хэрэглэгч", direction: right, optional: true }
+  period:          { anchor: "Интервал", direction: right, optional: true }
+  opening_balance: { anchor: "Эхний үлдэгдэл", direction: right, type: amount, optional: true }
+  closing_balance: { anchor: "Эцсийн үлдэгдэл", direction: right, type: amount, optional: true }
+
+table:
+  header_row_match: ["Гүйлгээний огноо", "Гүйлгээний утга"]
+  stop_row_match: ["Нийт дүн", "Гүйлгээний тоо", "Эцсийн үлдэгдэл"]
+  columns:
+    posted_at:            { aliases: ["Гүйлгээний огноо", "Огноо"], format: "%Y-%m-%d %H:%M:%S|%Y-%m-%d|%Y/%m/%d %H:%M:%S|%Y/%m/%d|%m/%d/%Y|%Y.%m.%d %H:%M:%S|%Y.%m.%d %H:%M|%Y.%m.%d" }
+    branch:               { aliases: ["Салбар"], optional: true }
+    opening_balance:      { aliases: ["Эхний үлдэгдэл"], type: amount, optional: true }
+    credit:               { aliases: ["Кредит гүйлгээ", "Орлого"], type: amount, optional: true }
+    debit:                { aliases: ["Дебит гүйлгээ", "Зарлага"], type: amount, optional: true }
+    balance_after:        { aliases: ["Эцсийн үлдэгдэл", "Үлдэгдэл"], type: amount, optional: true }
+    description:          { aliases: ["Гүйлгээний утга", "Утга"] }
+    counterparty_account: { aliases: ["Харьцсан данс"], optional: true }
+  amount_locale: { thousands: ",", decimal: ".", negative: "minus|paren" }
+  direction_mode: separate
+  continuation_rule: date_empty_merge_up
+
+validation:
+  balance_chain: optional
+  opening_closing_tie: optional
+

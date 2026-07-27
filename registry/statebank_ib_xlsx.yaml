@@ -1,0 +1,42 @@
+# Төрийн банк — интернэт банкны Excel хуулга
+# Статус: draft — бодит хуулгаар баталгаажуулаагүй.
+# Анхаар: Төрийн банкны хуулга скан PDF хэлбэрээр их ирдэг — Зам В (vision) чухал.
+id: statebank.internet_bank.xlsx.v1
+bank: statebank
+channel: internet_bank
+file_type: xlsx
+account_kind: current_mnt
+status: draft
+
+fingerprint:
+  filename_pattern: ".*(statebank|төрийн).*"
+  sheet_keywords: ["Төрийн банк"]
+  column_signature:
+    - "Огноо"
+    - "Дебит"
+    - "Кредит"
+    - "Үлдэгдэл"
+  min_score: 6
+
+metadata_block:
+  account_no:      { anchor: "Данс", direction: right }
+  period:          { anchor: "Хугацаа", direction: right }
+  opening_balance: { anchor: "Эхний үлдэгдэл", direction: right, type: amount }
+  closing_balance: { anchor: "Эцсийн үлдэгдэл", direction: right, type: amount }
+
+table:
+  header_row_match: ["Огноо", "Үлдэгдэл"]
+  stop_row_match: ["Нийт"]
+  columns:
+    posted_at:     { aliases: ["Огноо"], format: "%Y.%m.%d %H:%M|%Y.%m.%d" }
+    debit:         { aliases: ["Дебит", "Зарлага"], type: amount }
+    credit:        { aliases: ["Кредит", "Орлого"], type: amount }
+    balance_after: { aliases: ["Үлдэгдэл"], type: amount }
+    description:   { aliases: ["Гүйлгээний утга", "Утга"] }
+  amount_locale: { thousands: ",", decimal: "." }
+  direction_mode: separate
+  continuation_rule: date_empty_merge_up
+
+validation:
+  balance_chain: required
+  opening_closing_tie: required

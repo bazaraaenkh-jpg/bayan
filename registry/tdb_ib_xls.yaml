@@ -1,0 +1,43 @@
+# Худалдаа Хөгжлийн Банк (ХХБ/TDB) — интернэт банкны .XLS хуулга
+# Статус: active — 2026-07-12-нд бодит 5 хуулгаар баталгаажсан (Пиннакл Экспертс).
+# Онцлог: толгойн мөргүй, багана байрлалаар; мета r0-д «Нэр: утга» хосоор;
+# огноо Excel date cell; нийт дүнгийн мөр баланс баганагүй.
+id: tdb.internet_bank.xls.v1
+bank: tdb
+channel: internet_bank
+file_type: xls
+account_kind: current_mnt
+status: active
+
+fingerprint:
+  filename_pattern: "^ST_\\d+.*\\.xls$"
+  sheet_keywords: ["Депозит дансны хуулга", "Эхний үлдэгдэл", "Хамрах хугацаа"]
+  column_signature: []          # толгойн мөргүй тул хэрэглэгдэхгүй
+  min_score: 6
+
+metadata_layout: inline_anchors
+metadata_block:
+  account_no:      { anchor: "Дансны дугаар", regex: '(\d{6,16})' }
+  account_name:    { anchor: "Харилцагч" }
+  period:          { anchor: "Хамрах хугацаа" }
+  opening_balance: { anchor: "Эхний үлдэгдэл", type: amount }
+  closing_balance: { anchor: "Эцсийн үлдэгдэл", type: amount }
+
+table:
+  has_header: false
+  data_start_row: 1
+  require_numeric: [balance_after]     # нийт дүнгийн мөрийг ялгах түлхүүр
+  columns:
+    posted_at:            { index: 0 }        # Excel date cell
+    branch_code:          { index: 1, optional: true }
+    credit:               { index: 2, type: amount }   # орлого
+    debit:                { index: 3, type: amount }   # зарлага
+    balance_after:        { index: 6, type: amount }
+    counterparty_account: { index: 5, optional: true } # «данс Нэр» холимог
+    description:          { index: 7 }
+  amount_locale: { thousands: ",", decimal: "." }
+  direction_mode: separate
+
+validation:
+  balance_chain: required
+  opening_closing_tie: required
