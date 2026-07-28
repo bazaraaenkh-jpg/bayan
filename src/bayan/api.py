@@ -1969,30 +1969,60 @@ def auto_reconcile_bank_txns(company_id: str,
                              ctx: dict = Depends(company_guard("post")),
                              db: Session = Depends(get_db)):
     from .models import BankTxn, JournalLine, JournalEntry, Direction
-    from datetime import timedelta
+    from datetime import timedelta, date
     
     unreconciled_txns = db.scalars(select(BankTxn).where(
         BankTxn.company_id == company_id,
         BankTxn.reconciled == False
     )).all()
     
+    # Track journal lines already matched to existing reconciled BankTxns or claimed in this run
+    reconciled_line_ids = set(
+        db.scalars(
+            select(BankTxn.reconciled_line_id).where(
+                BankTxn.company_id == company_id,
+                BankTxn.reconciled == True,
+                BankTxn.reconciled_line_id.isnot(None)
+            )
+        ).all()
+    )
+    claimed_line_ids = set(reconciled_line_ids)
+    
     matched_count = 0
     for b in unreconciled_txns:
-        dt = b.posted_at.date()
+        dt = b.posted_at.date() if b.posted_at else date.today()
+        is_inflow = (b.direction == Direction.debit or getattr(b.direction, "value", str(b.direction)) == "debit")
+        
+        # 1. Try matching with +/- 14 days window
         q = select(JournalLine).join(JournalEntry).where(
             JournalEntry.company_id == company_id,
-            JournalEntry.entry_date >= dt - timedelta(days=2),
-            JournalEntry.entry_date <= dt + timedelta(days=2)
+            JournalEntry.entry_date >= dt - timedelta(days=14),
+            JournalEntry.entry_date <= dt + timedelta(days=14)
         )
-        if b.direction == Direction.inflow:
+        if is_inflow:
             q = q.where(JournalLine.debit_minor == b.amount_minor)
         else:
             q = q.where(JournalLine.credit_minor == b.amount_minor)
             
-        matching_line = db.scalars(q).first()
+        candidates = db.scalars(q).all()
+        matching_line = next((line for line in candidates if line.id not in claimed_line_ids), None)
+        
+        # 2. Fallback: match by amount across all company entries if 14-day window missed
+        if not matching_line:
+            q_any = select(JournalLine).join(JournalEntry).where(
+                JournalEntry.company_id == company_id
+            )
+            if is_inflow:
+                q_any = q_any.where(JournalLine.debit_minor == b.amount_minor)
+            else:
+                q_any = q_any.where(JournalLine.credit_minor == b.amount_minor)
+            candidates = db.scalars(q_any).all()
+            matching_line = next((line for line in candidates if line.id not in claimed_line_ids), None)
+
         if matching_line:
             b.reconciled = True
             b.reconciled_line_id = matching_line.id
+            claimed_line_ids.add(matching_line.id)
             matched_count += 1
             
     db.commit()
