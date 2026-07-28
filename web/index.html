@@ -7260,11 +7260,29 @@ async function runEbarimtBankReconciliation() {
   }
 }
 
-function openEbarimtBankReconModal(res) {
-  $('#modalCard').style.width = '850px';
+let currentEbarimtReconData = null;
 
-  let rowsHtml = res.items.map(i => `
-    <tr>
+function filterEbarimtReconTab(filter) {
+  if (!currentEbarimtReconData) return;
+  const res = currentEbarimtReconData;
+  
+  ['all', 'MATCHED', 'NO_BANK_PAYMENT', 'NO_EBARIMT'].forEach(f => {
+    const btn = $(`#eb_tab_${f}`);
+    if (btn) {
+      if (f === filter) {
+        btn.style.background = 'var(--primary)';
+        btn.style.color = '#fff';
+      } else {
+        btn.style.background = 'var(--bg)';
+        btn.style.color = 'var(--text-main)';
+      }
+    }
+  });
+
+  const filteredItems = filter === 'all' ? res.items : res.items.filter(i => i.status === filter);
+  
+  let rowsHtml = filteredItems.map(i => `
+    <tr style="${i.status === 'MATCHED' ? 'background:#f0fdf4;' : i.status === 'NO_BANK_PAYMENT' ? 'background:#fffbeb;' : 'background:#fef2f2;'}">
       <td>${i.date}</td>
       <td><b>${i.ebarimt_id}</b></td>
       <td>${i.party}</td>
@@ -7272,62 +7290,91 @@ function openEbarimtBankReconModal(res) {
       <td>
         <span class="pill ${i.status === 'MATCHED' ? 'ok' : i.status === 'NO_BANK_PAYMENT' ? 'warn' : 'bad'}">
           <i class="fa-solid ${i.status === 'MATCHED' ? 'fa-circle-check' : i.status === 'NO_BANK_PAYMENT' ? 'fa-circle-exclamation' : 'fa-circle-xmark'}"></i>
-          ${i.status === 'MATCHED' ? '✓ Банктай таарсан' : i.status === 'NO_BANK_PAYMENT' ? '⚠ Банкны мөнгө хүлээгдэж байна' : '✗ Банкны гүйлгээнд eBarimt дутуу'}
+          ${i.status === 'MATCHED' ? '✓ Таарсан (Автомат ангилагдсан)' : i.status === 'NO_BANK_PAYMENT' ? '⚠ Банкны мөнгө ирээгүй eBarimt' : '✗ eBarimt дутуу банкны гүйлгээ'}
         </span>
       </td>
     </tr>
   `).join('');
 
+  const tbody = $('#eb_recon_tbody');
+  if (tbody) {
+    tbody.innerHTML = rowsHtml || '<tr><td colspan="5" style="text-align:center; padding:16px;" class="muted">Тухайн шүүлтүүрт тохирох гүйлгээ олдсонгүй.</td></tr>';
+  }
+}
+
+function openEbarimtBankReconModal(res) {
+  currentEbarimtReconData = res;
+  $('#modalCard').style.width = '920px';
+
   $('#modalCard').innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <h2><i class="fa-solid fa-scale-balanced" style="color:var(--primary)"></i> eBarimt & Банкны Хуулгын Тулгалтын Тайлан</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h2><i class="fa-solid fa-scale-balanced" style="color:var(--primary)"></i> eBarimt & Банкны Хуулгын Ангилал, Тулгалтын Тайлан</h2>
       <button class="btn secondary btn-xs" onclick="hideModal()"><i class="fa-solid fa-xmark"></i></button>
     </div>
     
-    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px;">
-      <div style="background:var(--bg); padding:12px; border-radius:8px; text-align:center;">
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:14px;">
+      <div style="background:var(--bg); padding:10px; border-radius:8px; text-align:center;">
         <div class="muted" style="font-size:11px;">eBarimt Нийт Дүн</div>
-        <div style="font-size:16px; font-weight:700; color:var(--primary)">${fmt(res.total_ebarimt_amount_mnt * 100)}</div>
+        <div style="font-size:15px; font-weight:700; color:var(--primary)">${fmt(res.total_ebarimt_amount_mnt * 100)}</div>
         <div style="font-size:11px;" class="muted">${res.total_ebarimt_count} баримт</div>
       </div>
-      <div style="background:var(--bg); padding:12px; border-radius:8px; text-align:center;">
+      <div style="background:var(--bg); padding:10px; border-radius:8px; text-align:center;">
         <div class="muted" style="font-size:11px;">Банкны Нийт Дүн</div>
-        <div style="font-size:16px; font-weight:700; color:var(--info)">${fmt(res.total_bank_amount_mnt * 100)}</div>
+        <div style="font-size:15px; font-weight:700; color:var(--info)">${fmt(res.total_bank_amount_mnt * 100)}</div>
         <div style="font-size:11px;" class="muted">${res.total_bank_count} гүйлгээ</div>
       </div>
-      <div style="background:var(--bg); padding:12px; border-radius:8px; text-align:center;">
+      <div style="background:var(--bg); padding:10px; border-radius:8px; text-align:center;">
         <div class="muted" style="font-size:11px;">Таарсан Гүйлгээ</div>
-        <div style="font-size:16px; font-weight:700; color:var(--ok)">${fmt(res.matched_amount_mnt * 100)}</div>
+        <div style="font-size:15px; font-weight:700; color:var(--ok)">${fmt(res.matched_amount_mnt * 100)}</div>
         <div style="font-size:11px; color:var(--ok); font-weight:600;">${res.matched_count} гүйлгээ</div>
       </div>
-      <div style="background:var(--bg); padding:12px; border-radius:8px; text-align:center;">
-        <div class="muted" style="font-size:11px;">Зөрүү / Дутуу</div>
-        <div style="font-size:16px; font-weight:700; color:var(--danger)">${res.unmatched_ebarimt_count + res.unmatched_bank_count}</div>
+      <div style="background:var(--bg); padding:10px; border-radius:8px; text-align:center;">
+        <div class="muted" style="font-size:11px;">Ангилагдаагүй / Зөрүү</div>
+        <div style="font-size:15px; font-weight:700; color:var(--danger)">${res.unmatched_ebarimt_count + res.unmatched_bank_count}</div>
         <div style="font-size:11px; color:var(--danger)">eBarimt: ${res.unmatched_ebarimt_count} | Банк: ${res.unmatched_bank_count}</div>
       </div>
     </div>
+
+    <!-- Tab filters -->
+    <div style="display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;">
+      <button id="eb_tab_all" class="btn btn-xs" style="background:var(--primary); color:#fff;" onclick="filterEbarimtReconTab('all')">
+        Нийт (${res.items.length})
+      </button>
+      <button id="eb_tab_MATCHED" class="btn btn-xs" style="background:var(--bg); color:var(--text-main);" onclick="filterEbarimtReconTab('MATCHED')">
+        ✓ Таарсан & Ангилагдсан (${res.matched_count})
+      </button>
+      <button id="eb_tab_NO_BANK_PAYMENT" class="btn btn-xs" style="background:var(--bg); color:var(--text-main);" onclick="filterEbarimtReconTab('NO_BANK_PAYMENT')">
+        ⚠ Банкны мөнгө ирээгүй eBarimt (${res.unmatched_ebarimt_count})
+      </button>
+      <button id="eb_tab_NO_EBARIMT" class="btn btn-xs" style="background:var(--bg); color:var(--text-main);" onclick="filterEbarimtReconTab('NO_EBARIMT')">
+        ✗ eBarimt дутуу банкны гүйлгээ (${res.unmatched_bank_count})
+      </button>
+    </div>
     
-    <div style="max-height:380px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:16px;">
+    <div style="max-height:360px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:14px;">
       <table style="width:100%; font-size:12.5px;">
         <thead>
-          <tr style="background:var(--bg); position:sticky; top:0;">
+          <tr style="background:var(--bg); position:sticky; top:0; z-index:2;">
             <th>Огноо</th>
             <th>eBarimt ДДТД / Код</th>
-            <th>Харилцагч / Гүйлгээ</th>
+            <th>Харилцагч / Гүйлгээний утга</th>
             <th class="num">Дүн</th>
-            <th>Төлөв</th>
+            <th>Ангилал & Төлөв</th>
           </tr>
         </thead>
-        <tbody>
-          ${rowsHtml || '<tr><td colspan="5" style="text-align:center; padding:12px;" class="muted">Тулгалт хийгдэх дата олдсонгүй.</td></tr>'}
+        <tbody id="eb_recon_tbody">
         </tbody>
       </table>
     </div>
     
-    <div style="display:flex; justify-content:flex-end;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:12px; color:var(--ok); font-weight:600;">
+        💡 Таарсан ${res.matched_count} гүйлгээ автоматаар ангилагдаж баталгаажлаа.
+      </div>
       <button class="btn secondary" onclick="hideModal()">Хаах</button>
     </div>
   `;
+  filterEbarimtReconTab('all');
   showModal();
 }
 
