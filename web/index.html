@@ -3755,24 +3755,26 @@ async function statements() {
         <div id="upmsg" class="muted" style="margin-top:6px; font-size:12px;"></div>
       </div>
       
-      <!-- Card 2: API Sync -->
+      <!-- Card 2: eBarimt API & Excel Reconciliation -->
       <div class="card" style="margin:0; display:flex; flex-direction:column; justify-content:space-between;">
         <div>
-          <h2><i class="fa-solid fa-wifi" style="color:var(--primary)"></i> Шууд банкны холболт (API Sync)</h2>
-          <div style="display:grid; grid-template-columns: 1.2fr 1.5fr; gap:6px; margin-bottom:8px;">
-            <select id="sync_bank" class="input-field" style="height:32px; font-size:12px;">
-              <option value="khan">Хаан Банк (Khan Bank)</option>
-              <option value="golomt">Голомт Банк (Golomt)</option>
-              <option value="tdb">Худалдаа Хөгжлийн Банк</option>
-              <option value="xac">Хас Банк (XacBank)</option>
+          <h2><i class="fa-solid fa-receipt" style="color:var(--primary)"></i> eBarimt & Хуулгын Тулгалт</h2>
+          <div style="font-size:12px; margin-bottom:8px; color:var(--text-muted);">
+            Банкны хуулгыг НӨАТУС eBarimt API эсвэл eBarimt Excel экспорттой тулгана.
+          </div>
+          <div style="display:grid; grid-template-columns: 1.1fr 1.4fr; gap:6px; margin-bottom:8px;">
+            <select id="eb_mode" class="input-field" style="height:32px; font-size:12px;" onchange="toggleEbarimtMode()">
+              <option value="api">eBarimt API (НӨАТУС)</option>
+              <option value="excel">eBarimt Excel / CSV</option>
             </select>
-            <input id="sync_acc" class="input-field" placeholder="Дансны №" style="height:32px; font-size:12px;" value="5001234567">
+            <input type="month" id="eb_month" class="input-field" style="height:32px; font-size:12px;" value="2026-07">
+            <input type="file" id="eb_excel_file" accept=".xlsx,.xls,.csv" class="input-field" style="height:32px; font-size:11px; display:none;">
           </div>
         </div>
         
         <div>
-          <button class="btn" onclick="syncBankStatement()" style="width:100%; height:34px; font-size:12.5px;"><i class="fa-solid fa-arrows-rotate"></i> Хуулга татах</button>
-          <div id="sync_msg" class="muted" style="margin-top:4px; font-size:11.5px;"></div>
+          <button class="btn" onclick="runEbarimtBankReconciliation()" style="width:100%; height:34px; font-size:12.5px;"><i class="fa-solid fa-scale-balanced"></i> eBarimt-тай тулгах</button>
+          <div id="eb_sync_msg" class="muted" style="margin-top:4px; font-size:11.5px;"></div>
         </div>
       </div>
 
@@ -7206,6 +7208,127 @@ async function triggerAutoReconciliation() {
     alert(`Банк ба Журналын гүйлгээний автомат тулгалт хийгдлээ! Нийт ${res.matched_count} гүйлгээ таарч баталгаажлаа.`);
     statements();
   }
+}
+
+function toggleEbarimtMode() {
+  const mode = $('#eb_mode').value;
+  if (mode === 'excel') {
+    $('#eb_month').style.display = 'none';
+    $('#eb_excel_file').style.display = 'block';
+  } else {
+    $('#eb_month').style.display = 'block';
+    $('#eb_excel_file').style.display = 'none';
+  }
+}
+
+async function runEbarimtBankReconciliation() {
+  const mode = $('#eb_mode').value;
+  const formData = new FormData();
+  formData.append('mode', mode);
+  
+  if (mode === 'excel') {
+    const fileInput = $('#eb_excel_file');
+    if (!fileInput.files || fileInput.files.length === 0) {
+      alert("eBarimt Excel эсвэл CSV файлаа сонгоно уу!");
+      return;
+    }
+    formData.append('file', fileInput.files[0]);
+  } else {
+    const ym = $('#eb_month').value || '2026-07';
+    const parts = ym.split('-');
+    formData.append('year', parts[0]);
+    formData.append('month', parseInt(parts[1], 10));
+  }
+
+  $('#eb_sync_msg').innerText = "eBarimt тулгалт хийж байна...";
+  try {
+    const r = await fetch(`${API_BASE}/companies/${companyId}/ebarimt/reconcile-bank`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+    const res = await r.json();
+    $('#eb_sync_msg').innerText = "";
+    if (!r.ok) {
+      alert(res.detail || "Алдаа гарлаа.");
+      return;
+    }
+    openEbarimtBankReconModal(res);
+  } catch (err) {
+    $('#eb_sync_msg').innerText = "";
+    alert("Холболтын алдаа: " + err.message);
+  }
+}
+
+function openEbarimtBankReconModal(res) {
+  $('#modalCard').style.width = '850px';
+
+  let rowsHtml = res.items.map(i => `
+    <tr>
+      <td>${i.date}</td>
+      <td><b>${i.ebarimt_id}</b></td>
+      <td>${i.party}</td>
+      <td class="num"><b>${fmt(i.total_mnt * 100)}</b></td>
+      <td>
+        <span class="pill ${i.status === 'MATCHED' ? 'ok' : i.status === 'NO_BANK_PAYMENT' ? 'warn' : 'bad'}">
+          <i class="fa-solid ${i.status === 'MATCHED' ? 'fa-circle-check' : i.status === 'NO_BANK_PAYMENT' ? 'fa-circle-exclamation' : 'fa-circle-xmark'}"></i>
+          ${i.status === 'MATCHED' ? '✓ Банктай таарсан' : i.status === 'NO_BANK_PAYMENT' ? '⚠ Банкны мөнгө хүлээгдэж байна' : '✗ Банкны гүйлгээнд eBarimt дутуу'}
+        </span>
+      </td>
+    </tr>
+  `).join('');
+
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2><i class="fa-solid fa-scale-balanced" style="color:var(--primary)"></i> eBarimt & Банкны Хуулгын Тулгалтын Тайлан</h2>
+      <button class="btn secondary btn-xs" onclick="hideModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px;">
+      <div style="background:var(--bg); padding:12px; border-radius:8px; text-align:center;">
+        <div class="muted" style="font-size:11px;">eBarimt Нийт Дүн</div>
+        <div style="font-size:16px; font-weight:700; color:var(--primary)">${fmt(res.total_ebarimt_amount_mnt * 100)}</div>
+        <div style="font-size:11px;" class="muted">${res.total_ebarimt_count} баримт</div>
+      </div>
+      <div style="background:var(--bg); padding:12px; border-radius:8px; text-align:center;">
+        <div class="muted" style="font-size:11px;">Банкны Нийт Дүн</div>
+        <div style="font-size:16px; font-weight:700; color:var(--info)">${fmt(res.total_bank_amount_mnt * 100)}</div>
+        <div style="font-size:11px;" class="muted">${res.total_bank_count} гүйлгээ</div>
+      </div>
+      <div style="background:var(--bg); padding:12px; border-radius:8px; text-align:center;">
+        <div class="muted" style="font-size:11px;">Таарсан Гүйлгээ</div>
+        <div style="font-size:16px; font-weight:700; color:var(--ok)">${fmt(res.matched_amount_mnt * 100)}</div>
+        <div style="font-size:11px; color:var(--ok); font-weight:600;">${res.matched_count} гүйлгээ</div>
+      </div>
+      <div style="background:var(--bg); padding:12px; border-radius:8px; text-align:center;">
+        <div class="muted" style="font-size:11px;">Зөрүү / Дутуу</div>
+        <div style="font-size:16px; font-weight:700; color:var(--danger)">${res.unmatched_ebarimt_count + res.unmatched_bank_count}</div>
+        <div style="font-size:11px; color:var(--danger)">eBarimt: ${res.unmatched_ebarimt_count} | Банк: ${res.unmatched_bank_count}</div>
+      </div>
+    </div>
+    
+    <div style="max-height:380px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:16px;">
+      <table style="width:100%; font-size:12.5px;">
+        <thead>
+          <tr style="background:var(--bg); position:sticky; top:0;">
+            <th>Огноо</th>
+            <th>eBarimt ДДТД / Код</th>
+            <th>Харилцагч / Гүйлгээ</th>
+            <th class="num">Дүн</th>
+            <th>Төлөв</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="5" style="text-align:center; padding:12px;" class="muted">Тулгалт хийгдэх дата олдсонгүй.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    
+    <div style="display:flex; justify-content:flex-end;">
+      <button class="btn secondary" onclick="hideModal()">Хаах</button>
+    </div>
+  `;
+  showModal();
 }
 
 // --- 1. Landed Cost Allocation Handler ---

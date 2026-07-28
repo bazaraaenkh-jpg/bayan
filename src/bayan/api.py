@@ -20,7 +20,7 @@ from datetime import date
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
@@ -2991,6 +2991,103 @@ def sync_ebarimt_purchases(company_id: str, year: int, month: int,
         
     db.flush()
     return {"synced_count": len(invoices), "new_added_count": added}
+
+
+@app.post("/api/companies/{company_id}/ebarimt/reconcile-bank")
+def reconcile_ebarimt_with_bank(
+    company_id: str,
+    mode: str = Form("api"),
+    year: int = Form(2026),
+    month: int = Form(7),
+    file: UploadFile | None = File(None),
+    ctx: dict = Depends(company_guard("post")),
+    db: Session = Depends(get_db)
+):
+    from .models import BankTxn
+    ebarimt_items = []
+    
+    if mode == "excel" and file:
+        file_bytes = file.file.read()
+        try:
+            ebarimt_items = ebarimt.parse_ebarimt_excel(file_bytes)
+        except Exception as e:
+            raise HTTPException(422, f"eBarimt Excel файлыг уншихад алдаа гарлаа: {e}")
+    else:
+        client = ebarimt.EbarimtClient()
+        try:
+            recs = client.fetch_receipts(year, month)
+            invs = client.fetch_purchase_invoices(year, month)
+            for r in recs:
+                ebarimt_items.append({"date": r["date"], "total_minor": r["total_minor"], "receipt_id": r["receipt_id"], "party": "Борлуулалтын eBarimt"})
+            for i in invs:
+                ebarimt_items.append({"date": i["date"], "total_minor": i["total_minor"], "receipt_id": i["invoice_id"], "party": i.get("supplier_name", "Худалдан авалт")})
+        except Exception as e:
+            raise HTTPException(422, f"eBarimt API-аас татахад алдаа гарлаа: {e}")
+            
+    bank_txns = db.scalars(select(BankTxn).where(BankTxn.company_id == company_id)).all()
+    
+    used_txn_ids = set()
+    items_detail = []
+    matched_count = 0
+    matched_amount_minor = 0
+    
+    for item in ebarimt_items:
+        amt = item["total_minor"]
+        match_txn = None
+        for b in bank_txns:
+            if b.id not in used_txn_ids and b.amount_minor == amt:
+                match_txn = b
+                used_txn_ids.add(b.id)
+                break
+                
+        if match_txn:
+            matched_count += 1
+            matched_amount_minor += amt
+            items_detail.append({
+                "date": item["date"],
+                "total_mnt": amt / 100,
+                "ebarimt_id": item["receipt_id"],
+                "party": item["party"],
+                "bank_txn_id": match_txn.id,
+                "status": "MATCHED"
+            })
+        else:
+            items_detail.append({
+                "date": item["date"],
+                "total_mnt": amt / 100,
+                "ebarimt_id": item["receipt_id"],
+                "party": item["party"],
+                "bank_txn_id": None,
+                "status": "NO_BANK_PAYMENT"
+            })
+            
+    for b in bank_txns:
+        if b.id not in used_txn_ids:
+            items_detail.append({
+                "date": b.posted_at.strftime("%Y-%m-%d") if b.posted_at else "-",
+                "total_mnt": b.amount_minor / 100,
+                "ebarimt_id": "-",
+                "party": b.narration or "Банкны гүйлгээ",
+                "bank_txn_id": b.id,
+                "status": "NO_EBARIMT"
+            })
+
+    total_ebarimts_amount_minor = sum(i["total_minor"] for i in ebarimt_items)
+    total_bank_amount_minor = sum(b.amount_minor for b in bank_txns)
+    
+    return {
+        "ok": True,
+        "mode": mode,
+        "total_ebarimt_count": len(ebarimt_items),
+        "total_ebarimt_amount_mnt": total_ebarimts_amount_minor / 100,
+        "total_bank_count": len(bank_txns),
+        "total_bank_amount_mnt": total_bank_amount_minor / 100,
+        "matched_count": matched_count,
+        "matched_amount_mnt": matched_amount_minor / 100,
+        "unmatched_ebarimt_count": len(ebarimt_items) - matched_count,
+        "unmatched_bank_count": len(bank_txns) - matched_count,
+        "items": items_detail
+    }
 
 
 class FxRevalueIn(BaseModel):

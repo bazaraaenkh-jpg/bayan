@@ -178,3 +178,53 @@ class EbarimtClient:
             }
             for x in r.json().get("invoices", [])
         ]
+
+
+def parse_ebarimt_excel(file_bytes: bytes) -> list[dict]:
+    """eBarimt Excel эсвэл CSV экспорт файлыг уншиж жагсаалт буцаана."""
+    import io
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+    sheet = wb.active
+    items = []
+    
+    col_date = col_amt = col_ddtd = col_party = -1
+    header_found = False
+    
+    for row in sheet.iter_rows(values_only=True):
+        row_vals = [str(cell).strip() if cell is not None else "" for cell in row]
+        if not any(row_vals):
+            continue
+        if not header_found:
+            for idx, val in enumerate(row_vals):
+                val_l = val.lower()
+                if any(k in val_l for k in ["огноо", "date", "өдөр"]): col_date = idx
+                elif any(k in val_l for k in ["дүн", "тооцоо", "amount", "нийт"]): col_amt = idx
+                elif any(k in val_l for k in ["ддтд", "баримт", "id", "дугаар", "ddtd"]): col_ddtd = idx
+                elif any(k in val_l for k in ["харилцагч", "байгууллага", "нэр", "регистр", "tin", "party"]): col_party = idx
+            if col_amt != -1:
+                header_found = True
+            continue
+        
+        amt_str = row_vals[col_amt] if col_amt != -1 and col_amt < len(row_vals) else ""
+        if not amt_str or amt_str == "None": continue
+        
+        try:
+            clean_amt = amt_str.replace(",", "").replace("₮", "").replace(" ", "").replace("MNT", "")
+            amount = float(clean_amt)
+            if amount <= 0: continue
+            amount_minor = int(round(amount * 100))
+        except ValueError:
+            continue
+            
+        date_str = row_vals[col_date] if col_date != -1 and col_date < len(row_vals) else "2026-07-01"
+        ddtd_str = row_vals[col_ddtd] if col_ddtd != -1 and col_ddtd < len(row_vals) else f"EB-{len(items)+1}"
+        party_str = row_vals[col_party] if col_party != -1 and col_party < len(row_vals) else "eBarimt"
+        
+        items.append({
+            "date": date_str[:10],
+            "total_minor": amount_minor,
+            "receipt_id": ddtd_str,
+            "party": party_str
+        })
+    return items
