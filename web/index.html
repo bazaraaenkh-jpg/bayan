@@ -3747,32 +3747,45 @@ async function statements() {
   
   $('#content').innerHTML = `
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:16px;">
-      <!-- Card 1: Upload -->
+      <!-- Card 1: Bank Statements Multi-Upload -->
       <div class="card" style="margin:0;">
-        <h2><i class="fa-solid fa-cloud-arrow-up"></i> Хуулга оруулах (Excel)</h2>
-        <div id="drop" style="height:100px; display:flex; flex-direction:column; justify-content:center; align-items:center; border:2px dashed var(--border); border-radius:6px; cursor:pointer;"><i class="fa-solid fa-file-excel" style="font-size:20px; margin-bottom:4px; color:var(--primary)"></i>Excel хуулгаа энд чирж тавих (xlsx, xls)</div>
-        <input type="file" id="file" accept=".xlsx,.xls" style="display:none">
-        <div id="upmsg" class="muted" style="margin-top:6px; font-size:12px;"></div>
+        <h2><i class="fa-solid fa-cloud-arrow-up" style="color:var(--primary)"></i> Хуулга оруулах (Олон Excel файл)</h2>
+        <div id="drop" style="height:95px; display:flex; flex-direction:column; justify-content:center; align-items:center; border:2px dashed var(--border); border-radius:6px; cursor:pointer; background:var(--bg);">
+          <i class="fa-solid fa-file-excel" style="font-size:22px; margin-bottom:4px; color:var(--primary)"></i>
+          <span style="font-size:12px; font-weight:600;">Банкны хуулгаа энд чирж тавих эсвэл товших</span>
+          <span style="font-size:10.5px;" class="muted">(Хэд хэдэн банкны Excel/CSV хуулга зэрэг оруулах боломжтой)</span>
+        </div>
+        <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple style="display:none">
+        <div id="upmsg" class="muted" style="margin-top:6px; font-size:11.5px;"></div>
       </div>
       
-      <!-- Card 2: eBarimt API & Excel Reconciliation -->
+      <!-- Card 2: eBarimt Multi-Excel & API Reconciliation -->
       <div class="card" style="margin:0; display:flex; flex-direction:column; justify-content:space-between;">
         <div>
           <h2><i class="fa-solid fa-receipt" style="color:var(--primary)"></i> eBarimt & Хуулгын Тулгалт</h2>
-          <div style="font-size:12px; margin-bottom:8px; color:var(--text-muted);">
-            Банкны хуулгыг НӨАТУС eBarimt API эсвэл eBarimt Excel экспорттой тулгана.
+          <div style="font-size:11.5px; margin-bottom:6px; color:var(--text-muted);">
+            Олон банкны хуулгыг eBarimt API эсвэл eBarimt Excel экспорттой тулгана.
           </div>
-          <div style="display:grid; grid-template-columns: 1.1fr 1.4fr; gap:6px; margin-bottom:8px;">
-            <select id="eb_mode" class="input-field" style="height:32px; font-size:12px;" onchange="toggleEbarimtMode()">
-              <option value="api">eBarimt API (НӨАТУС)</option>
-              <option value="excel">eBarimt Excel / CSV</option>
+          <div style="margin-bottom:6px;">
+            <select id="eb_mode" class="input-field" style="height:32px; font-size:12px; width:100%;" onchange="toggleEbarimtMode()">
+              <option value="api">eBarimt API (НӨАТУС-аас татах)</option>
+              <option value="excel">eBarimt Excel / CSV Файлууд Оруулах</option>
             </select>
-            <input type="month" id="eb_month" class="input-field" style="height:32px; font-size:12px;" value="2026-07">
-            <input type="file" id="eb_excel_file" accept=".xlsx,.xls,.csv" multiple class="input-field" style="height:32px; font-size:11px; display:none;">
+          </div>
+          <div id="eb_api_box">
+            <input type="month" id="eb_month" class="input-field" style="height:32px; font-size:12px; width:100%;" value="2026-07">
+          </div>
+          <div id="eb_excel_box" style="display:none;">
+            <div id="eb_dropzone" onclick="$('#eb_excel_file').click()" style="height:70px; display:flex; flex-direction:column; justify-content:center; align-items:center; border:2px dashed var(--primary); border-radius:6px; cursor:pointer; background:var(--bg);">
+              <i class="fa-solid fa-folder-open" style="font-size:18px; color:var(--primary); margin-bottom:2px;"></i>
+              <span style="font-size:11.5px; font-weight:600;">eBarimt Excel файлуудаа энд чирэх эсвэл сонгох</span>
+            </div>
+            <input type="file" id="eb_excel_file" accept=".xlsx,.xls,.csv" multiple style="display:none;" onchange="handleEbarimtFilesSelect(this.files)">
+            <div id="eb_file_list" style="margin-top:4px; font-size:11px; max-height:60px; overflow-y:auto;"></div>
           </div>
         </div>
         
-        <div>
+        <div style="margin-top:8px;">
           <button class="btn" onclick="runEbarimtBankReconciliation()" style="width:100%; height:34px; font-size:12.5px;"><i class="fa-solid fa-scale-balanced"></i> eBarimt-тай тулгах</button>
           <div id="eb_sync_msg" class="muted" style="margin-top:4px; font-size:11.5px;"></div>
         </div>
@@ -3801,9 +3814,20 @@ async function statements() {
   if (drop) {
     drop.ondragover = e => { e.preventDefault(); drop.classList.add('hover'); };
     drop.ondragleave = () => drop.classList.remove('hover');
-    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hover'); upload(e.dataTransfer.files[0]); };
+    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hover'); upload(e.dataTransfer.files); };
   }
-  if (input) input.onchange = () => upload(input.files[0]);
+  if (input) input.onchange = () => upload(input.files);
+
+  const ebDrop = $('#eb_dropzone');
+  if (ebDrop) {
+    ebDrop.ondragover = e => { e.preventDefault(); ebDrop.style.background = '#e0f2fe'; };
+    ebDrop.ondragleave = () => { ebDrop.style.background = 'var(--bg)'; };
+    ebDrop.ondrop = e => {
+      e.preventDefault();
+      ebDrop.style.background = 'var(--bg)';
+      handleEbarimtFilesSelect(e.dataTransfer.files);
+    };
+  }
 }
 
 async function syncBankStatement() {
@@ -3835,17 +3859,40 @@ async function syncBankStatement() {
   }
 }
 
-async function upload(f) {
-  if (!f) return;
-  $('#upmsg').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Боловсруулж байна…';
-  const fd = new FormData(); fd.append('file', f);
-  const r = await fetch(`/api/companies/${companyId}/statements`,
-    {method:'POST', body:fd, headers:{Authorization:'Bearer '+token()}});
-  const j = await r.json();
-  $('#upmsg').textContent = r.ok
-    ? `${j.descriptor} — ${j.txn_count} гүйлгээ, gate: ${j.gate_ok?'✓ давлаа':'✗ уналаа'}`
-    : `Алдаа: ${j.detail}`;
-  if (r.ok) setTimeout(statements, 800);
+async function upload(files) {
+  if (!files || files.length === 0) return;
+  const fileList = files instanceof FileList ? Array.from(files) : (Array.isArray(files) ? files : [files]);
+  $('#upmsg').innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Нийт ${fileList.length} банкны хуулга файлыг уншиж байна…`;
+  
+  let totalTxns = 0;
+  let successCount = 0;
+  let errMsgs = [];
+  
+  for (const f of fileList) {
+    const fd = new FormData();
+    fd.append('file', f);
+    try {
+      const r = await fetch(`/api/companies/${companyId}/statements`, {
+        method: 'POST', body: fd, headers: { Authorization: 'Bearer ' + token() }
+      });
+      const j = await r.json();
+      if (r.ok) {
+        successCount++;
+        totalTxns += (j.txn_count || 0);
+      } else {
+        errMsgs.push(`${f.name}: ${j.detail || 'уншиж чадсангүй'}`);
+      }
+    } catch (err) {
+      errMsgs.push(`${f.name}: ${err.message}`);
+    }
+  }
+  
+  if (successCount > 0) {
+    $('#upmsg').innerHTML = `<span style="color:var(--ok); font-weight:600;"><i class="fa-solid fa-circle-check"></i> Амжилттай! ${successCount}/${fileList.length} банкны хуулга орон нийт ${totalTxns} гүйлгээ системд орсныг баталгаажууллаа.</span>`;
+    setTimeout(statements, 1000);
+  } else {
+    $('#upmsg').innerHTML = `<span style="color:var(--danger)">Алдаа: ${errMsgs.join('; ')}</span>`;
+  }
 }
 
 // ---------------------------------------------------- Reconcile / Review Tab
@@ -7210,15 +7257,44 @@ async function triggerAutoReconciliation() {
   }
 }
 
+window._selectedEbarimtFiles = [];
+
 function toggleEbarimtMode() {
   const mode = $('#eb_mode').value;
   if (mode === 'excel') {
-    $('#eb_month').style.display = 'none';
-    $('#eb_excel_file').style.display = 'block';
+    $('#eb_api_box').style.display = 'none';
+    $('#eb_excel_box').style.display = 'block';
   } else {
-    $('#eb_month').style.display = 'block';
-    $('#eb_excel_file').style.display = 'none';
+    $('#eb_api_box').style.display = 'block';
+    $('#eb_excel_box').style.display = 'none';
   }
+}
+
+function handleEbarimtFilesSelect(files) {
+  if (!files || files.length === 0) return;
+  const newFiles = Array.from(files);
+  window._selectedEbarimtFiles = [...window._selectedEbarimtFiles, ...newFiles];
+  renderEbarimtFileList();
+}
+
+function removeEbarimtFile(idx) {
+  window._selectedEbarimtFiles.splice(idx, 1);
+  renderEbarimtFileList();
+}
+
+function renderEbarimtFileList() {
+  const listEl = $('#eb_file_list');
+  if (!listEl) return;
+  if (window._selectedEbarimtFiles.length === 0) {
+    listEl.innerHTML = '';
+    return;
+  }
+  listEl.innerHTML = window._selectedEbarimtFiles.map((f, i) => `
+    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg); padding:3px 6px; border-radius:4px; margin-bottom:2px; font-size:11px;">
+      <span><i class="fa-solid fa-file-excel" style="color:var(--primary); margin-right:4px;"></i> <b>${f.name}</b> (${Math.round(f.size/1024)} KB)</span>
+      <span style="cursor:pointer; color:var(--danger); font-weight:700; margin-left:6px;" onclick="removeEbarimtFile(${i})">×</span>
+    </div>
+  `).join('');
 }
 
 async function runEbarimtBankReconciliation() {
@@ -7227,13 +7303,16 @@ async function runEbarimtBankReconciliation() {
   formData.append('mode', mode);
   
   if (mode === 'excel') {
-    const fileInput = $('#eb_excel_file');
-    if (!fileInput.files || fileInput.files.length === 0) {
+    const files = window._selectedEbarimtFiles.length > 0 
+      ? window._selectedEbarimtFiles 
+      : ($('#eb_excel_file') && $('#eb_excel_file').files ? Array.from($('#eb_excel_file').files) : []);
+      
+    if (files.length === 0) {
       alert("eBarimt Excel эсвэл CSV файлаа сонгоно уу!");
       return;
     }
-    for (let i = 0; i < fileInput.files.length; i++) {
-      formData.append('files', fileInput.files[i]);
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i]);
     }
   } else {
     const ym = $('#eb_month').value || '2026-07';
@@ -7242,7 +7321,7 @@ async function runEbarimtBankReconciliation() {
     formData.append('month', parseInt(parts[1], 10));
   }
 
-  $('#eb_sync_msg').innerText = "eBarimt тулгалт хийж байна...";
+  $('#eb_sync_msg').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> eBarimt тулгалт хийж байна...';
   try {
     const r = await fetch(`${API_BASE}/companies/${companyId}/ebarimt/reconcile-bank`, {
       method: 'POST',
