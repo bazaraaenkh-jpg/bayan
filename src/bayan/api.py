@@ -840,7 +840,9 @@ def create_item(company_id: str, body: ItemIn,
                 db: Session = Depends(get_db)):
     item = inventory.Item(company_id=company_id, **body.model_dump())
     db.add(item)
-    db.flush()
+    db.commit()
+    db.refresh(item)
+    return {"id": item.id, "code": item.code, "name": item.name}
 @app.post("/api/companies/{company_id}/items/{item_id}")
 def update_item_details(company_id: str, item_id: str, body: ItemIn,
                         ctx: dict = Depends(company_guard("post")),
@@ -2035,7 +2037,7 @@ class LandedCostIn(BaseModel):
 def allocate_landed_cost(company_id: str, body: LandedCostIn,
                          ctx: dict = Depends(company_guard("post")),
                          db: Session = Depends(get_db)):
-    from .models import Item, StockBatch
+    from .inventory import Item, StockBatch
     
     _require_account(db, company_id, "2105")
     _require_account(db, company_id, "3101")
@@ -2070,10 +2072,9 @@ def allocate_landed_cost(company_id: str, body: LandedCostIn,
             company_id=company_id,
             item_id=item.id,
             entry_date=date.today(),
-            qty=item_input.qty,
+            original_qty=item_input.qty,
             unit_cost_minor=new_unit_cost,
-            remaining_qty=item_input.qty,
-            ref_no=f"LANDED-{body.shipment_name}"
+            remaining_qty=item_input.qty
         )
         db.add(batch)
         item.qty += item_input.qty
@@ -4705,18 +4706,27 @@ def revalue_asset(company_id: str, asset_id: str, req: AssetRevalueReq, db: Sess
     asset.cost_minor = new_cost_minor
     r_date = parse_date(req.revalue_date, "%Y-%m-%d").date()
     
-    asset_code = asset.gl_account or "2101"
+    asset_code = asset.gl_account or "2502"
     _require_account(db, company_id, asset_code)
-    _require_account(db, company_id, "3101")
+    _require_account(db, company_id, "4104")
     
     if diff_minor > 0:
         ledger.post_entry(
             db, company_id, r_date,
             lines=[
-                ledger.LineInput(asset_code, debit_minor=diff_minor, description=f"Үндсэн хөрөнгийн дахин үнэлгээний өсөлт: {asset.name}"),
-                ledger.LineInput("3101", credit_minor=diff_minor, description=f"Үндсэн хөрөнгийн дахин үнэлгээний өсөлт: {asset.name}")
+                ledger.LineInput(asset_code, debit_minor=diff_minor, description=f"ҮН дахин үнэлгээний өсөлт: {asset.name}"),
+                ledger.LineInput("4104", credit_minor=diff_minor, description=f"ҮН дахин үнэлгээний нэмэгдэл: {asset.name}")
             ],
             source_type=SourceType.manual, memo=f"Үндсэн хөрөнгийн дахин үнэлгээ: {asset.name}", actor_id=ctx["uid"]
+        )
+    elif diff_minor < 0:
+        ledger.post_entry(
+            db, company_id, r_date,
+            lines=[
+                ledger.LineInput("4104", debit_minor=abs(diff_minor), description=f"ҮН дахин үнэлгээний бууралт: {asset.name}"),
+                ledger.LineInput(asset_code, credit_minor=abs(diff_minor), description=f"ҮН дахин үнэлгээний бууралт: {asset.name}")
+            ],
+            source_type=SourceType.manual, memo=f"Үндсэн хөрөнгийн дахин үнэлгээний бууралт: {asset.name}", actor_id=ctx["uid"]
         )
             
     db.commit()
@@ -4729,7 +4739,7 @@ def dispose_asset(company_id: str, asset_id: str, req: AssetDisposeReq, db: Sess
     asset.active = False
     d_date = parse_date(req.dispose_date, "%Y-%m-%d").date()
     
-    asset_code = asset.gl_account or "2101"
+    asset_code = asset.gl_account or "2502"
     _require_account(db, company_id, asset_code)
     _require_account(db, company_id, "7199")
     
