@@ -281,16 +281,16 @@ def test_fx_revaluation(session, company):
         usd_acc.currency = "USD"
     
     # Ханшийн зөрүүний данснууд байгаа эсэхийг баталгаажуулна (үгүй бол нэмнэ)
-    gain_acc = session.scalar(select(Account).where(Account.company_id == company.id, Account.code == "5105"))
+    gain_acc = session.scalar(select(Account).where(Account.company_id == company.id, Account.code == "5204"))
     if not gain_acc:
         session.add(Account(
-            company_id=company.id, code="5105", name="Ханшийн зөрүүний олз",
+            company_id=company.id, code="5204", name="Ханшийн зөрүүний олз",
             normal_side=NormalSide.credit, currency="MNT", is_postable=True
         ))
-    loss_acc = session.scalar(select(Account).where(Account.company_id == company.id, Account.code == "7199"))
+    loss_acc = session.scalar(select(Account).where(Account.company_id == company.id, Account.code == "7118"))
     if not loss_acc:
         session.add(Account(
-            company_id=company.id, code="7199", name="Ханшийн зөрүүний гарз",
+            company_id=company.id, code="7118", name="Ханшийн зөрүүний гарз",
             normal_side=NormalSide.debit, currency="MNT", is_postable=True
         ))
     session.flush()
@@ -313,9 +313,9 @@ def test_fx_revaluation(session, company):
     # Мөрүүдийн дүн
     lines = sorted(entry.lines, key=lambda l: l.line_no)
     assert lines[0].debit_minor == 50_000_00  # Дт 1103 (USD Данс)
-    assert lines[1].credit_minor == 50_000_00 # Кт 5105 (Ханшийн олз)
+    assert lines[1].credit_minor == 50_000_00 # Кт 5204 (Ханшийн олз)
 
     # 4. Баланс шалгах
     tb = {r["code"]: r for r in ledger.trial_balance(session, company.id)}
     assert tb["1103"]["balance_minor"] == 3_450_000_00  # Шинэ үлдэгдэл 3,450,000₮ болсон байна!
-    assert tb["5105"]["balance_minor"] == 50_000_00
+    assert tb["5204"]["balance_minor"] == 50_000_00

@@ -114,7 +114,7 @@ def test_rules_then_approve_creates_journal(session, company, tmp_path):
         ClassifierRule(company_id=company.id, keyword="social insurance",
                        account_code="3103", priority=10),
         ClassifierRule(company_id=company.id, keyword="урьдчилгаа",
-                       account_code="5105", priority=20),
+                       account_code="3108", priority=20),
         ClassifierRule(company_id=company.id, keyword="шимтгэл",
                        account_code="7106", priority=20),
     ])

@@ -64,13 +64,13 @@ def run_revaluation(session: Session, company_id: str, reval_date: date, actor_i
     if not accounts:
         return None
 
-    # Ханшийн зөрүүний үндсэн дансдуудыг бэлдэнэ (олз: 5105 / гарз: 7199)
+    # Ханшийн зөрүүний үндсэн дансдуудыг бэлдэнэ (олз: 5204 / гарз: 7118)
     # Цоо шинээр үүсгэсэн компанид эдгээр данс байгаа эсэхийг шалгаад байхгүй бол seed хийнэ
-    gain_acc = session.scalar(select(Account).where(Account.company_id == company_id, Account.code == "5105"))
-    loss_acc = session.scalar(select(Account).where(Account.company_id == company_id, Account.code == "7199"))
+    gain_acc = session.scalar(select(Account).where(Account.company_id == company_id, Account.code == "5204"))
+    loss_acc = session.scalar(select(Account).where(Account.company_id == company_id, Account.code == "7118"))
     
     if not gain_acc or not loss_acc:
-        raise ValueError("Ханшийн зөрүүний олз (5105) эсвэл гарз (7199) данс тохируулагдаагүй байна.")
+        raise ValueError("Ханшийн зөрүүний олз (5204) эсвэл гарз (7118) данс тохируулагдаагүй байна.")
 
     lines: list[ledger.LineInput] = []
 

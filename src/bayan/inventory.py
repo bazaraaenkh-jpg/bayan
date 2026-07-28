@@ -448,12 +448,12 @@ def post_stocktake_variance(session: Session, company_id: str, item: Item,
         
     ref = ref or "Тооллогын зөрүү"
     if diff > 0:
-        # Илүүдэл (Surplus): Dt 2101 / Kt 5105 (Бусад орлого)
+        # Илүүдэл (Surplus): Dt 2101 / Kt 5201 (Бусад орлого)
         cost_minor = diff * item.avg_cost_minor
         if cost_minor <= 0:
             cost_minor = diff * 100  # 1₮ per unit
         return receive(session, company_id, item, move_date, qty=diff,
-                       total_cost_minor=cost_minor, credit_account="5105", ref=ref)
+                       total_cost_minor=cost_minor, credit_account="5201", ref=ref)
     else:
         # Дуртагдал (Deficit): Dt 7199 (Бусад зардал) / Kt 2101
         return issue(session, company_id, item, move_date, qty=abs(diff),
