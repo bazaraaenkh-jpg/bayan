@@ -2999,19 +2999,22 @@ def reconcile_ebarimt_with_bank(
     mode: str = Form("api"),
     year: int = Form(2026),
     month: int = Form(7),
-    file: UploadFile | None = File(None),
+    files: list[UploadFile] = File(None),
     ctx: dict = Depends(company_guard("post")),
     db: Session = Depends(get_db)
 ):
     from .models import BankTxn
     ebarimt_items = []
     
-    if mode == "excel" and file:
-        file_bytes = file.file.read()
-        try:
-            ebarimt_items = ebarimt.parse_ebarimt_excel(file_bytes)
-        except Exception as e:
-            raise HTTPException(422, f"eBarimt Excel файлыг уншихад алдаа гарлаа: {e}")
+    if mode == "excel" and files:
+        for f in files:
+            file_bytes = f.file.read()
+            if not file_bytes: continue
+            try:
+                parsed = ebarimt.parse_ebarimt_excel(file_bytes)
+                ebarimt_items.extend(parsed)
+            except Exception as e:
+                raise HTTPException(422, f"eBarimt Excel '{f.filename}' файлыг уншихад алдаа гарлаа: {e}")
     else:
         client = ebarimt.EbarimtClient()
         try:

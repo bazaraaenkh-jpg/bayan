@@ -3768,7 +3768,7 @@ async function statements() {
               <option value="excel">eBarimt Excel / CSV</option>
             </select>
             <input type="month" id="eb_month" class="input-field" style="height:32px; font-size:12px;" value="2026-07">
-            <input type="file" id="eb_excel_file" accept=".xlsx,.xls,.csv" class="input-field" style="height:32px; font-size:11px; display:none;">
+            <input type="file" id="eb_excel_file" accept=".xlsx,.xls,.csv" multiple class="input-field" style="height:32px; font-size:11px; display:none;">
           </div>
         </div>
         
@@ -7232,7 +7232,9 @@ async function runEbarimtBankReconciliation() {
       alert("eBarimt Excel эсвэл CSV файлаа сонгоно уу!");
       return;
     }
-    formData.append('file', fileInput.files[0]);
+    for (let i = 0; i < fileInput.files.length; i++) {
+      formData.append('files', fileInput.files[i]);
+    }
   } else {
     const ym = $('#eb_month').value || '2026-07';
     const parts = ym.split('-');
