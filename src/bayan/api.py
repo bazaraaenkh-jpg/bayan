@@ -5943,10 +5943,19 @@ def get_360_compliance_matrix(company_id: str, db: Session = Depends(get_db), ct
     }
 
 # ---------------------------------------------------------------- UI
+from fastapi.staticfiles import StaticFiles
+
+if (WEB_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=WEB_DIR / "assets"), name="assets")
 
 @app.get("/")
 def index():
     return FileResponse(WEB_DIR / "index.html")
+
+@app.get("/landing")
+@app.get("/presentation")
+def presentation():
+    return FileResponse(WEB_DIR / "landing.html")
 
 
 def main():
