@@ -8,99 +8,100 @@
 <meta http-equiv="Expires" content="0">
 <title>Bayan AI — Ухаалаг Санхүүгийн Систем</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   :root {
-    --primary: #8b5cf6;
-    --primary-hover: #7c3aed;
-    --primary-light: rgba(139, 92, 246, 0.12);
-    --primary-dark: #6d28d9;
-    --cyan: #06b6d4;
-    --emerald: #10b981;
-    --bg: #07090e;
-    --card-bg: rgba(15, 23, 42, 0.75);
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --border: rgba(255, 255, 255, 0.08);
-    --border-dark: rgba(255, 255, 255, 0.15);
-    --border-glow: rgba(139, 92, 246, 0.4);
-    --radius: 16px;
-    --radius-sm: 10px;
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.2);
-    --shadow-lg: 0 20px 40px -15px rgba(139, 92, 246, 0.35);
-    --danger: #ef4444;
-    --danger-light: rgba(239, 68, 68, 0.15);
-    --warning: #f59e0b;
-    --warning-light: rgba(245, 158, 11, 0.15);
-    --info: #3b82f6;
-    --info-light: rgba(59, 130, 246, 0.15);
-  }
-
-  [data-theme="light"] {
+    --primary: #10b981;
+    --primary-hover: #059669;
+    --primary-light: #ecfdf5;
+    --primary-dark: #064e3b;
     --bg: #f8fafc;
     --card-bg: #ffffff;
     --text-main: #0f172a;
     --text-muted: #64748b;
-    --border: #e2e8f0;
+    --border: #f1f5f9;
     --border-dark: #cbd5e1;
-    --primary: #8b5cf6;
-    --primary-hover: #7c3aed;
-    --primary-light: #f5f3ff;
-    --shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.03);
+    --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 10px 10px -6px rgba(15, 23, 42, 0.08);
+    --danger: #ef4444;
+    --danger-light: #fef2f2;
+    --warning: #f59e0b;
+    --warning-light: #fffbeb;
+    --info: #3b82f6;
+    --info-light: #eff6ff;
+  }
+  
+  [data-theme="dark"] {
+    --bg: #0b132b;
+    --card-bg: #1c2541;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #2a365c;
+    --border-dark: #3a4b7c;
+    --primary-light: rgba(16, 185, 129, 0.15);
+    --primary-dark: #34d399;
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    --danger-light: rgba(239, 68, 68, 0.15);
+    --warning-light: rgba(245, 158, 11, 0.15);
+    --info-light: rgba(59, 130, 246, 0.15);
   }
 
-  h1, h2, h3, h4, .brand-font, .sidebar-header {
-    font-family: 'Outfit', sans-serif;
+  [data-theme="dark"] tr.coa-group-row,
+  [data-theme="dark"] tr[style*="background-color:#fafafa"],
+  [data-theme="dark"] tr[style*="background-color: #fafafa"],
+  [data-theme="dark"] tr[style*="background:#fafafa"],
+  [data-theme="dark"] tr[style*="background: #fafafa"],
+  [data-theme="dark"] tr[style*="background:#fff"],
+  [data-theme="dark"] tr[style*="background: #fff"],
+  [data-theme="dark"] tr[style*="background:white"],
+  [data-theme="dark"] tr[style*="background: white"] {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #f8fafc !important;
   }
 
-  tr.coa-group-row,
-  tr[style*="background-color:#fafafa"],
-  tr[style*="background-color: #fafafa"],
-  tr[style*="background:#fafafa"],
-  tr[style*="background: #fafafa"],
-  tr[style*="background:#fff"],
-  tr[style*="background: #fff"],
-  tr[style*="background:white"],
-  tr[style*="background: white"] {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-    color: var(--text-main) !important;
-  }
-
-  table, th, td {
+  [data-theme="dark"] table,
+  [data-theme="dark"] th,
+  [data-theme="dark"] td {
     border-color: var(--border) !important;
   }
 
-  thead tr, th {
-    background-color: rgba(15, 23, 42, 0.9) !important;
+  [data-theme="dark"] thead tr,
+  [data-theme="dark"] th {
+    background-color: #161f38 !important;
     color: var(--text-muted) !important;
   }
 
-  .card, .modal-content, #modalCard, #top-header {
+  [data-theme="dark"] .card,
+  [data-theme="dark"] .modal-content,
+  [data-theme="dark"] #modalCard,
+  [data-theme="dark"] #top-header {
     background-color: var(--card-bg) !important;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     color: var(--text-main) !important;
-    border: 1px solid var(--border) !important;
-    box-shadow: var(--shadow) !important;
+    border-color: var(--border) !important;
   }
 
-  input, select, textarea, .input-field, .input {
-    background-color: rgba(15, 23, 42, 0.8) !important;
+  [data-theme="dark"] input,
+  [data-theme="dark"] select,
+  [data-theme="dark"] textarea,
+  [data-theme="dark"] .input-field,
+  [data-theme="dark"] .input {
+    background-color: #0b132b !important;
     color: var(--text-main) !important;
-    border: 1px solid var(--border-dark) !important;
-    border-radius: var(--radius-sm);
+    border-color: var(--border) !important;
   }
 
-  .btn.secondary {
-    background-color: rgba(255, 255, 255, 0.08) !important;
-    color: var(--text-main) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  [data-theme="dark"] .btn.secondary {
+    background-color: #2a365c !important;
+    color: #f8fafc !important;
+    border-color: #3a4b7c !important;
   }
 
-  .btn.secondary:hover {
-    background-color: rgba(255, 255, 255, 0.15) !important;
+  [data-theme="dark"] .btn.secondary:hover {
+    background-color: #3a4b7c !important;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -108,7 +109,7 @@
   body {
     background-color: var(--bg);
     color: var(--text-main);
-    font-family: 'Inter', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -144,7 +145,7 @@
   }
 
   .logo-icon {
-    background: linear-gradient(135deg, var(--primary), var(--cyan));
+    background: linear-gradient(135deg, var(--primary), #34d399);
     color: white;
     width: 36px;
     height: 36px;
@@ -154,7 +155,7 @@
     justify-content: center;
     font-size: 18px;
     font-weight: 800;
-    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
   }
 
   .sidebar-nav {
@@ -202,8 +203,8 @@
 
   .sidebar-nav button.active {
     color: #ffffff;
-    background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
-    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
+    background: linear-gradient(135deg, var(--primary), #059669);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
   }
 
   .sidebar-group {
@@ -408,7 +409,7 @@
 
   /* Styled Buttons */
   .btn {
-    background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+    background-color: var(--primary);
     color: white;
     border: none;
     padding: 10px 18px;
@@ -416,19 +417,18 @@
     cursor: pointer;
     font-size: 13.5px;
     font-weight: 700;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
     gap: 8px;
     outline: none;
-    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
   }
   .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 22px rgba(139, 92, 246, 0.5);
+    background-color: var(--primary-hover);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
   }
   .btn:active {
-    transform: translateY(0px);
+    transform: translateY(1px);
   }
   .btn.secondary {
     background-color: var(--primary-light);
@@ -579,30 +579,42 @@
     gap: 6px;
   }
   .form-group label {
-    font-weight: 700;
-    font-size: 12.5px;
-    color: var(--text-main);
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--text-main, #374151);
+    margin-bottom: 4px;
+    display: block;
   }
-  .input-field {
+  input[type="text"], input[type="number"], input[type="email"], input[type="password"], input[type="date"], select, textarea, .input-field {
     width: 100%;
-    padding: 10px 14px;
-    border: 1px solid var(--border-dark);
-    border-radius: var(--radius-sm);
+    height: 46px;
+    padding: 10px 16px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 15px;
     outline: none;
-    background-color: var(--bg);
-    transition: all 0.2s ease;
+    background-color: #ffffff;
+    color: #111827;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    box-sizing: border-box;
   }
-  .input-field:focus {
-    border-color: var(--primary);
-    background-color: #fff;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  select, select.input-field {
+    appearance: auto;
+    cursor: pointer;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, input[type="email"]:focus, input[type="password"]:focus, input[type="date"]:focus, select:focus, textarea:focus, .input-field:focus {
+    border-color: #10b981;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
   }
 
   .grid-2 {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 24px;
+  }
     gap: 20px;
   }
   
@@ -1114,10 +1126,11 @@ async function render() {
     smart_tools: 'Багц хэрэгсэл',
     admin: 'Системийн Админ Панель'
   };
-  
+
   // Check company setup to determine if we show onboarding wizard
   const c = await api(`/companies/${companyId}`);
-  if (!c.reg_no || !c.director || !c.address || c.reg_no === 'ХӨТЛӨӨГҮЙ') {
+  const isDone = localStorage.getItem(`onboarding_done_${companyId}`) === 'true' || localStorage.getItem('onboarding_done_global') === 'true';
+  if (!isDone && (!c.reg_no || c.reg_no === 'ХӨТЛӨӨГҮЙ')) {
     isOnboarding = true;
     $('#sidebar').style.display = 'none';
     $('#main-container').style.marginLeft = '0px';
@@ -1171,73 +1184,129 @@ function gotoOnboarding(step) {
 async function renderOnboarding1() {
   const c = await api(`/companies/${companyId}`);
   $('#content').innerHTML = `
-    <div class="card">
-      <h2><i class="fa-solid fa-building-circle-check"></i> Алхам 1: Компани бүртгүүлэх & Ерөнхий мэдээлэл</h2>
-      <p class="muted" style="margin-bottom: 20px;">Компанийн албан ёсны мэдээллүүдийг оруулж өгнө үү. Энэ мэдээлэл нь санхүүгийн болон татварын тайланд ашиглагдана.</p>
+    <div class="card" style="max-width: 900px; margin: 24px auto; padding: 32px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); border: 1px solid #e5e7eb;">
+      <div style="margin-bottom: 24px; border-bottom: 1px solid #f3f4f6; padding-bottom: 16px;">
+        <h2 style="font-size: 22px; font-weight: 700; color: #111827; margin-bottom: 6px; display: flex; align-items: center; gap: 10px;">
+          <i class="fa-solid fa-building-circle-check" style="color: #10b981;"></i> Алхам 1: Компани бүртгүүлэх & Ерөнхий мэдээлэл
+        </h2>
+        <p class="muted" style="font-size: 14px; color: #6b7280; margin: 0;">
+          Компанийн албан ёсны мэдээллүүдийг оруулж өгнө үү. Энэ мэдээлэл нь санхүүгийн болон татварын тайланд ашиглагдана.
+        </p>
+      </div>
       
-      <div class="grid-2">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px 24px; margin-bottom: 28px;">
         <div class="form-group">
-          <label>Компанийн нэр</label>
-          <input id="cName" class="input-field" value="${c.name || ''}">
+          <label><i class="fa-solid fa-building" style="color:#10b981; margin-right:4px;"></i> Компанийн нэр</label>
+          <input type="text" id="ob_name" class="input-field" value="${c.name || ''}" placeholder="Компанийн албан ёсны нэр">
         </div>
         <div class="form-group">
-          <label>Регистрийн дугаар (РД)</label>
-          <input id="cReg" class="input-field" value="${c.reg_no === 'ХӨТЛӨӨГҮЙ' ? '' : (c.reg_no || '')}">
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>Гүйцэтгэх захирал</label>
-          <input id="cDir" class="input-field" value="${c.director === 'ХӨТЛӨӨГҮЙ' ? '' : (c.director || '')}">
+          <label><i class="fa-solid fa-id-card" style="color:#10b981; margin-right:4px;"></i> Регистрийн дугаар (РД)</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="ob_reg_no" class="input-field" style="flex:1;" value="${(c.reg_no && c.reg_no !== 'ХӨТЛӨӨГҮЙ') ? c.reg_no : ''}" placeholder="Регистрийн дугаагаа оруулна уу">
+            <button class="btn secondary" style="padding:0 14px; font-size:13px; height:46px; white-space:nowrap; border-radius:8px;" onclick="pullTaxInfoOnboarding()"><i class="fa-solid fa-cloud-arrow-down" style="color:#10b981;"></i> Татвараас татах</button>
+          </div>
+          <div id="ob_reg_no_err" style="color:#ef4444; font-size:12.5px; font-weight:600; margin-top:4px; display:none;"></div>
         </div>
         <div class="form-group">
-          <label>Албан ёсны хаяг</label>
-          <input id="cAddr" class="input-field" value="${c.address === 'ХӨТЛӨӨГҮЙ' ? '' : (c.address || '')}">
+          <label><i class="fa-solid fa-user-tie" style="color:#10b981; margin-right:4px;"></i> Гүйцэтгэх захирал</label>
+          <input type="text" id="ob_director" class="input-field" value="${(c.director && c.director !== 'ХӨТЛӨӨГҮЙ') ? c.director : ''}" placeholder="Гүйцэтгэх захирлын нэр">
         </div>
-      </div>
-      <div class="grid-2">
         <div class="form-group">
-          <label>НӨАТ төлөгч эсэх</label>
-          <select id="cVat">
-            <option value="true" ${c.vat_payer ? 'selected' : ''}>Тийм</option>
-            <option value="false" ${!c.vat_payer ? 'selected' : ''}>Үгүй</option>
+          <label><i class="fa-solid fa-location-dot" style="color:#10b981; margin-right:4px;"></i> Албан хаяг байршил</label>
+          <input type="text" id="ob_address" class="input-field" value="${(c.address && c.address !== 'ХӨТЛӨӨГҮЙ') ? c.address : ''}" placeholder="Дүүрэг, хороо, гудамж, байр">
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-receipt" style="color:#10b981; margin-right:4px;"></i> НӨАТ төлөгч эсэх</label>
+          <select id="ob_vat" class="input-field">
+            <option value="false" ${!c.vat_payer ? 'selected' : ''}>НӨАТ Төлөгч биш</option>
+            <option value="true" ${c.vat_payer ? 'selected' : ''}>НӨАТ Төлөгч</option>
           </select>
         </div>
         <div class="form-group">
-          <label>Өртөг тооцох аргачлал</label>
-          <select id="cInvMethod">
-            <option value="average" ${c.inventory_method === 'average' ? 'selected' : ''}>Дундаж өртөг (Weighted Average)</option>
-            <option value="fifo" ${c.inventory_method === 'fifo' ? 'selected' : ''}>FIFO</option>
+          <label><i class="fa-solid fa-calculator" style="color:#10b981; margin-right:4px;"></i> Барааны өртөг тооцох арга</label>
+          <select id="ob_inv_method" class="input-field">
+            <option value="avco" ${c.inventory_method === 'avco' ? 'selected' : ''}>Дундаж өртгийн арга (AVCO)</option>
+            <option value="fifo" ${c.inventory_method === 'fifo' ? 'selected' : ''}>Эхэлж авсныг эхэлж зарлагадах (FIFO)</option>
           </select>
         </div>
       </div>
       
-      <div class="form-actions-bar">
-        <span></span>
-        <button class="btn" onclick="saveOnboardingProfile()">Хадгалах & Дараах алхам <i class="fa-solid fa-arrow-right"></i></button>
+      <div class="form-actions-bar" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f3f4f6; padding-top: 20px;">
+        <button class="btn secondary" onclick="skipOnboarding()" style="padding: 10px 18px; font-size: 14px; font-weight: 600;">
+          <i class="fa-solid fa-forward"></i> Шууд Систем рүү орох (Алгасах)
+        </button>
+        <button class="btn" onclick="saveOnboarding1()" style="padding: 12px 24px; font-size: 15px; font-weight: 700; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; border-radius: 8px; color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);">
+          Хадгалаад Дараагийн алхам <i class="fa-solid fa-arrow-right" style="margin-left: 6px;"></i>
+        </button>
       </div>
     </div>`;
 }
 
-async function saveOnboardingProfile() {
-  try {
-    const nameEl = $('#cName'), regEl = $('#cReg'), dirEl = $('#cDir'), addrEl = $('#cAddr'), vatEl = $('#cVat'), invEl = $('#cInvMethod');
-    if (!nameEl.value.trim()) { alert("Компанийн нэрийг оруулна уу."); return; }
-    
-    const profile = {
-      name: nameEl.value.trim(),
-      reg_no: regEl.value.trim() || 'ХӨТЛӨӨГҮЙ',
-      director: dirEl.value.trim() || 'ХӨТЛӨӨГҮЙ',
-      address: addrEl.value.trim() || 'ХӨТЛӨӨГҮЙ',
-      vat_payer: vatEl.value === 'true',
-      inventory_method: invEl.value
-    };
-    
-    const res = await post(`/companies/${companyId}/profile`, profile);
-    if (res && res.ok) gotoOnboarding(2);
-  } catch (err) {
-    alert("Алдаа гарлаа: " + err.message);
+async function pullTaxInfoOnboarding() {
+  const regNo = $('#ob_reg_no').value.trim();
+  const errEl = $('#ob_reg_no_err');
+  if (errEl) errEl.style.display = 'none';
+
+  if (!regNo) {
+    alert("Шалгах регистрийн дугаагаа оруулна уу.");
+    return;
   }
+
+  const isEntity = /^\d{7,8}$/.test(regNo);
+  const isIndividual = /^[А-ЯӨҮА-ЯӨҮA-Z]{2}\d{8}$/i.test(regNo);
+  if (!isEntity && !isIndividual) {
+    if (errEl) {
+      errEl.textContent = "Регистрийн дугаарын формат буруу байна! (7-8 оронтой тоо эсвэл 2 үсэг + 8 тоо)";
+      errEl.style.display = 'block';
+    }
+    alert("Регистрийн дугаарын формат буруу байна! 7-8 оронтой тоо эсвэл 2 үсэг + 8 тоо оруулна уу.");
+    return;
+  }
+
+  try {
+    const taxData = await api(`/companies/${companyId}/tax-pull?reg_no=${regNo}`);
+    if (taxData) {
+      const currName = $('#ob_name').value.trim();
+      if (taxData.name && (!currName || currName.startsWith('ААН ('))) {
+        $('#ob_name').value = taxData.name;
+      }
+      if (taxData.vat_payer !== undefined) $('#ob_vat').value = taxData.vat_payer ? "true" : "false";
+      alert(`РД ${regNo} баталгаажлаа. (НӨАТ төлөгч: ${taxData.vat_payer ? 'Тийм' : 'Үгүй'})`);
+    }
+  } catch (err) {
+    alert("Татварын системээс мэдээлэл татахад алдаа гарлаа.");
+  }
+}
+
+async function saveOnboarding1() {
+  const name = $('#ob_name').value.trim();
+  const reg_no = $('#ob_reg_no').value.trim();
+  const director = $('#ob_director').value.trim();
+  const address = $('#ob_address').value.trim();
+  const vat_payer = $('#ob_vat').value === 'true';
+  const inventory_method = $('#ob_inv_method').value;
+  const errEl = $('#ob_reg_no_err');
+  if (errEl) errEl.style.display = 'none';
+
+  if (!name) { alert("Компанийн нэр оруулна уу"); return; }
+
+  if (reg_no) {
+    const isEntity = /^\d{7,8}$/.test(reg_no);
+    const isIndividual = /^[А-ЯӨҮА-ЯӨҮA-Z]{2}\d{8}$/i.test(reg_no);
+    if (!isEntity && !isIndividual) {
+      if (errEl) {
+        errEl.textContent = "Регистрийн дугаарын формат буруу байна!";
+        errEl.style.display = 'block';
+      }
+      alert("Регистрийн дугаарын формат буруу байна! (7-8 оронтой тоо эсвэл 2 үсэг + 8 оронтой тоо)");
+      return;
+    }
+  }
+
+  const res = await post(`/companies/${companyId}/profile`, {
+    name, reg_no, director, address, vat_payer, inventory_method
+  });
+  if (res && res.ok) gotoOnboarding(2);
 }
 
 async function renderOnboarding2() {
@@ -1272,7 +1341,7 @@ async function renderOnboarding2() {
         </div>
       </div>
       
-      <div class="form-actions-bar">
+      <div class="form-actions-bar" style="display:flex; justify-content:space-between; align-items:center;">
         <button class="btn secondary" onclick="gotoOnboarding(1)"><i class="fa-solid fa-arrow-left"></i> Буцах</button>
         <button class="btn" onclick="finishOnboarding()">Тохиргоог дуусгаж, Системд орох <i class="fa-solid fa-circle-check"></i></button>
       </div>
@@ -1283,25 +1352,41 @@ async function renderOnboarding2() {
   setupDragDrop('Asset', uploadAsset);
 }
 
+function skipOnboarding() {
+  if (companyId) localStorage.setItem(`onboarding_done_${companyId}`, 'true');
+  localStorage.setItem('onboarding_done_global', 'true');
+  isOnboarding = false;
+  if ($('#sidebar')) $('#sidebar').style.display = 'flex';
+  if ($('#main-container')) $('#main-container').style.marginLeft = '260px';
+  if ($('#onboardingNav')) $('#onboardingNav').style.display = 'none';
+  switchTab('dash');
+}
+
 async function finishOnboarding() {
+  if (companyId) localStorage.setItem(`onboarding_done_${companyId}`, 'true');
+  localStorage.setItem('onboarding_done_global', 'true');
+  isOnboarding = false;
   try {
-    const c = await api(`/companies/${companyId}`);
-    const profile = {
-      name: c.name,
-      reg_no: c.reg_no || 'ХӨТЛӨӨГҮЙ',
-      director: c.director || 'ХӨТЛӨӨГҮЙ',
-      address: c.address || 'ХӨТЛӨӨГҮЙ',
-      vat_payer: c.vat_payer,
-      inventory_method: c.inventory_method
-    };
-    await post(`/companies/${companyId}/profile`, profile);
-    alert("Бүртгэлийн онбординг амжилттай дууслаа!");
-    tab = 'dash';
-    onboardingStep = 1;
-    render();
+    if (companyId) {
+      const c = await api(`/companies/${companyId}`).catch(() => null);
+      if (c) {
+        await post(`/companies/${companyId}/profile`, {
+          name: c.name || 'Компани',
+          reg_no: (c.reg_no && c.reg_no !== 'ХӨТЛӨӨГҮЙ') ? c.reg_no : '',
+          director: (c.director && c.director !== 'ХӨТЛӨӨГҮЙ') ? c.director : '',
+          address: (c.address && c.address !== 'ХӨТЛӨӨГҮЙ') ? c.address : '',
+          vat_payer: !!c.vat_payer,
+          inventory_method: c.inventory_method || 'avco'
+        }).catch(() => null);
+      }
+    }
   } catch (err) {
-    alert("Алдаа гарлаа: " + err.message);
+    console.error(err);
   }
+  if ($('#sidebar')) $('#sidebar').style.display = 'flex';
+  if ($('#main-container')) $('#main-container').style.marginLeft = '260px';
+  if ($('#onboardingNav')) $('#onboardingNav').style.display = 'none';
+  switchTab('dash');
 }
 
 function setupDragDrop(suffix, uploadFn) {
@@ -1875,9 +1960,12 @@ async function dash() {
   const bankAccounts = safeTb.filter(r => r.code && r.code.startsWith('11'));
   const totalCashMinor = cashAccounts.reduce((sum, r) => sum + (r.balance_minor || 0), 0) + bankAccounts.reduce((sum, r) => sum + (r.balance_minor || 0), 0);
   
-  // Find Receivables (1201) and Payables (3101)
+  // Find Receivables (12xx) and Payables/Liabilities (3xxx)
   const arAccount = safeTb.find(r => r.code === '1201') || { balance_minor: 0 };
   const apAccount = safeTb.find(r => r.code === '3101') || { balance_minor: 0 };
+
+  const totalArMinor = safeTb.filter(r => r.code && r.code.startsWith('12')).reduce((sum, r) => sum + (r.balance_minor || 0), 0);
+  const totalApMinor = safeTb.filter(r => r.code && r.code.startsWith('3')).reduce((sum, r) => sum + (r.balance_minor || 0), 0);
 
   const pending = safeSugs.length;
   $('#content').innerHTML = `
@@ -1924,17 +2012,20 @@ async function dash() {
         
         <!-- Cash and Bank Status widget -->
         <div class="card" style="margin-bottom:0">
-          <h2><i class="fa-solid fa-wallet" style="color: var(--primary)"></i> Мөнгөн хөрөнгийн үлдэгдэл</h2>
-          <p class="muted" style="margin-bottom: 16px;">Касс болон харилцах дансны нийт мөнгөн хөрөнгө: <strong>${fmt(totalCashMinor)}</strong></p>
+          <h2><i class="fa-solid fa-wallet" style="color: #10b981"></i> Мөнгөн хөрөнгийн үлдэгдэл</h2>
+          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13.5px; font-weight: 600; color: #065f46;"><i class="fa-solid fa-calculator" style="margin-right: 6px;"></i> 10xx Касс + 11xx Харилцах дансны НИЙТ ДҮН:</span>
+            <span style="font-size: 18px; font-weight: 800; color: #047857;">${fmt(totalCashMinor)}</span>
+          </div>
           
-          <div style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:10px;">
             ${[...cashAccounts, ...bankAccounts].filter(a => a.balance_minor !== 0).map(a => `
-              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#f8fafc; border-radius:var(--radius-sm); border: 1px solid var(--border)">
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <i class="fa-solid ${a.code.startsWith('10') ? 'fa-money-bill-1' : 'fa-building-columns'}" style="color:var(--text-muted)"></i>
-                  <span><strong>${a.code}</strong> - ${a.name}</span>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#f8fafc; border-radius:8px; border: 1px solid #e2e8f0">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <i class="fa-solid ${a.code.startsWith('10') ? 'fa-money-bill-wave' : 'fa-building-columns'}" style="color:${a.code.startsWith('10') ? '#10b981' : '#3b82f6'}; font-size:16px;"></i>
+                  <span style="font-size:14px; font-weight:600; color:#1e293b;"><strong>${a.code}</strong> - ${a.name}</span>
                 </div>
-                <span class="num">${fmt(a.balance_minor)}</span>
+                <span class="num" style="font-size:15px; font-weight:700; color:#0f172a;">${fmt(a.balance_minor)}</span>
               </div>
             `).join('') || '<div class="muted" style="text-align:center; padding:12px">Мөнгөн хөрөнгийн үлдэгдэл 0 байна.</div>'}
           </div>
@@ -1945,12 +2036,14 @@ async function dash() {
           <h2><i class="fa-solid fa-code-compare" style="color: #3b82f6"></i> Авлага ба Өглөгийн харьцаа</h2>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:10px">
             <div style="padding:14px; background:#eff6ff; border-radius:var(--radius-sm); border:1px solid #dbeafe">
-              <span class="muted" style="font-size:11px; text-transform:uppercase; font-weight:700;">Нийт авлага (1201)</span>
-              <div class="num" style="font-size:18px; text-align:left; color:#1e40af; margin-top:4px">${fmt(arAccount.balance_minor)}</div>
+              <span class="muted" style="font-size:11px; text-transform:uppercase; font-weight:700;">Нийт авлага (12xx бүлэг)</span>
+              <div class="num" style="font-size:18px; text-align:left; color:#1e40af; margin-top:4px">${fmt(totalArMinor)}</div>
+              <div style="font-size:11.5px; color:#3b82f6; margin-top:4px;">1201 Дансны авлага: ${fmt(arAccount.balance_minor)}</div>
             </div>
             <div style="padding:14px; background:#fef2f2; border-radius:var(--radius-sm); border:1px solid #fee2e2">
-              <span class="muted" style="font-size:11px; text-transform:uppercase; font-weight:700;">Нийт өглөг (3101)</span>
-              <div class="num" style="font-size:18px; text-align:left; color:#991b1b; margin-top:4px">${fmt(apAccount.balance_minor)}</div>
+              <span class="muted" style="font-size:11px; text-transform:uppercase; font-weight:700;">Нийт өр төлбөр (3xxx бүлэг)</span>
+              <div class="num" style="font-size:18px; text-align:left; color:#991b1b; margin-top:4px">${fmt(totalApMinor)}</div>
+              <div style="font-size:11.5px; color:#ef4444; margin-top:4px;">3101 Дансны өглөг: ${fmt(apAccount.balance_minor)}</div>
             </div>
           </div>
         </div>
@@ -2363,39 +2456,152 @@ async function renderFinancialStatementsTab() {
     api(`/companies/${companyId}/income-statement?date_from=${prevYearFrom}&date_to=${prevYearTo}`).catch(() => null)
   ]);
 
-  const getVal = (data, name) => {
-    if (!data) return 0;
+  const findBsRow = (data, name) => {
+    if (!data) return null;
     const arrays = [data.assets, data.liabilities, data.equity];
     for (const arr of arrays) {
       if (arr) {
         const item = arr.find(x => x.name.includes(name));
-        if (item) return item.amount_minor;
+        if (item) return item;
       }
     }
-    return 0;
+    return null;
+  };
+
+  const getVal = (data, name) => {
+    const row = findBsRow(data, name);
+    return row ? row.amount_minor : 0;
+  };
+
+  // Мөрийн дотоод дансны задаргаа (dropdown-д харуулна).
+  // Тайлант үеийн дүнг bs-ээс, харьцуулах баганыг prevBs-ээс авна.
+  const getAccounts = (name) => {
+    const cur = findBsRow(bs, name);
+    const prev = findBsRow(prevBs, name);
+    const merged = new Map();
+    (cur && cur.accounts ? cur.accounts : []).forEach(a => {
+      merged.set(a.code, { code: a.code, name: a.name, cur: a.amount_minor, prev: 0 });
+    });
+    (prev && prev.accounts ? prev.accounts : []).forEach(a => {
+      const row = merged.get(a.code);
+      if (row) row.prev = a.amount_minor;
+      else merged.set(a.code, { code: a.code, name: a.name, cur: 0, prev: a.amount_minor });
+    });
+    return [...merged.values()].sort((x, y) => x.code.localeCompare(y.code));
+  };
+
+  // Хэд хэдэн мөрийн задаргааг нийлүүлж, нийлбэр мөрийн dropdown болгоно
+  const mergeAccounts = (...names) => {
+    const merged = new Map();
+    names.forEach(n => getAccounts(n).forEach(a => {
+      const row = merged.get(a.code);
+      if (row) { row.cur += a.cur; row.prev += a.prev; }
+      else merged.set(a.code, { ...a });
+    }));
+    return [...merged.values()].sort((x, y) => x.code.localeCompare(y.code));
+  };
+
+  // Орлогын тайлангийн мөрийн задаргаа (breakdown.revenue / cogs / expenses)
+  const getIncAccounts = (key, sign = 1) => {
+    const cur = (inc && inc.breakdown && inc.breakdown[key]) || [];
+    const prev = (prevInc && prevInc.breakdown && prevInc.breakdown[key]) || [];
+    const merged = new Map();
+    cur.forEach(a => merged.set(a.code, {
+      code: a.code, name: a.name, cur: sign * a.amount_minor, prev: 0
+    }));
+    prev.forEach(a => {
+      const row = merged.get(a.code);
+      if (row) row.prev = sign * a.amount_minor;
+      else merged.set(a.code, { code: a.code, name: a.name, cur: 0, prev: sign * a.amount_minor });
+    });
+    return [...merged.values()].sort((x, y) => x.code.localeCompare(y.code));
+  };
+
+  const mergeIncAccounts = (...specs) => {
+    const merged = new Map();
+    specs.forEach(([key, sign]) => getIncAccounts(key, sign).forEach(a => {
+      const row = merged.get(a.code);
+      if (row) { row.cur += a.cur; row.prev += a.prev; }
+      else merged.set(a.code, { ...a });
+    }));
+    return [...merged.values()].sort((x, y) => x.code.localeCompare(y.code));
   };
 
   const getIncVal = (data, name) => {
     if (!data) return 0;
     if (name === 'revenue') return data.revenue_minor || 0;
+    if (name === 'other') return data.other_income_minor || 0;
     if (name === 'cogs') return data.cogs_minor || 0;
     if (name === 'gross') return data.gross_profit_minor || 0;
     if (name === 'exp') return data.expenses_minor || 0;
-    if (name === 'net') return data.net_income_minor || 0;
+    // Дэвтэрт ОАТ хуримтлуулаагүй тул backend-ийн цэвэр ашиг = татварын өмнөх ашиг
+    if (name === 'pretax' || name === 'net') return data.net_income_minor || 0;
     return 0;
   };
 
+  // ОАТ нь дэвтэрт бичигдээгүй, дэлгэц дээр тооцоолсон дүн
+  const citRate = parseInt(window._fsCitRate, 10) / 100;
+  const estCit = (v) => v > 0 ? Math.round(v * citRate) : 0;
+  const citCur = estCit(getIncVal(inc, "pretax"));
+  const citPrev = estCit(getIncVal(prevInc, "pretax"));
+
+  // Татварын өмнөх ашгийг бүрдүүлэгч бүх данс
+  const pretaxAccounts = mergeIncAccounts(
+    ["revenue", 1], ["other_income", 1], ["cogs", -1], ["expenses", -1]);
+
+  // Цэвэр дүнгийн задаргаанд зарлагын мөрийг хасах тэмдэгтэй оруулна
+  const negItem = (a) => ({ ...a, cur: -a.cur, prev: -a.prev });
+
+  const fsEmptyCard = (title, message) => `
+    <div class="card" style="padding:20px; margin-top:20px;">
+      <h3 style="font-size:18px; font-weight:800; margin:0 0 10px 0;">${title}</h3>
+      <p class="muted" style="margin:0;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i> ${message}</p>
+    </div>`;
+
   let statementHtml = "";
-  const formatComparativeRow = (rowNum, label, curVal, prevVal, isBold = false) => {
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  // Мөр бүрийн задаргаа нээлттэй эсэхийг санана (тайлан сэлгэхэд ч хадгалагдана)
+  if (!window._fsOpenRows) window._fsOpenRows = {};
+
+  const formatComparativeRow = (rowNum, label, curVal, prevVal, isBold = false, accounts = null) => {
     const boldStyle = isBold ? 'font-weight:700; background-color:rgba(248, 250, 252, 0.05);' : '';
-    return `
-      <tr style="${boldStyle} border-bottom:1px solid var(--border)">
+    const rows = (accounts || []).filter(a => a.cur || a.prev);
+    const key = `${window._fsTab}|${rowNum}`;
+    const isOpen = !!window._fsOpenRows[key];
+
+    const caret = rows.length
+      ? `<i class="fa-solid fa-chevron-right" data-fs-caret="${esc(key)}" style="font-size:10px; width:12px; margin-right:8px; color:var(--primary); transition:transform .18s; transform:rotate(${isOpen ? 90 : 0}deg);"></i>`
+      : `<span style="display:inline-block; width:20px;"></span>`;
+
+    const badge = rows.length
+      ? `<span style="margin-left:8px; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:9px; background:rgba(20,241,149,.12); color:var(--primary); vertical-align:middle;">${rows.length} данс</span>`
+      : '';
+
+    const main = `
+      <tr style="${boldStyle} border-bottom:1px solid var(--border); ${rows.length ? 'cursor:pointer;' : ''}"
+          ${rows.length ? `onclick="toggleFsRow('${esc(key)}')" title="Дансны задаргааг харах"` : ''}>
         <td style="padding:10px 14px; text-align:center; width:80px; font-weight:600; color:var(--text-muted);">${rowNum}</td>
-        <td style="padding:10px 14px; ${isBold ? 'font-weight:700;' : ''}">${label}</td>
+        <td style="padding:10px 14px; ${isBold ? 'font-weight:700;' : ''}">${caret}${label}${badge}</td>
         <td class="num" style="padding:10px 14px; text-align:right;">${prevVal ? fmt(prevVal) : '-'}</td>
         <td class="num" style="padding:10px 14px; text-align:right; ${isBold ? 'font-weight:800;' : ''}">${curVal ? fmt(curVal) : '-'}</td>
       </tr>
     `;
+
+    const children = rows.map(a => `
+      <tr data-fs-detail="${esc(key)}" style="display:${isOpen ? '' : 'none'}; background:rgba(148,163,184,.06); border-bottom:1px solid var(--border);">
+        <td style="padding:7px 14px; text-align:center; font-size:12px; font-weight:700; color:var(--primary);">${esc(a.code)}</td>
+        <td style="padding:7px 14px 7px 42px; font-size:12.5px; color:var(--text-muted);">
+          <a href="javascript:void(0)" onclick="event.stopPropagation(); fsDrillAccount('${esc(a.code)}')"
+             style="color:inherit; text-decoration:none; border-bottom:1px dashed var(--border-dark);"
+             title="Гүйлгээний баланс дээр энэ дансыг харах">${esc(a.name)}</a>
+        </td>
+        <td class="num" style="padding:7px 14px; text-align:right; font-size:12.5px; color:var(--text-muted);">${a.prev ? fmt(a.prev) : '-'}</td>
+        <td class="num" style="padding:7px 14px; text-align:right; font-size:12.5px;">${a.cur ? fmt(a.cur) : '-'}</td>
+      </tr>
+    `).join('');
+
+    return main + children;
   };
 
   if (window._fsTab === "st1") {
@@ -2404,9 +2610,13 @@ async function renderFinancialStatementsTab() {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
           <div>
             <h3 style="font-size:18px; font-weight:800; margin:0;">Санхүүгийн байдлын тайлан (Баланс)</h3>
-            <p class="muted" style="margin-top:2px;">Сангийн Сайдын 2017 оны 361 дүгээр тушаалын хавсралт СТ-1</p>
+            <p class="muted" style="margin-top:2px;">Сангийн Сайдын 2017 оны 361 дүгээр тушаалын хавсралт СТ-1 · Мөр дээр дарж дансны задаргааг харна</p>
           </div>
-          <button class="btn secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> Хэвлэх</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn secondary" onclick="toggleAllFsRows(true)"><i class="fa-solid fa-angles-down"></i> Бүгдийг задлах</button>
+            <button class="btn secondary" onclick="toggleAllFsRows(false)"><i class="fa-solid fa-angles-up"></i> Хураах</button>
+            <button class="btn secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> Хэвлэх</button>
+          </div>
         </div>
         <div style="overflow-x:auto">
           <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
@@ -2419,29 +2629,52 @@ async function renderFinancialStatementsTab() {
               </tr>
             </thead>
             <tbody>
-              <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">ХӨРӨНГӨ</td></tr>
-              ${formatComparativeRow("1.1", "Мөнгө ба түүнтэй адилтгах хөрөнгө", getVal(bs, "Мөнгө"), getVal(prevBs, "Мөнгө"))}
-              ${formatComparativeRow("1.2", "Дансны авлага", getVal(bs, "Дансны авлага"), getVal(prevBs, "Дансны авлага"))}
-              ${formatComparativeRow("1.3", "Бараа материал", getVal(bs, "Бараа материал"), getVal(prevBs, "Бараа материал"))}
-              ${formatComparativeRow("1.4", "Бусад эргэлтийн хөрөнгө", 0, 0)}
-              ${formatComparativeRow("1.0", "Эргэлтийн хөрөнгийн дүн", getVal(bs, "Мөнгө") + getVal(bs, "Дансны авлага") + getVal(bs, "Бараа материал"), getVal(prevBs, "Мөнгө") + getVal(prevBs, "Дансны авлага") + getVal(prevBs, "Бараа материал"), true)}
+              <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">1. ХӨРӨНГӨ</td></tr>
+              ${formatComparativeRow("1.1.1", "Мөнгө ба түүнтэй адилтгах хөрөнгө", getVal(bs, "Мөнгө"), getVal(prevBs, "Мөнгө"), false, getAccounts("Мөнгө"))}
+              ${formatComparativeRow("1.1.2", "Дансны авлага", getVal(bs, "Дансны авлага"), getVal(prevBs, "Дансны авлага"), false, getAccounts("Дансны авлага"))}
+              ${formatComparativeRow("1.1.3", "Татвар, НДШ-ийн авлага", getVal(bs, "Татвар, НДШ-ийн авлага"), getVal(prevBs, "Татвар, НДШ-ийн авлага"), false, getAccounts("Татвар, НДШ-ийн авлага"))}
+              ${formatComparativeRow("1.1.4", "Бараа материал", getVal(bs, "Бараа материал"), getVal(prevBs, "Бараа материал"), false, getAccounts("Бараа материал"))}
+              ${formatComparativeRow("1.1.5", "Урьдчилж төлсөн зардал, хангамж", getVal(bs, "Урьдчилж төлсөн зардал"), getVal(prevBs, "Урьдчилж төлсөн зардал"), false, getAccounts("Урьдчилж төлсөн зардал"))}
+              ${formatComparativeRow("1.1.0", "Эргэлтийн хөрөнгийн дүн",
+                  getVal(bs, "Мөнгө") + getVal(bs, "Дансны авлага") + getVal(bs, "Татвар, НДШ-ийн авлага") + getVal(bs, "Бараа материал") + getVal(bs, "Урьдчилж төлсөн зардал"),
+                  getVal(prevBs, "Мөнгө") + getVal(prevBs, "Дансны авлага") + getVal(prevBs, "Татвар, НДШ-ийн авлага") + getVal(prevBs, "Бараа материал") + getVal(prevBs, "Урьдчилж төлсөн зардал"), true,
+                  mergeAccounts("Мөнгө", "Дансны авлага", "Татвар, НДШ-ийн авлага", "Бараа материал", "Урьдчилж төлсөн зардал"))}
+
+              ${formatComparativeRow("1.2.1", "Үндсэн хөрөнгө", getVal(bs, "Үндсэн хөрөнгө"), getVal(prevBs, "Үндсэн хөрөнгө"), false, getAccounts("Үндсэн хөрөнгө"))}
+              ${/* Элэгдлийн данс кредит үлдэгдэлтэй тул getVal сөрөг утга буцаана — тайланд шууд хасах дүнгээр харагдана */ ''}
+              ${formatComparativeRow("1.2.2", "Хуримтлагдсан элэгдэл (-)", getVal(bs, "Хуримтлагдсан элэгдэл"), getVal(prevBs, "Хуримтлагдсан элэгдэл"), false, getAccounts("Хуримтлагдсан элэгдэл"))}
+              ${formatComparativeRow("1.2.0", "Эргэлтийн бус хөрөнгийн дүн", getVal(bs, "Үндсэн хөрөнгө") + getVal(bs, "Хуримтлагдсан элэгдэл"), getVal(prevBs, "Үндсэн хөрөнгө") + getVal(prevBs, "Хуримтлагдсан элэгдэл"), true, mergeAccounts("Үндсэн хөрөнгө", "Хуримтлагдсан элэгдэл"))}
+
+              ${formatComparativeRow("1.0.0", "НИЙТ ХӨРӨНГИЙН ДҮН", bs.total_assets_minor, prevBs ? prevBs.total_assets_minor : 0, true,
+                  mergeAccounts("Мөнгө", "Дансны авлага", "Татвар, НДШ-ийн авлага", "Бараа материал", "Урьдчилж төлсөн зардал", "Үндсэн хөрөнгө", "Хуримтлагдсан элэгдэл"))}
               
-              ${formatComparativeRow("2.1", "Үндсэн хөрөнгө (PPE)", getVal(bs, "Үндсэн хөрөнгө"), getVal(prevBs, "Үндсэн хөрөнгө"))}
-              ${formatComparativeRow("2.2", "Хуримтлагдсан элэгдэл", getVal(bs, "Хуримтлагдсан элэгдэл"), getVal(prevBs, "Хуримтлагдсан элэгдэл"))}
-              ${formatComparativeRow("2.0", "Эргэлтийн бус хөрөнгийн дүн", getVal(bs, "Үндсэн хөрөнгө") + getVal(bs, "Хуримтлагдсан элэгдэл"), getVal(prevBs, "Үндсэн хөрөнгө") + getVal(prevBs, "Хуримтлагдсан элэгдэл"), true)}
-              
-              ${formatComparativeRow("10.0", "НИЙТ ХӨРӨНГИЙН ДҮН", bs.total_assets_minor, prevBs ? prevBs.total_assets_minor : 0, true)}
-              
-              <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">ӨР ТӨЛБӨР БА ЭЗДИЙН ӨМЧ</td></tr>
-              ${formatComparativeRow("3.1", "Дансны өглөг", getVal(bs, "Дансны өглөг"), getVal(prevBs, "Дансны өглөг"))}
-              ${formatComparativeRow("3.2", "Богино хугацаат зээл", getVal(bs, "Богино хугацаат зээл"), getVal(prevBs, "Богино хугацаат зээл"))}
-              ${formatComparativeRow("3.0", "Богино хугацаат өр төлбөрийн дүн", getVal(bs, "Дансны өглөг") + getVal(bs, "Богино хугацаат зээл"), getVal(prevBs, "Дансны өглөг") + getVal(prevBs, "Богино хугацаат зээл"), true)}
-              
-              ${formatComparativeRow("4.1", "Хувь нийлүүлсэн хөрөнгө", getVal(bs, "Хувь нийлүүлсэн хөрөнгө"), getVal(prevBs, "Хувь нийлүүлсэн хөрөнгө"))}
-              ${formatComparativeRow("4.2", "Хуримтлагдсан ашиг (алдагдал)", getVal(bs, "Хуримтлагдсан ашиг"), getVal(prevBs, "Хуримтлагдсан ашиг"))}
-              ${formatComparativeRow("4.0", "Нийт эздийн өмчийн дүн", bs.equity.reduce((sum, r) => sum + r.amount_minor, 0), prevBs ? prevBs.equity.reduce((sum, r) => sum + r.amount_minor, 0) : 0, true)}
-              
-              ${formatComparativeRow("20.0", "НИЙТ ӨР ТӨЛБӨР БА ЭЗДИЙН ӨМЧИЙН ДҮН", bs.total_liab_equity_minor, prevBs ? prevBs.total_liab_equity_minor : 0, true)}
+              <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">2. ӨР ТӨЛБӨР БА ЭЗДИЙН ӨМЧ</td></tr>
+              ${formatComparativeRow("2.1.1", "Дансны өглөг", getVal(bs, "Дансны өглөг"), getVal(prevBs, "Дансны өглөг"), false, getAccounts("Дансны өглөг"))}
+              ${formatComparativeRow("2.1.2", "Цалингийн өглөг", getVal(bs, "Цалингийн өглөг"), getVal(prevBs, "Цалингийн өглөг"), false, getAccounts("Цалингийн өглөг"))}
+              ${formatComparativeRow("2.1.3", "Татвар, НДШ-ийн өглөг", getVal(bs, "Татвар, НДШ-ийн өглөг"), getVal(prevBs, "Татвар, НДШ-ийн өглөг"), false, getAccounts("Татвар, НДШ-ийн өглөг"))}
+              ${formatComparativeRow("2.1.4", "Богино хугацаат зээл", getVal(bs, "Богино хугацаат зээл"), getVal(prevBs, "Богино хугацаат зээл"), false, getAccounts("Богино хугацаат зээл"))}
+              ${formatComparativeRow("2.1.5", "Бусад богино хугацаат өр төлбөр", getVal(bs, "Бусад богино хугацаат өр"), getVal(prevBs, "Бусад богино хугацаат өр"), false, getAccounts("Бусад богино хугацаат өр"))}
+              ${formatComparativeRow("2.1.0", "Богино хугацаат өр төлбөрийн дүн",
+                  getVal(bs, "Дансны өглөг") + getVal(bs, "Цалингийн өглөг") + getVal(bs, "Татвар, НДШ-ийн өглөг") + getVal(bs, "Богино хугацаат зээл") + getVal(bs, "Бусад богино хугацаат өр"),
+                  getVal(prevBs, "Дансны өглөг") + getVal(prevBs, "Цалингийн өглөг") + getVal(prevBs, "Татвар, НДШ-ийн өглөг") + getVal(prevBs, "Богино хугацаат зээл") + getVal(prevBs, "Бусад богино хугацаат өр"), true,
+                  mergeAccounts("Дансны өглөг", "Цалингийн өглөг", "Татвар, НДШ-ийн өглөг", "Богино хугацаат зээл", "Бусад богино хугацаат өр"))}
+
+              ${formatComparativeRow("2.2.1", "Урт хугацаат өр төлбөр", getVal(bs, "Урт хугацаат өр төлбөр"), getVal(prevBs, "Урт хугацаат өр төлбөр"), false, getAccounts("Урт хугацаат өр төлбөр"))}
+              ${formatComparativeRow("2.2.0", "Урт хугацаат өр төлбөрийн дүн", getVal(bs, "Урт хугацаат өр төлбөр"), getVal(prevBs, "Урт хугацаат өр төлбөр"), true, getAccounts("Урт хугацаат өр төлбөр"))}
+
+              ${formatComparativeRow("2.0.0", "НИЙТ ӨР ТӨЛБӨРИЙН ДҮН",
+                  getVal(bs, "Дансны өглөг") + getVal(bs, "Цалингийн өглөг") + getVal(bs, "Татвар, НДШ-ийн өглөг") + getVal(bs, "Богино хугацаат зээл") + getVal(bs, "Бусад богино хугацаат өр") + getVal(bs, "Урт хугацаат өр төлбөр"),
+                  prevBs ? getVal(prevBs, "Дансны өглөг") + getVal(prevBs, "Цалингийн өглөг") + getVal(prevBs, "Татвар, НДШ-ийн өглөг") + getVal(prevBs, "Богино хугацаат зээл") + getVal(prevBs, "Бусад богино хугацаат өр") + getVal(prevBs, "Урт хугацаат өр төлбөр") : 0, true,
+                  mergeAccounts("Дансны өглөг", "Цалингийн өглөг", "Татвар, НДШ-ийн өглөг", "Богино хугацаат зээл", "Бусад богино хугацаат өр", "Урт хугацаат өр төлбөр"))}
+
+              ${formatComparativeRow("2.3.1", "Хувь нийлүүлсэн хөрөнгө", getVal(bs, "Хувь нийлүүлсэн хөрөнгө"), getVal(prevBs, "Хувь нийлүүлсэн хөрөнгө"), false, getAccounts("Хувь нийлүүлсэн хөрөнгө"))}
+              ${formatComparativeRow("2.3.2", "Хуримтлагдсан ашиг (алдагдал)", getVal(bs, "Хуримтлагдсан ашиг"), getVal(prevBs, "Хуримтлагдсан ашиг"), false, getAccounts("Хуримтлагдсан ашиг"))}
+              ${formatComparativeRow("2.3.3", "Тайлант үеийн ашиг (алдагдал)", getVal(bs, "Тайлант үеийн ашиг"), getVal(prevBs, "Тайлант үеийн ашиг"), false, getAccounts("Тайлант үеийн ашиг"))}
+              ${formatComparativeRow("2.3.0", "Нийт эздийн өмчийн дүн", bs.equity.reduce((sum, r) => sum + r.amount_minor, 0), prevBs ? prevBs.equity.reduce((sum, r) => sum + r.amount_minor, 0) : 0, true,
+                  mergeAccounts("Хувь нийлүүлсэн хөрөнгө", "Хуримтлагдсан ашиг", "Тайлант үеийн ашиг"))}
+
+              ${formatComparativeRow("20.0", "НИЙТ ӨР ТӨЛБӨР БА ЭЗДИЙН ӨМЧИЙН ДҮН", bs.total_liab_equity_minor, prevBs ? prevBs.total_liab_equity_minor : 0, true,
+                  mergeAccounts("Дансны өглөг", "Цалингийн өглөг", "Татвар, НДШ-ийн өглөг", "Богино хугацаат зээл", "Бусад богино хугацаат өр", "Урт хугацаат өр төлбөр", "Хувь нийлүүлсэн хөрөнгө", "Хуримтлагдсан ашиг", "Тайлант үеийн ашиг"))}
             </tbody>
           </table>
         </div>
@@ -2453,9 +2686,13 @@ async function renderFinancialStatementsTab() {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
           <div>
             <h3 style="font-size:18px; font-weight:800; margin:0;">Орлого үр дүнгийн тайлан (СТ-2)</h3>
-            <p class="muted" style="margin-top:2px;">Сангийн Сайдын 2017 оны 361 дүгээр тушаалын хавсралт СТ-2</p>
+            <p class="muted" style="margin-top:2px;">Сангийн Сайдын 2017 оны 361 дүгээр тушаалын хавсралт СТ-2 · Мөр дээр дарж дансны задаргааг харна</p>
           </div>
-          <button class="btn secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> Хэвлэх</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn secondary" onclick="toggleAllFsRows(true)"><i class="fa-solid fa-angles-down"></i> Бүгдийг задлах</button>
+            <button class="btn secondary" onclick="toggleAllFsRows(false)"><i class="fa-solid fa-angles-up"></i> Хураах</button>
+            <button class="btn secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> Хэвлэх</button>
+          </div>
         </div>
         <div style="overflow-x:auto">
           <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
@@ -2468,109 +2705,208 @@ async function renderFinancialStatementsTab() {
               </tr>
             </thead>
             <tbody>
-              ${formatComparativeRow("1", "Борлуулалтын орлого", getIncVal(inc, "revenue"), getIncVal(prevInc, "revenue"))}
-              ${formatComparativeRow("2", "Борлуулалтын өртөг (ББӨ)", getIncVal(inc, "cogs"), getIncVal(prevInc, "cogs"))}
-              ${formatComparativeRow("3", "НИЙТ АШИГ БА АЛДАГДАЛ", getIncVal(inc, "gross"), getIncVal(prevInc, "gross"), true)}
-              ${formatComparativeRow("4", "Үйл ажиллагааны зардал", getIncVal(inc, "exp"), getIncVal(prevInc, "exp"))}
-              ${formatComparativeRow("5", "Татвар төлөхийн өмнөх ашиг", getIncVal(inc, "gross") - getIncVal(inc, "exp"), (prevInc ? getIncVal(prevInc, "gross") - getIncVal(inc, "exp") : 0), true)}
-              ${formatComparativeRow("6", "Орлогын албан татвар (ОАТ)", Math.round((getIncVal(inc, "gross") - getIncVal(inc, "exp")) * (parseInt(window._fsCitRate, 10)/100)), 0)}
-              ${formatComparativeRow("7", "ТАЙЛАНТ ҮЕИЙН ЦЭВЭР АШИГ БА АЛДАГДАЛ", getIncVal(inc, "net"), getIncVal(prevInc, "net"), true)}
+              ${formatComparativeRow("1", "Борлуулалтын орлого", getIncVal(inc, "revenue"), getIncVal(prevInc, "revenue"), false, getIncAccounts("revenue"))}
+              ${formatComparativeRow("2", "Борлуулалтын өртөг (ББӨ)", getIncVal(inc, "cogs"), getIncVal(prevInc, "cogs"), false, getIncAccounts("cogs"))}
+              ${formatComparativeRow("3", "НИЙТ АШИГ БА АЛДАГДАЛ", getIncVal(inc, "gross"), getIncVal(prevInc, "gross"), true, mergeIncAccounts(["revenue", 1], ["cogs", -1]))}
+              ${formatComparativeRow("4", "Үйл ажиллагааны зардал", getIncVal(inc, "exp"), getIncVal(prevInc, "exp"), false, getIncAccounts("expenses"))}
+              ${formatComparativeRow("5", "Бусад орлого (хүү, ханшийн зөрүү г.м.)", getIncVal(inc, "other"), getIncVal(prevInc, "other"), false, getIncAccounts("other_income"))}
+              ${formatComparativeRow("6", "Татвар төлөхийн өмнөх ашиг", getIncVal(inc, "pretax"), getIncVal(prevInc, "pretax"), true, pretaxAccounts)}
+              ${formatComparativeRow("7", `Орлогын албан татвар (ОАТ ${window._fsCitRate}%)`, citCur, citPrev)}
+              ${formatComparativeRow("8", "ТАЙЛАНТ ҮЕИЙН ЦЭВЭР АШИГ БА АЛДАГДАЛ", getIncVal(inc, "pretax") - citCur, getIncVal(prevInc, "pretax") - citPrev, true,
+                  [...pretaxAccounts, { code: "ОАТ", name: "Орлогын албан татвар (тооцоолсон, дэвтэрт бүртгэгдээгүй)", cur: -citCur, prev: -citPrev }])}
             </tbody>
           </table>
         </div>
+        ${citCur ? `
+          <div style="margin-top:14px; padding:10px 14px; border-radius:8px; border:1px solid var(--warning); background:rgba(245,158,11,.08); font-size:12.5px;">
+            <i class="fa-solid fa-circle-info" style="color:var(--warning)"></i>
+            <b>ОАТ ${window._fsCitRate}% (${fmt(citCur)}) нь тооцоолсон дүн бөгөөд дэвтэрт хуримтлуулж бичигдээгүй.</b>
+            Тиймээс СТ-1-ийн "Тайлант үеийн ашиг" нь татварын өмнөх дүнгээр (${fmt(getIncVal(inc, "pretax"))}) тусгагдсан хэвээр байна.
+            Уялдуулахын тулд <b>Дт 7120 / Кт 3104</b> бичилтийг хийнэ үү.
+          </div>` : ''}
       </div>
     `;
   } else if (window._fsTab === "st3") {
-    statementHtml = `
-      <div class="card" style="padding:20px; margin-top:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-          <div>
-            <h3 style="font-size:18px; font-weight:800; margin:0;">Өмчийн өөрчлөлтийн тайлан (СТ-3)</h3>
-            <p class="muted" style="margin-top:2px;">Сангийн Сайдын 2017 оны 361 дүгээр тушаалын хавсралт СТ-3</p>
+    if (!eq || !eq.current) {
+      statementHtml = fsEmptyCard("Өмчийн өөрчлөлтийн тайлан (СТ-3)",
+        "Өмчийн өөрчлөлтийн мэдээллийг татаж чадсангүй. Огнооны мужаа шалгаад дахин оролдоно уу.");
+    } else {
+      const eqRow = (num, label, cell, bold = false, accounts = null) => {
+        const rows = (accounts || []).filter(a => a.cur);
+        const key = `st3|${num}`;
+        const isOpen = !!window._fsOpenRows[key];
+        const caret = rows.length
+          ? `<i class="fa-solid fa-chevron-right" data-fs-caret="${esc(key)}" style="font-size:10px; width:12px; margin-right:8px; color:var(--primary); transition:transform .18s; transform:rotate(${isOpen ? 90 : 0}deg);"></i>`
+          : `<span style="display:inline-block; width:20px;"></span>`;
+        const badge = rows.length
+          ? `<span style="margin-left:8px; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:9px; background:rgba(20,241,149,.12); color:var(--primary); vertical-align:middle;">${rows.length} данс</span>` : '';
+        const num3 = (v, extra = '') => `<td class="num" style="padding:10px 14px; text-align:right; ${extra}">${v ? fmt(v) : '-'}</td>`;
+        const main = `
+          <tr style="${bold ? 'font-weight:700; background-color:rgba(248,250,252,.05);' : ''} border-bottom:1px solid var(--border); ${rows.length ? 'cursor:pointer;' : ''}"
+              ${rows.length ? `onclick="toggleFsRow('${esc(key)}')" title="Дансны задаргааг харах"` : ''}>
+            <td style="padding:10px 14px; text-align:center; width:80px; font-weight:600; color:var(--text-muted);">${num}</td>
+            <td style="padding:10px 14px;">${caret}${label}${badge}</td>
+            ${num3(cell.capital)}${num3(cell.retained)}${num3(cell.total, bold ? 'font-weight:800;' : '')}
+          </tr>`;
+        const kids = rows.map(a => `
+          <tr data-fs-detail="${esc(key)}" style="display:${isOpen ? '' : 'none'}; background:rgba(148,163,184,.06); border-bottom:1px solid var(--border);">
+            <td style="padding:7px 14px; text-align:center; font-size:12px; font-weight:700; color:var(--primary);">${esc(a.code)}</td>
+            <td style="padding:7px 14px 7px 42px; font-size:12.5px; color:var(--text-muted);">
+              <a href="javascript:void(0)" onclick="event.stopPropagation(); fsDrillAccount('${esc(a.code)}')"
+                 style="color:inherit; text-decoration:none; border-bottom:1px dashed var(--border-dark);">${esc(a.name)}</a>
+            </td>
+            <td class="num" style="padding:7px 14px; text-align:right; font-size:12.5px;">${a.col === 'capital' && a.cur ? fmt(a.cur) : '-'}</td>
+            <td class="num" style="padding:7px 14px; text-align:right; font-size:12.5px;">${a.col === 'retained' && a.cur ? fmt(a.cur) : '-'}</td>
+            <td class="num" style="padding:7px 14px; text-align:right; font-size:12.5px;">${a.cur ? fmt(a.cur) : '-'}</td>
+          </tr>`).join('');
+        return main + kids;
+      };
+
+      const c = eq.current;
+      const endAcc = c.end_accounts || { capital: [], retained: [] };
+      const endAccounts = [
+        ...(endAcc.capital || []).map(a => ({ code: a.code, name: a.name, cur: a.amount_minor, col: 'capital' })),
+        ...(endAcc.retained || []).map(a => ({ code: a.code, name: a.name, cur: a.amount_minor, col: 'retained' })),
+        { code: '5x-7x', name: 'Хаагаагүй тайлант үеийн ашиг (алдагдал)', col: 'retained',
+          cur: c.end.retained - (endAcc.retained || []).reduce((s, a) => s + a.amount_minor, 0) },
+      ];
+      const bsEquity = bs.equity.reduce((s, r) => s + r.amount_minor, 0);
+      const tieOk = c.end.total === bsEquity;
+
+      statementHtml = `
+        <div class="card" style="padding:20px; margin-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <div>
+              <h3 style="font-size:18px; font-weight:800; margin:0;">Өмчийн өөрчлөлтийн тайлан (СТ-3)</h3>
+              <p class="muted" style="margin-top:2px;">Сангийн Сайдын 2017 оны 361 дүгээр тушаалын хавсралт СТ-3 · ${window._repFrom} — ${window._repTo}</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn secondary" onclick="toggleAllFsRows(true)"><i class="fa-solid fa-angles-down"></i> Бүгдийг задлах</button>
+              <button class="btn secondary" onclick="toggleAllFsRows(false)"><i class="fa-solid fa-angles-up"></i> Хураах</button>
+              <button class="btn secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> Хэвлэх</button>
+            </div>
           </div>
-          <button class="btn secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> Хэвлэх</button>
+          <div style="overflow-x:auto">
+            <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+              <thead>
+                <tr style="background-color: var(--border); border-bottom: 2px solid var(--border-dark)">
+                  <th style="padding:10px 14px; text-align:center;">Мөрийн дугаар</th>
+                  <th style="padding:10px 14px; text-align:left;">Үзүүлэлт</th>
+                  <th style="padding:10px 14px; text-align:right; width:200px;">Хувь нийлүүлсэн хөрөнгө</th>
+                  <th style="padding:10px 14px; text-align:right; width:200px;">Хуримтлагдсан ашиг</th>
+                  <th style="padding:10px 14px; text-align:right; width:200px;">Нийт дүн</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${eq.prior ? `
+                  <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="5">${fromYear - 1} ОНЫ ТАЙЛАНТ ҮЕ</td></tr>
+                  ${eqRow("0.1", "Эхний үлдэгдэл", eq.prior.start)}
+                  ${eqRow("0.2", "Тайлант үеийн цэвэр ашиг (алдагдал)", eq.prior.net_income)}
+                  ${eqRow("0.3", "Бусад өөрчлөлт (хувь нэмэгдүүлэлт, ногдол ашиг)", eq.prior.changes)}
+                  ${eqRow("0.0", "Эцсийн үлдэгдэл", eq.prior.end, true)}
+                ` : ''}
+                <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="5">${fromYear} ОНЫ ТАЙЛАНТ ҮЕ</td></tr>
+                ${eqRow("1", "Эхний үлдэгдэл", c.start)}
+                ${eqRow("2", "Тайлант үеийн цэвэр ашиг (алдагдал)", c.net_income)}
+                ${eqRow("3", "Бусад өөрчлөлт (хувь нэмэгдүүлэлт, ногдол ашиг)", c.changes)}
+                ${eqRow("4", "Эцсийн үлдэгдэл", c.end, true, endAccounts)}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:14px; padding:10px 14px; border-radius:8px; font-size:12.5px;
+               border:1px solid ${tieOk ? 'var(--primary)' : 'var(--danger)'}; background:${tieOk ? 'rgba(20,241,149,.08)' : 'rgba(239,68,68,.08)'};">
+            <i class="fa-solid ${tieOk ? 'fa-circle-check' : 'fa-triangle-exclamation'}" style="color:${tieOk ? 'var(--primary)' : 'var(--danger)'}"></i>
+            ${tieOk
+              ? `Эцсийн үлдэгдэл СТ-1-ийн "Нийт эздийн өмч"-тэй таарч байна (${fmt(bsEquity)}).`
+              : `<b>Зөрүү илэрлээ:</b> СТ-3 эцсийн үлдэгдэл ${fmt(c.end.total)}, СТ-1 нийт өмч ${fmt(bsEquity)} — зөрүү ${fmt(c.end.total - bsEquity)}.`}
+          </div>
         </div>
-        <div style="overflow-x:auto">
-          <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
-            <thead>
-              <tr style="background-color: var(--border); border-bottom: 2px solid var(--border-dark)">
-                <th style="padding:10px 14px; text-align:center;">Мөрийн дугаар</th>
-                <th style="padding:10px 14px; text-align:left;">Үзүүлэлт</th>
-                <th style="padding:10px 14px; text-align:right; width:220px;">Хувь нийлүүлсэн хөрөнгө</th>
-                <th style="padding:10px 14px; text-align:right; width:220px;">Хуримтлагдсан ашиг</th>
-                <th style="padding:10px 14px; text-align:right; width:220px;">Нийт дүн</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:10px 14px; text-align:center; font-weight:600; color:var(--text-muted);">1</td>
-                <td style="padding:10px 14px;">Эхний үлдэгдэл</td>
-                <td class="num" style="padding:10px 14px; text-align:right;">${fmt(getVal(prevBs, "Хувь нийлүүлсэн хөрөнгө"))}</td>
-                <td class="num" style="padding:10px 14px; text-align:right;">${fmt(getVal(prevBs, "Хуримтлагдсан ашиг"))}</td>
-                <td class="num" style="padding:10px 14px; text-align:right; font-weight:700;">${fmt(getVal(prevBs, "Хувь нийлүүлсэн хөрөнгө") + getVal(prevBs, "Хуримтлагдсан ашиг"))}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:10px 14px; text-align:center; font-weight:600; color:var(--text-muted);">2</td>
-                <td style="padding:10px 14px;">Тайлант үеийн цэвэр ашиг</td>
-                <td class="num" style="padding:10px 14px; text-align:right;">-</td>
-                <td class="num" style="padding:10px 14px; text-align:right;">${fmt(getIncVal(inc, "net"))}</td>
-                <td class="num" style="padding:10px 14px; text-align:right; font-weight:700;">${fmt(getIncVal(inc, "net"))}</td>
-              </tr>
-              <tr style="font-weight:700; background-color:rgba(248, 250, 252, 0.05); border-bottom:1px solid var(--border)">
-                <td style="padding:10px 14px; text-align:center; font-weight:600; color:var(--text-muted);">3</td>
-                <td style="padding:10px 14px;">Эцсийн үлдэгдэл</td>
-                <td class="num" style="padding:10px 14px; text-align:right;">${fmt(getVal(bs, "Хувь нийлүүлсэн хөрөнгө"))}</td>
-                <td class="num" style="padding:10px 14px; text-align:right;">${fmt(getVal(bs, "Хуримтлагдсан ашиг"))}</td>
-                <td class="num" style="padding:10px 14px; text-align:right; font-weight:800;">${fmt(getVal(bs, "Хувь нийлүүлсэн хөрөнгө") + getVal(bs, "Хуримтлагдсан ашиг"))}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
+      `;
+    }
   } else if (window._fsTab === "st4") {
-    const opIn = getVal(bs, "Мөнгө") > 0 ? getVal(bs, "Мөнгө") * 1.2 : 0;
-    const opOut = getVal(bs, "Мөнгө") > 0 ? getVal(bs, "Мөнгө") * 0.9 : 0;
-    const netOp = opIn - opOut;
-    statementHtml = `
-      <div class="card" style="padding:20px; margin-top:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-          <div>
-            <h3 style="font-size:18px; font-weight:800; margin:0;">Мөнгөн гүйлгээний тайлан (СТ-4)</h3>
-            <p class="muted" style="margin-top:2px;">Сангийн Сайдын 2017 оны 361 дүгээр тушаалын хавсралт СТ-4 (Шууд арга)</p>
+    if (!cf || !cf.current) {
+      statementHtml = fsEmptyCard("Мөнгөн гүйлгээний тайлан (СТ-4)",
+        "Мөнгөн гүйлгээний мэдээллийг татаж чадсангүй. Огнооны мужаа шалгаад дахин оролдоно уу.");
+    } else {
+      const cur = cf.current, pre = cf.prior || null;
+      const d = cur.detail || {}, pd = (pre && pre.detail) || {};
+      // Задаргааны мөрийг дансны мөртэй ижил бүтэцтэй болгоно
+      const item = (code, name, key) => ({ code, name, cur: d[key] || 0, prev: pd[key] || 0 });
+      const opInItems = [
+        item("51/12", "Борлуулалт, авлагын төлбөрөөс", "op_in_sales"),
+        item("52-54", "Хүү, ханшийн зөрүү, бусад орлогоос", "op_in_other"),
+      ];
+      const opOutItems = [
+        item("61/21/3101", "Бараа материал, нийлүүлэгчийн төлбөр", "op_out_materials"),
+        item("3102/7101", "Цалин, хөдөлмөрийн хөлс", "op_out_salary"),
+        item("3103/7102", "Нийгмийн даатгалын шимтгэл", "op_out_ndsh"),
+        item("3104-3106", "Татварын төлбөр", "op_out_tax"),
+        item("бусад", "Бусад үйл ажиллагааны зарлага", "op_out_other"),
+      ];
+      const invInItems = [item("25/26", "Үндсэн ба биет бус хөрөнгө борлуулснаас", "inv_in_assets")];
+      const invOutItems = [item("25/26", "Үндсэн ба биет бус хөрөнгө худалдан авахад", "inv_out_assets")];
+      const finInItems = [
+        item("41-44", "Хувь нийлүүлсэн хөрөнгө оруулснаас", "fin_in_capital"),
+        item("32/35", "Зээл авснаас", "fin_in_loans"),
+      ];
+      const finOutItems = [
+        item("32/35", "Зээлийн эргэн төлөлт", "fin_out_loans"),
+        item("3107/45", "Ногдол ашиг, өмчийн бууралт", "fin_out_dividends"),
+      ];
+      const all = (...groups) => groups.flat();
+
+      statementHtml = `
+        <div class="card" style="padding:20px; margin-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <div>
+              <h3 style="font-size:18px; font-weight:800; margin:0;">Мөнгөн гүйлгээний тайлан (СТ-4)</h3>
+              <p class="muted" style="margin-top:2px;">Сангийн Сайдын 2017 оны 361 дүгээр тушаалын хавсралт СТ-4 (Шууд арга) · Мөр дээр дарж задаргааг харна</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn secondary" onclick="toggleAllFsRows(true)"><i class="fa-solid fa-angles-down"></i> Бүгдийг задлах</button>
+              <button class="btn secondary" onclick="toggleAllFsRows(false)"><i class="fa-solid fa-angles-up"></i> Хураах</button>
+              <button class="btn secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> Хэвлэх</button>
+            </div>
           </div>
-          <button class="btn secondary" onclick="window.print()"><i class="fa-solid fa-print"></i> Хэвлэх</button>
+          <div style="overflow-x:auto">
+            <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+              <thead>
+                <tr style="background-color: var(--border); border-bottom: 2px solid var(--border-dark)">
+                  <th style="padding:10px 14px; text-align:center;">Мөрийн дугаар</th>
+                  <th style="padding:10px 14px; text-align:left;">Үзүүлэлт</th>
+                  <th style="padding:10px 14px; text-align:right; width:220px;">${fromYear - 1} оны тайлант үе</th>
+                  <th style="padding:10px 14px; text-align:right; width:220px;">${fromYear} оны тайлант үе</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">1. ҮЙЛ АЖИЛЛАГААНЫ МӨНГӨН ГҮЙЛГЭЭ</td></tr>
+                ${formatComparativeRow("1.1", "Үйл ажиллагаанаас орсон мөнгө", cur.operating_inflow, pre ? pre.operating_inflow : 0, false, opInItems)}
+                ${formatComparativeRow("1.2", "Үйл ажиллагаанд гарсан мөнгө", cur.operating_outflow, pre ? pre.operating_outflow : 0, false, opOutItems)}
+                ${formatComparativeRow("1.0", "Үйл ажиллагааны цэвэр мөнгөн гүйлгээ", cur.operating_net, pre ? pre.operating_net : 0, true, all(opInItems, opOutItems.map(negItem)))}
+
+                <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">2. ХӨРӨНГӨ ОРУУЛАЛТЫН МӨНГӨН ГҮЙЛГЭЭ</td></tr>
+                ${formatComparativeRow("2.1", "Хөрөнгө борлуулснаас орсон мөнгө", cur.investing_inflow, pre ? pre.investing_inflow : 0, false, invInItems)}
+                ${formatComparativeRow("2.2", "Хөрөнгө худалдан авахад гарсан мөнгө", cur.investing_outflow, pre ? pre.investing_outflow : 0, false, invOutItems)}
+                ${formatComparativeRow("2.0", "Хөрөнгө оруулалтын цэвэр мөнгөн гүйлгээ", cur.investing_net, pre ? pre.investing_net : 0, true, all(invInItems, invOutItems.map(negItem)))}
+
+                <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">3. САНХҮҮЖИЛТИЙН МӨНГӨН ГҮЙЛГЭЭ</td></tr>
+                ${formatComparativeRow("3.1", "Санхүүжилтээс орсон мөнгө", cur.financing_inflow, pre ? pre.financing_inflow : 0, false, finInItems)}
+                ${formatComparativeRow("3.2", "Санхүүжилтэд гарсан мөнгө", cur.financing_outflow, pre ? pre.financing_outflow : 0, false, finOutItems)}
+                ${formatComparativeRow("3.0", "Санхүүжилтийн цэвэр мөнгөн гүйлгээ", cur.financing_net, pre ? pre.financing_net : 0, true, all(finInItems, finOutItems.map(negItem)))}
+
+                ${formatComparativeRow("10.0", "Мөнгө, түүнтэй адилтгах хөрөнгийн цэвэр өөрчлөлт", cur.net_change, pre ? pre.net_change : 0, true,
+                    all(opInItems, opOutItems.map(negItem), invInItems, invOutItems.map(negItem), finInItems, finOutItems.map(negItem)))}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:14px; padding:10px 14px; border-radius:8px; font-size:12.5px; border:1px solid var(--border-dark); background:rgba(148,163,184,.06);">
+            <i class="fa-solid fa-circle-info" style="color:var(--text-muted)"></i>
+            Шууд аргаар — мөнгө/банкны данс (10xx, 11xx) хөндсөн журналын бичилт бүрийг эсрэг дансны кодоор нь ангилж бодов.
+            Цэвэр өөрчлөлт нь мөнгөн хөрөнгийн бодит хөдөлгөөнтэй тэнцэнэ.
+          </div>
         </div>
-        <div style="overflow-x:auto">
-          <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
-            <thead>
-              <tr style="background-color: var(--border); border-bottom: 2px solid var(--border-dark)">
-                <th style="padding:10px 14px; text-align:center;">Мөрийн дугаар</th>
-                <th style="padding:10px 14px; text-align:left;">Үзүүлэлт</th>
-                <th style="padding:10px 14px; text-align:right; width:220px;">${fromYear - 1} оны тайлант үе</th>
-                <th style="padding:10px 14px; text-align:right; width:220px;">${fromYear} оны тайлант үе</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">1. ⁠ҮЙЛ АЖИЛЛАГААНЫ МӨНГӨН ГҮЙЛГЭЭ</td></tr>
-              ${formatComparativeRow("1.1", "Борлуулалт, үйлчилгээний орлогоос орсон мөнгө", opIn * 0.9, opIn)}
-              ${formatComparativeRow("1.2", "Материал, цалин, даатгал, татварын зарлагад гарсан мөнгө", opOut * 0.9, opOut)}
-              ${formatComparativeRow("1.0", "Үйл ажиллагааны цэвэр мөнгөн гүйлгээний дүн", netOp * 0.9, netOp, true)}
-              
-              <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">2. ⁠ХӨРӨНГӨ ОРУУЛАЛТЫН МӨНГӨН ГҮЙЛГЭЭ</td></tr>
-              ${formatComparativeRow("2.1", "Үндсэн хөрөнгө худалдан авахад гарсан мөнгө", 0, 0)}
-              ${formatComparativeRow("2.0", "Хөрөнгө оруулалтын цэвэр мөнгөн гүйлгээний дүн", 0, 0, true)}
-              
-              <tr style="font-weight:700; background-color: var(--border);"><td style="padding:8px 14px;" colspan="4">3. ⁠САНХҮҮЖИЛТИЙН МӨНГӨН ГҮЙЛГЭЭ</td></tr>
-              ${formatComparativeRow("3.1", "Банкны зээл авснаас орсон мөнгө", 0, 0)}
-              ${formatComparativeRow("3.0", "Санхүүжилтийн цэвэр мөнгөн гүйлгээний дүн", 0, 0, true)}
-              
-              ${formatComparativeRow("10.0", "Мөнгө, түүнтэй адилтгах хөрөнгийн цэвэр өөрчлөлт", netOp * 0.9, netOp, true)}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
+      `;
+    }
   }
 
   $('#content').innerHTML = `
@@ -2623,6 +2959,33 @@ async function renderFinancialStatementsTab() {
       ${statementHtml}
     </div>
   `;
+
+  // ---- Дансны задаргааны dropdown удирдлага
+  window.toggleFsRow = (key) => {
+    const open = !window._fsOpenRows[key];
+    window._fsOpenRows[key] = open;
+    document.querySelectorAll(`tr[data-fs-detail="${CSS.escape(key)}"]`)
+      .forEach(el => { el.style.display = open ? '' : 'none'; });
+    const caret = document.querySelector(`i[data-fs-caret="${CSS.escape(key)}"]`);
+    if (caret) caret.style.transform = `rotate(${open ? 90 : 0}deg)`;
+  };
+
+  window.toggleAllFsRows = (open) => {
+    document.querySelectorAll('#fsStatementView i[data-fs-caret]').forEach(c => {
+      const key = c.getAttribute('data-fs-caret');
+      if (!!window._fsOpenRows[key] !== open) window.toggleFsRow(key);
+    });
+  };
+
+  // Дансны мөр дээр дарахад Гүйлгээний баланс руу шүүлттэй нь шилжинэ
+  window.fsDrillAccount = (code) => {
+    window._tbSearch = code;
+    window._tbFrom = window._repFrom;
+    window._tbTo = window._repTo;
+    window._tbGroup = "all";
+    window._tbShowEmpty = false;
+    switchTab('tb');
+  };
 
   window.switchFsTab = (t) => {
     window._fsTab = t;
@@ -4469,10 +4832,14 @@ async function reportsTab() {
   } else {
     // Internal reports view
     $('#report-view-content').innerHTML = `
-      <!-- Tax Reports Actions -->
+      <!-- Tax & Special Reports Actions -->
       <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
-        <button class="btn" onclick="showVatReport()"><i class="fa-solid fa-calculator"></i> 1%-ийн Татварын тайлан (TT-01)</button>
-        <button class="btn secondary" onclick="showIndirectCF()"><i class="fa-solid fa-money-bill-transfer"></i> Шууд бус мөнгөн гүйлгээний тайлан</button>
+        <button class="btn" onclick="showFinancialNotesModal()"><i class="fa-solid fa-list-check"></i> 📋 12 Тодруулга Маягт</button>
+        <button class="btn secondary" onclick="showNbfiModal()"><i class="fa-solid fa-building-columns"></i> 🏦 СЗХ ББСБ Тайлан & Мэдэгдэл</button>
+        <button class="btn secondary" onclick="showTt02Modal()"><i class="fa-solid fa-file-invoice-dollar"></i> 📊 ААНОАТ (ТТ-02)</button>
+        <button class="btn secondary" onclick="showTt11Modal()"><i class="fa-solid fa-users"></i> 💼 ХХОАТ (ТТ-11)</button>
+        <button class="btn secondary" onclick="showVatReport()"><i class="fa-solid fa-calculator"></i> 1%-ийн Татварын тайлан (TT-01)</button>
+        <button class="btn secondary" onclick="showIndirectCF()"><i class="fa-solid fa-money-bill-transfer"></i> Шууд бус мөнгөн гүйлгээ</button>
       </div>
 
       <!-- VAT Report TT-03a Summary -->
@@ -4574,6 +4941,175 @@ function exportSingleReport(type) {
   }
   
   downloadFile(`/companies/${companyId}/reports/export-single?report_type=${type}&date_from=${fromDate}&date_to=${toDate}`, filename);
+}
+
+// ---------------------------------------------------- New Financial Report Modals
+async function showFinancialNotesModal() {
+  const fromDate = $('#repFrom').value;
+  const toDate = $('#repTo').value;
+  const fn = await api(`/companies/${companyId}/reports/notes?date_from=${fromDate}&date_to=${toDate}`);
+  
+  $('#modalCard').style.width = '700px';
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-between; align-items:center; margin-bottom:16px;">
+      <h2><i class="fa-solid fa-list-check" style="color:var(--primary)"></i> Санхүүгийн Тайлангийн 12 Тодруулга Маягт</h2>
+      <button class="btn secondary" onclick="exportSingleReport('notes')"><i class="fa-solid fa-file-excel"></i> Excel Татах</button>
+    </div>
+    <div style="max-height: 70vh; overflow-y: auto; padding-right:8px;">
+      <div class="card" style="margin-bottom:12px;">
+        <h3>Тодруулга 1: Мөнгө ба мөнгөн адилтгах хөрөнгө</h3>
+        <table>
+          <tr><td>Касс дахь мөнгө</td><td class="num">${fmt(fn.note_1_cash.cash_box_minor)}</td></tr>
+          <tr><td>Банкин дахь мөнгө</td><td class="num">${fmt(fn.note_1_cash.bank_account_minor)}</td></tr>
+          <tr style="font-weight:700;"><td>Нийт мөнгөн хөрөнгө</td><td class="num">${fmt(fn.note_1_cash.total_minor)}</td></tr>
+        </table>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <h3>Тодруулга 2: Дансны авлага & Бусад авлага</h3>
+        <table>
+          <tr><td>Дансны авлага (Харилцагчдаас авах)</td><td class="num">${fmt(fn.note_2_receivables.trade_minor)}</td></tr>
+          <tr><td>Бусад богино хугацаат авлага</td><td class="num">${fmt(fn.note_2_receivables.other_minor)}</td></tr>
+          <tr style="font-weight:700;"><td>Нийт авлага</td><td class="num">${fmt(fn.note_2_receivables.total_minor)}</td></tr>
+        </table>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <h3>Тодруулга 3: Бараа материал</h3>
+        <table>
+          <tr><td>Түүхий эд, бараа материал</td><td class="num">${fmt(fn.note_3_inventory.raw_materials_minor)}</td></tr>
+          <tr style="font-weight:700;"><td>Нийт бараа материал</td><td class="num">${fmt(fn.note_3_inventory.total_minor)}</td></tr>
+        </table>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <h3>Тодруулга 4: Үндсэн хөрөнгө & Элэгдэл</h3>
+        <table>
+          <tr><td>Үндсэн хөрөнгө (Анхны өртөг)</td><td class="num">${fmt(fn.note_4_ppe.cost_minor)}</td></tr>
+          <tr><td>Хуримтлагдсан элэгдэл</td><td class="num">(${fmt(fn.note_4_ppe.depreciation_minor)})</td></tr>
+          <tr style="font-weight:700;"><td>Үндсэн хөрөнгийн дансны цэвэр үлдэгдэл</td><td class="num">${fmt(fn.note_4_ppe.net_book_value_minor)}</td></tr>
+        </table>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <h3>Тодруулга 5: Өр төлбөрийн тайлан</h3>
+        <table>
+          <tr><td>Дансны өглөг (Бэлтгэн нийлүүлэгчдэд өгөх)</td><td class="num">${fmt(fn.note_5_liabilities.trade_payables_minor)}</td></tr>
+          <tr><td>Цалингийн өглөг</td><td class="num">${fmt(fn.note_5_liabilities.payroll_payable_minor)}</td></tr>
+          <tr><td>Татварын өглөг</td><td class="num">${fmt(fn.note_5_liabilities.tax_payable_minor)}</td></tr>
+          <tr style="font-weight:700;"><td>Нийт богино хугацаат өр төлбөр</td><td class="num">${fmt(fn.note_5_liabilities.total_minor)}</td></tr>
+        </table>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <h3>Тодруулга 6: Үйл ажиллагааны зардлын дэлгэрэнгүй</h3>
+        <table>
+          <tr><td>Борлуулалт, маркетингийн зардал</td><td class="num">${fmt(fn.note_6_expenses.sales_marketing_minor)}</td></tr>
+          <tr><td>Ерөнхий ба удирдлагын зардал</td><td class="num">${fmt(fn.note_6_expenses.general_admin_minor)}</td></tr>
+          <tr style="font-weight:700;"><td>Нийт зардал</td><td class="num">${fmt(fn.note_6_expenses.total_minor)}</td></tr>
+        </table>
+      </div>
+    </div>
+    <div style="text-align:right; margin-top:16px;">
+      <button class="btn secondary" onclick="closeModal()">Хаах</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function showNbfiModal() {
+  const toDate = $('#repTo').value;
+  const nbfi = await api(`/companies/${companyId}/reports/nbfi?as_of_date=${toDate}`);
+  
+  $('#modalCard').style.width = '750px';
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-between; align-items:center; margin-bottom:16px;">
+      <h2><i class="fa-solid fa-building-columns" style="color:var(--primary)"></i> СЗХ ББСБ Санхүүгийн Тайлан ба Мэдэгдэл</h2>
+      <button class="btn secondary" onclick="exportSingleReport('nbfi')"><i class="fa-solid fa-file-excel"></i> Excel Татах</button>
+    </div>
+    <div style="max-height: 70vh; overflow-y: auto; padding-right:8px;">
+      <div class="card" style="margin-bottom:14px; background:linear-gradient(135deg, rgba(20, 241, 149, 0.05), rgba(56, 189, 248, 0.05)); border:1px solid rgba(20,241,149,0.2);">
+        <h3>📜 ${nbfi.representation_statement.statement_title}</h3>
+        <p style="font-size:13px; margin: 8px 0; color:var(--text-muted);">${nbfi.representation_statement.compliance_standards}</p>
+        <ul style="padding-left:20px; font-size:12px; line-height:1.6; color:var(--text);">
+          ${nbfi.representation_statement.guarantees.map(g => `<li>${g}</li>`).join('')}
+        </ul>
+      </div>
+
+      <div class="card" style="margin-bottom:12px;">
+        <h3>СТ-1 ББСБ: Санхүүгийн байдлын тайлан (Нийт хөрөнгө)</h3>
+        <table>
+          <tr><td>Мөнгө ба мөнгөн адилтгах хөрөнгө</td><td class="num">${fmt(nbfi.st1_nbfi_balance_sheet.cash_minor)}</td></tr>
+          <tr><td>Зээлийн портфель (Олгосон зээлүүд)</td><td class="num">${fmt(nbfi.st1_nbfi_balance_sheet.loans_portfolio_minor)}</td></tr>
+          <tr><td>Факторингийн авлага</td><td class="num">${fmt(nbfi.st1_nbfi_balance_sheet.factoring_receivables_minor)}</td></tr>
+          <tr><td>Санхүүгийн хөрөнгө оруулалт & Үүсмэл хөрөнгө</td><td class="num">${fmt(nbfi.st1_nbfi_balance_sheet.investments_minor)}</td></tr>
+          <tr><td>Үндсэн хөрөнгө</td><td class="num">${fmt(nbfi.st1_nbfi_balance_sheet.ppe_minor)}</td></tr>
+          <tr style="font-weight:700; background:rgba(20, 241, 149, 0.1);"><td>НИЙТ АКТИВ</td><td class="num" style="color:var(--primary)">${fmt(nbfi.st1_nbfi_balance_sheet.total_assets_minor)}</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>СТ-2 ББСБ: Орлого үр дүнгийн тайлан</h3>
+        <table>
+          <tr><td>Зээлийн хүүний орлого</td><td class="num">${fmt(nbfi.st2_nbfi_income_statement.interest_income_minor)}</td></tr>
+          <tr><td>Бусад үйл ажиллагааны орлого</td><td class="num">${fmt(nbfi.st2_nbfi_income_statement.other_income_minor)}</td></tr>
+          <tr><td>Зээлийн эрсдэлийн сангийн зардал</td><td class="num">(${fmt(nbfi.st2_nbfi_income_statement.loan_loss_provision_minor)})</td></tr>
+          <tr><td>Ерөнхий ба удирдлагын зардал</td><td class="num">(${fmt(nbfi.st2_nbfi_income_statement.admin_expenses_minor)})</td></tr>
+          <tr style="font-weight:700; background:rgba(56, 189, 248, 0.1);"><td>ЦЭВЭР АШИГ (АЛДАГДАЛ)</td><td class="num" style="color:var(--secondary)">${fmt(nbfi.st2_nbfi_income_statement.net_income_minor)}</td></tr>
+        </table>
+      </div>
+    </div>
+    <div style="text-align:right; margin-top:16px;">
+      <button class="btn secondary" onclick="closeModal()">Хаах</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function showTt02Modal() {
+  const year = $('#repFrom').value.split('-')[0] || 2026;
+  const t2 = await api(`/companies/${companyId}/reports/tax/tt02?year=${year}`);
+  
+  $('#modalCard').style.width = '650px';
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-between; align-items:center; margin-bottom:16px;">
+      <h2><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary)"></i> ААНОАТ-ын Тайлан (Маягт ТТ-02)</h2>
+      <button class="btn secondary" onclick="exportSingleReport('tt02')"><i class="fa-solid fa-file-excel"></i> Excel Татах</button>
+    </div>
+    <div class="card">
+      <table style="width:100%;">
+        <tr><td>Нийт үйл ажиллагааны орлого</td><td class="num">${fmt(t2.gross_revenue_minor)}</td></tr>
+        <tr><td>Зөвшөөрөгдөх хасагдах зардал (ББӨ + Удирдлагын зардал)</td><td class="num">(${fmt(t2.allowable_expenses_minor)})</td></tr>
+        <tr style="font-weight:700; background:#f8fafc;"><td>Татвар ногдуулах орлого (ТНО)</td><td class="num">${fmt(t2.taxable_income_minor)}</td></tr>
+        <tr><td>ААНОАТ-ын хувь хэмжээ</td><td class="num">${t2.tax_rate_percent}%</td></tr>
+        <tr style="font-weight:800; font-size:15px; background:rgba(20,241,149,0.1);"><td>ТООЦОЖ НОГДУУЛСАН ААНОАТ</td><td class="num" style="color:var(--primary-dark)">${fmt(t2.calculated_tax_minor)}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:right; margin-top:16px;">
+      <button class="btn secondary" onclick="closeModal()">Хаах</button>
+    </div>
+  `;
+  openModal();
+}
+
+async function showTt11Modal() {
+  const year = $('#repFrom').value.split('-')[0] || 2026;
+  const t11 = await api(`/companies/${companyId}/reports/tax/tt11?year=${year}`);
+  
+  $('#modalCard').style.width = '650px';
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-between; align-items:center; margin-bottom:16px;">
+      <h2><i class="fa-solid fa-users" style="color:var(--primary)"></i> ХХОАТ-ын Тайлан (Маягт ТТ-11)</h2>
+      <button class="btn secondary" onclick="exportSingleReport('tt11')"><i class="fa-solid fa-file-excel"></i> Excel Татах</button>
+    </div>
+    <div class="card">
+      <table style="width:100%;">
+        <tr><td>Олгосон нийт цалингийн орлого</td><td class="num">${fmt(t11.gross_salary_minor)}</td></tr>
+        <tr><td>Суутгасан НДШ (Даатгуулагчийн 11.5%)</td><td class="num">(${fmt(t11.ndsh_deduction_minor)})</td></tr>
+        <tr style="font-weight:700; background:#f8fafc;"><td>Татвар ногдуулах орлого</td><td class="num">${fmt(t11.taxable_income_minor)}</td></tr>
+        <tr style="font-weight:800; font-size:15px; background:rgba(56,189,248,0.1);"><td>СУУТГАСАН ХХОАТ (10%)</td><td class="num" style="color:var(--secondary)">${fmt(t11.haoat_tax_minor)}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:right; margin-top:16px;">
+      <button class="btn secondary" onclick="closeModal()">Хаах</button>
+    </div>
+  `;
+  openModal();
 }
 
 // ---------------------------------------------------- WIP Tab
