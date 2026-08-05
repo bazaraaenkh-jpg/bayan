@@ -409,13 +409,196 @@ def export_excel(session, company_id: str, year: int, month: int) -> Path:
     ws4.column_dimensions['B'].width = 24
     ws4.column_dimensions['C'].width = 24
 
+    # ---------------------------------------------------------------- Хуудас 5-9
+    # СТ-1..4 нь нэгтгэсэн дүн харуулдаг. Нягтлан бодогчид дүн бүрийн ард
+    # ямар данс, харилцагч, бараа байгааг харах шаардлагатай тул дэлгэрэнгүй
+    # хуудсуудыг нэг файлд хамт гаргана.
+    style = _SheetStyle(font_title, font_header, font_bold, fill_header,
+                        fill_total, align_left, align_right, align_center)
+
+    _sheet_trial_balance(wb, style, session, company_id, company_name, date_from, date_to)
+    _sheet_aging(wb, style, session, company_id, company_name, date_to)
+    _sheet_inventory(wb, style, session, company_id, company_name, date_to)
+    _sheet_fixed_assets(wb, style, session, company_id, company_name, date_to)
+    _sheet_vat(wb, style, session, company_id, company_name, year, month)
+
     # Түр файл үүсгэж хадгална
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx", prefix="bayan_report_")
     tmp_path = Path(tmp.name)
     tmp.close()
-    
+
     wb.save(tmp_path)
     return tmp_path
+
+
+# ==================================================== Дэлгэрэнгүй хуудсууд
+
+class _SheetStyle:
+    """export_excel-ийн загваруудыг дэлгэрэнгүй хуудсууд руу дамжуулна."""
+
+    def __init__(self, title, header, bold, fill_header, fill_total,
+                 left, right, center):
+        self.title, self.header, self.bold = title, header, bold
+        self.fill_header, self.fill_total = fill_header, fill_total
+        self.left, self.right, self.center = left, right, center
+
+
+def _new_sheet(wb, style, title: str, company_name: str, subtitle: str,
+               headers: list[tuple[str, int]]):
+    """Толгой мэдээлэл, баганын нэр бүхий хуудас бэлдэнэ."""
+    ws = wb.create_sheet(title=title)
+    ws["A1"] = company_name
+    ws["A1"].font = style.title
+    ws["A2"] = subtitle
+    ws["A2"].font = style.bold
+    ws.append([])
+
+    row = 4
+    for idx, (name, width) in enumerate(headers, start=1):
+        cell = ws.cell(row=row, column=idx, value=name)
+        cell.font = style.header
+        cell.fill = style.fill_header
+        cell.alignment = style.center
+        ws.column_dimensions[cell.column_letter].width = width
+    # Мөрийн хаягаар царцаана — ws.cell(...) дуудвал хоосон нүд үүсч, дараагийн
+    # append нэг мөр доошилно
+    ws.freeze_panes = f"A{row + 1}"
+    return ws
+
+
+def _write_rows(ws, style, rows: list[list], num_from: int = 2,
+                total_row: list | None = None, empty_note: str = "Мэдээлэл алга."):
+    """Мөрүүдийг бичиж, тоон баганад формат тавина."""
+    if not rows:
+        ws.append([empty_note])
+        return
+    for r in rows:
+        ws.append(r)
+        for col in range(num_from, len(r) + 1):
+            c = ws.cell(row=ws.max_row, column=col)
+            if isinstance(c.value, (int, float)):
+                c.number_format = "#,##0.00"
+                c.alignment = style.right
+    if total_row:
+        ws.append(total_row)
+        for col in range(1, len(total_row) + 1):
+            c = ws.cell(row=ws.max_row, column=col)
+            c.font = style.bold
+            c.fill = style.fill_total
+            if isinstance(c.value, (int, float)):
+                c.number_format = "#,##0.00"
+                c.alignment = style.right
+
+
+def _sheet_trial_balance(wb, style, session, company_id, company_name, d_from, d_to):
+    """Хуудас 5 — Гүйлгээний баланс. СТ-1/СТ-2-ын дүн ямар данснаас гарсныг харуулна."""
+    from .ledger import trial_balance
+
+    ws = _new_sheet(wb, style, "5. Гүйлгээ баланс", company_name,
+                    f"Гүйлгээний баланс · {d_from} — {d_to}",
+                    [("Код", 12), ("Дансны нэр", 42), ("Дебит", 18),
+                     ("Кредит", 18), ("Үлдэгдэл", 18)])
+    tb = [r for r in trial_balance(session, company_id, d_from, d_to)
+          if r["debit_minor"] or r["credit_minor"]]
+    rows = [[r["code"], r["name"], _minor_to_unit(r["debit_minor"]),
+             _minor_to_unit(r["credit_minor"]), _minor_to_unit(r["balance_minor"])]
+            for r in tb]
+    _write_rows(ws, style, rows, num_from=3, total_row=[
+        "", "НИЙТ",
+        _minor_to_unit(sum(r["debit_minor"] for r in tb)),
+        _minor_to_unit(sum(r["credit_minor"] for r in tb)), ""],
+        empty_note="Тайлант хугацаанд гүйлгээ алга.")
+
+
+def _sheet_aging(wb, style, session, company_id, company_name, as_of):
+    """Хуудас 6 — Авлага, өглөгийн насжилт."""
+    from .partners import InvoiceKind, aging_report
+
+    ws = _new_sheet(wb, style, "6. Авлага-Өглөг", company_name,
+                    f"Харилцагчийн насжилт · {as_of}",
+                    [("Төрөл", 14), ("Харилцагч", 34), ("Нэхэмжлэх", 16),
+                     ("Хугацаа", 14), ("Хоцорсон хоног", 16), ("Үлдэгдэл", 18)])
+    rows = []
+    for kind, label in ((InvoiceKind.sales, "Авлага"), (InvoiceKind.purchase, "Өглөг")):
+        for r in aging_report(session, company_id, kind, as_of):
+            rows.append([label, r.get("counterparty", ""), r.get("number", ""),
+                         str(r.get("due_date", "")), r.get("overdue_days", 0),
+                         _minor_to_unit(r.get("outstanding_minor", 0))])
+    _write_rows(ws, style, rows, num_from=5,
+                empty_note="Нээлттэй авлага, өглөг алга.")
+
+
+def _sheet_inventory(wb, style, session, company_id, company_name, as_of):
+    """Хуудас 7 — Бараа материалын үлдэгдэл."""
+    from .inventory import stock_report
+
+    ws = _new_sheet(wb, style, "7. Бараа материал", company_name,
+                    f"Барааны үлдэгдэл · {as_of}",
+                    [("Код", 16), ("Барааны нэр", 38), ("Нэгж", 10),
+                     ("Тоо ширхэг", 14), ("Дундаж өртөг", 16), ("Нийт өртөг", 18)])
+    items = stock_report(session, company_id)
+    rows = [[i.get("code", ""), i.get("name", ""), i.get("unit", ""),
+             i.get("qty", 0), _minor_to_unit(i.get("avg_cost_minor", 0)),
+             _minor_to_unit(i.get("total_cost_minor", 0))] for i in items]
+    _write_rows(ws, style, rows, num_from=4, total_row=[
+        "", "НИЙТ", "", "", "",
+        _minor_to_unit(sum(i.get("total_cost_minor", 0) for i in items))],
+        empty_note="Бараа материалын үлдэгдэл алга.")
+
+
+def _sheet_fixed_assets(wb, style, session, company_id, company_name, as_of):
+    """Хуудас 8 — Үндсэн хөрөнгө ба хуримтлагдсан элэгдэл."""
+    from .assets import asset_register
+
+    ws = _new_sheet(wb, style, "8. Үндсэн хөрөнгө", company_name,
+                    f"Хөрөнгийн бүртгэл ба элэгдэл · {as_of}",
+                    [("Код", 16), ("Хөрөнгийн нэр", 36), ("Ашиглах хугацаа (сар)", 20),
+                     ("Анхны өртөг", 18), ("Хуримтлагдсан элэгдэл", 22),
+                     ("Үлдэгдэл өртөг", 18), ("Төлөв", 12)])
+    regs = asset_register(session, company_id)
+    rows = [[a.get("code", ""), a.get("name", ""), a.get("months", 0),
+             _minor_to_unit(a.get("cost_minor", 0)),
+             _minor_to_unit(a.get("accumulated_minor", 0)),
+             _minor_to_unit(a.get("book_value_minor", 0)),
+             "Ашиглаж буй" if a.get("active") else "Актлагдсан"] for a in regs]
+    _write_rows(ws, style, rows, num_from=3, total_row=[
+        "", "НИЙТ", "",
+        _minor_to_unit(sum(a.get("cost_minor", 0) for a in regs)),
+        _minor_to_unit(sum(a.get("accumulated_minor", 0) for a in regs)),
+        _minor_to_unit(sum(a.get("book_value_minor", 0) for a in regs)), ""],
+        empty_note="Бүртгэлтэй үндсэн хөрөнгө алга.")
+
+
+# ТТ-03А маягтын мөрийн дугаар ба албан ёсны нэр
+_TT03A_LABELS = [
+    ("1_niit_borluulalt",         "1. Нийт борлуулалт"),
+    ("3_noat_nogdoh_borluulalt",  "3. НӨАТ ногдох борлуулалт"),
+    ("26_nogduulsan_tatvar",      "26. Ногдуулсан татвар"),
+    ("31_nogduulsan_niit",        "31. Ногдуулсан татварын нийт дүн"),
+    ("32_niit_hudaldan_avalt",    "32. Нийт худалдан авалт"),
+    ("33_noattai_hudaldan_avalt", "33. НӨАТ-тай худалдан авалт"),
+    ("42_tolson_noat",            "42. Төлсөн НӨАТ"),
+    ("43_hasagdahgui_noat",       "43. Хасагдахгүй НӨАТ"),
+    ("49_hasagdah_noat",          "49. Хасагдах НӨАТ"),
+    ("56_tolboh_zohih",           "56. Төлбөл зохих"),
+    ("57_butsaan_avah",           "57. Буцаан авах"),
+    ("64_etssiin_tolboh",         "64. Эцсийн төлбөл зохих"),
+    ("65_etssiin_butsaan_avah",   "65. Эцсийн буцаан авах"),
+]
+
+
+def _sheet_vat(wb, style, session, company_id, company_name, year, month):
+    """Хуудас 9 — НӨАТ-ын тулгалт (ТТ-03А)."""
+    from .vat import tt03a
+
+    data = tt03a(session, company_id, year, month)
+    ws = _new_sheet(wb, style, "9. НӨАТ (ТТ-03А)", company_name,
+                    f"НӨАТ-ын тайлан · {data.get('period', '')}",
+                    [("Маягтын мөр", 46), ("Дүн (₮)", 22)])
+    vals = data.get("rows", {})
+    rows = [[label, _minor_to_unit(vals.get(key, 0))] for key, label in _TT03A_LABELS]
+    _write_rows(ws, style, rows, num_from=2,
+                empty_note="НӨАТ-ын мэдээлэл алга.")
 
 
 def export_single_excel(session, company_id: str, report_type: str, date_from_str: str | None, date_to_str: str | None) -> Path:
@@ -753,6 +936,45 @@ def export_single_excel(session, company_id: str, report_type: str, date_from_st
             if "Төлбөл зохих" in name or "Буцаан авах" in name:
                 for col in range(1, 3):
                     ws.cell(row=r, column=col).font = font_bold
+
+    elif report_type in ("notes", "nbfi", "tt02", "tt11"):
+        if report_type == "notes":
+            ws.title = "Тодруулга"
+            ws.append([company_name, "Санхүүгийн тайлангийн 12 Тодруулга"])
+            fn = reports.financial_notes(session, company_id, d_from, d_to)
+            ws.append([])
+            ws.append(["Тодруулга 1: Мөнгө ба мөнгөн адилтгах хөрөнгө", _minor_to_unit(fn["note_1_cash"]["total_minor"])])
+            ws.append(["Тодруулга 2: Авлага", _minor_to_unit(fn["note_2_receivables"]["total_minor"])])
+            ws.append(["Тодруулга 3: Бараа материал", _minor_to_unit(fn["note_3_inventory"]["total_minor"])])
+            ws.append(["Тодруулга 4: Үндсэн хөрөнгө (Цэвэр үлдэгдэл)", _minor_to_unit(fn["note_4_ppe"]["net_book_value_minor"])])
+            ws.append(["Тодруулга 5: Өр төлбөр", _minor_to_unit(fn["note_5_liabilities"]["total_minor"])])
+            ws.append(["Тодруулга 6: Зардал (Борлуулалт ба Ерөнхий удирдлага)", _minor_to_unit(fn["note_6_expenses"]["total_minor"])])
+        elif report_type == "nbfi":
+            ws.title = "СЗХ ББСБ Тайлан"
+            ws.append([company_name, "ББСБ-ын СЗХ-ны тусгай тайлан ба Мэдэгдэл"])
+            nbfi = reports.nbfi_financial_reports(session, company_id, d_to)
+            ws.append([])
+            ws.append(["СТ-1 ББСБ Нийт актив", _minor_to_unit(nbfi["st1_nbfi_balance_sheet"]["total_assets_minor"])])
+            ws.append(["СТ-2 ББСБ Цэвэр ашиг", _minor_to_unit(nbfi["st2_nbfi_income_statement"]["net_income_minor"])])
+            ws.append(["Мэдэгдэл", nbfi["representation_statement"]["statement_title"]])
+        elif report_type == "tt02":
+            ws.title = "ААНОАТ ТТ-02"
+            t2 = reports.aanoat_tt02_report(session, company_id, int(date_from_str.split('-')[0]) if date_from_str else 2026)
+            ws.append([company_name, t2["form_name"]])
+            ws.append([])
+            ws.append(["Нийт орлого", _minor_to_unit(t2["gross_revenue_minor"])])
+            ws.append(["Зөвшөөрөгдөх хасагдах зардал", _minor_to_unit(t2["allowable_expenses_minor"])])
+            ws.append(["Татвар ногдуулах орлого", _minor_to_unit(t2["taxable_income_minor"])])
+            ws.append(["Ногдуулсан ААНОАТ (10%)", _minor_to_unit(t2["calculated_tax_minor"])])
+        elif report_type == "tt11":
+            ws.title = "ХХОАТ ТТ-11"
+            t11 = reports.haoat_tt11_report(session, company_id, int(date_from_str.split('-')[0]) if date_from_str else 2026)
+            ws.append([company_name, t11["form_name"]])
+            ws.append([])
+            ws.append(["Олгосон нийт цалин", _minor_to_unit(t11["gross_salary_minor"])])
+            ws.append(["Суутгасан НДШ (11.5%)", _minor_to_unit(t11["ndsh_deduction_minor"])])
+            ws.append(["Татвар ногдуулах орлого", _minor_to_unit(t11["taxable_income_minor"])])
+            ws.append(["Суутгасан ХХОАТ (10%)", _minor_to_unit(t11["haoat_tax_minor"])])
 
     for col in ws.columns:
         max_len = max(len(str(cell.value or '')) for cell in col)
