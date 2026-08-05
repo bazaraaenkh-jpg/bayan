@@ -102,6 +102,45 @@ def test_unmatched_bank_txn_uses_counterparty_name(client):
     assert no_eb[0]["party"] == "НОМИН ГЭГЭЭ ХХК"
 
 
+def test_near_miss_amount_and_date_now_reconcile(client):
+    """1.50₮, 2 хоногийн зөрүүтэй байсан ч тулгагдана (өмнө нь тулгагддаггүй байв)."""
+    company_id, headers = _register(client)
+    _add_bank_txn(company_id, amount_minor=119_998_50,
+                  counterparty_name="НОМИН ГЭГЭЭ ХХК")   # гүйлгээ 07-15
+
+    r = _post(client, company_id, headers,
+              _ebarimt_csv([("2026-07-17", "120000.00", "EB-7", "НОМИН ГЭГЭЭ ХХК")]))
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["matched_count"] == 1
+    matched = [i for i in j["items"] if i["status"] == "MATCHED"][0]
+    assert matched["confidence"] > 0
+    assert "дүнгийн зөрүү" in matched["match_reason"]
+    assert j["unmatched_bank_count"] == 0
+
+
+def test_response_exposes_tolerances_and_review_count(client):
+    company_id, headers = _register(client)
+    _add_bank_txn(company_id, amount_minor=120_000_00)
+    r = _post(client, company_id, headers,
+              _ebarimt_csv([("2026-07-15", "120000.00", "EB-1", "Харилцагч")]))
+    j = r.json()
+    assert j["tolerance"]["amount_mnt"] == 2.0
+    assert j["tolerance"]["date_days"] == 7
+    assert "review_count" in j
+
+
+def test_far_off_amount_still_does_not_match(client):
+    """Зөвшөөрөгдөх хязгаараас гадуур бол тулгахгүй — хуучин хатуу дүрэм хэвээр."""
+    company_id, headers = _register(client)
+    _add_bank_txn(company_id, amount_minor=50_000_00)
+    r = _post(client, company_id, headers,
+              _ebarimt_csv([("2026-07-15", "77000.00", "EB-1", "Харилцагч")]))
+    j = r.json()
+    assert j["matched_count"] == 0
+    assert {i["status"] for i in j["items"]} == {"NO_BANK_PAYMENT", "NO_EBARIMT"}
+
+
 def test_matching_ebarimt_and_bank_amounts(client):
     company_id, headers = _register(client)
     _add_bank_txn(company_id, amount_minor=120_000_00)

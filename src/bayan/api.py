@@ -27,7 +27,8 @@ from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from . import assets, auth, ebarimt, fx, inventory, ledger, partners, reports, storage, vat, wip
+from . import (assets, auth, ebarimt, ebarimt_match, fx, inventory, ledger,
+               partners, reports, storage, vat, wip)
 from .amounts import parse_amount, parse_date
 from .classify import bucket, classify_batch
 from .coa_seed import add_bank_gl_account, seed_company, setup_company
@@ -3067,40 +3068,39 @@ def reconcile_ebarimt_with_bank(
             
     bank_txns = db.scalars(select(BankTxn).where(BankTxn.company_id == company_id)).all()
     
+    # Дүн, огноо, харилцагчийн нэрийг жинлэн тулгана (ebarimt_match.py)
+    results = ebarimt_match.match(ebarimt_items, bank_txns)
+
     used_txn_ids = set()
     items_detail = []
     matched_count = 0
     matched_amount_minor = 0
-    
-    for item in ebarimt_items:
+    review_count = 0
+
+    for item, res in zip(ebarimt_items, results):
         amt = item["total_minor"]
-        match_txn = None
-        for b in bank_txns:
-            if b.id not in used_txn_ids and b.amount_minor == amt:
-                match_txn = b
-                used_txn_ids.add(b.id)
-                break
-                
-        if match_txn:
+        row = {
+            "date": item["date"],
+            "total_mnt": amt / 100,
+            "ebarimt_id": item["receipt_id"],
+            "party": item["party"],
+            "bank_txn_id": res.txn_id,
+            "confidence": res.confidence,
+            "match_reason": ", ".join(res.reasons),
+        }
+        if res.txn_id:
+            used_txn_ids.add(res.txn_id)
             matched_count += 1
             matched_amount_minor += amt
-            items_detail.append({
-                "date": item["date"],
-                "total_mnt": amt / 100,
-                "ebarimt_id": item["receipt_id"],
-                "party": item["party"],
-                "bank_txn_id": match_txn.id,
-                "status": "MATCHED"
-            })
+            # Итгэл багатай тулгалтыг батлахгүй, хүний нүдэнд үлдээнэ
+            row["needs_review"] = not res.auto
+            if not res.auto:
+                review_count += 1
+            row["status"] = "MATCHED"
         else:
-            items_detail.append({
-                "date": item["date"],
-                "total_mnt": amt / 100,
-                "ebarimt_id": item["receipt_id"],
-                "party": item["party"],
-                "bank_txn_id": None,
-                "status": "NO_BANK_PAYMENT"
-            })
+            row["needs_review"] = False
+            row["status"] = "NO_BANK_PAYMENT"
+        items_detail.append(row)
             
     for b in bank_txns:
         if b.id not in used_txn_ids:
@@ -3127,6 +3127,12 @@ def reconcile_ebarimt_with_bank(
         "matched_amount_mnt": matched_amount_minor / 100,
         "unmatched_ebarimt_count": len(ebarimt_items) - matched_count,
         "unmatched_bank_count": len(bank_txns) - matched_count,
+        "review_count": review_count,
+        "tolerance": {
+            "amount_mnt": ebarimt_match.AMOUNT_TOLERANCE_MINOR / 100,
+            "date_days": ebarimt_match.DATE_TOLERANCE_DAYS,
+            "auto_threshold": ebarimt_match.AUTO_MATCH_THRESHOLD,
+        },
         "items": items_detail
     }
 

@@ -7923,10 +7923,16 @@ function filterEbarimtReconTab(filter) {
       <td>${i.party}</td>
       <td class="num"><b>${fmt(i.total_mnt * 100)}</b></td>
       <td>
-        <span class="pill ${i.status === 'MATCHED' ? 'ok' : i.status === 'NO_BANK_PAYMENT' ? 'warn' : 'bad'}">
-          <i class="fa-solid ${i.status === 'MATCHED' ? 'fa-circle-check' : i.status === 'NO_BANK_PAYMENT' ? 'fa-circle-exclamation' : 'fa-circle-xmark'}"></i>
-          ${i.status === 'MATCHED' ? '✓ Таарсан (Автомат ангилагдсан)' : i.status === 'NO_BANK_PAYMENT' ? '⚠ Банкны мөнгө ирээгүй eBarimt' : '✗ eBarimt дутуу банкны гүйлгээ'}
+        <span class="pill ${i.status === 'MATCHED' ? (i.needs_review ? 'warn' : 'ok') : i.status === 'NO_BANK_PAYMENT' ? 'warn' : 'bad'}">
+          <i class="fa-solid ${i.status === 'MATCHED' ? (i.needs_review ? 'fa-circle-question' : 'fa-circle-check') : i.status === 'NO_BANK_PAYMENT' ? 'fa-circle-exclamation' : 'fa-circle-xmark'}"></i>
+          ${i.status === 'MATCHED'
+              ? (i.needs_review ? '? Таарсан — шалгана уу' : '✓ Таарсан')
+              : i.status === 'NO_BANK_PAYMENT' ? '⚠ Банкны мөнгө ирээгүй eBarimt' : '✗ eBarimt дутуу банкны гүйлгээ'}
         </span>
+        ${i.status === 'MATCHED' && i.confidence != null ? `
+          <div style="margin-top:4px; font-size:11px; color:var(--text-muted); line-height:1.45;">
+            Итгэл ${Math.round(i.confidence * 100)}%${i.match_reason ? ' · ' + i.match_reason : ''}
+          </div>` : ''}
       </td>
     </tr>
   `).join('');
@@ -7969,6 +7975,15 @@ function openEbarimtBankReconModal(res) {
         <div style="font-size:11px; color:var(--danger)">eBarimt: ${res.unmatched_ebarimt_count} | Банк: ${res.unmatched_bank_count}</div>
       </div>
     </div>
+
+    ${res.tolerance ? `
+      <div style="margin-bottom:12px; padding:9px 12px; border-radius:8px; font-size:12px; line-height:1.5;
+           border:1px solid var(--border); background:rgba(148,163,184,.06); color:var(--text-muted);">
+        <i class="fa-solid fa-sliders"></i>
+        Тулгалтын зөвшөөрөгдөх зөрүү: дүн <b>±${res.tolerance.amount_mnt}₮</b>, огноо <b>±${res.tolerance.date_days} хоног</b>,
+        харилцагчийн нэрийг ойролцоо утгаар харьцуулна.
+        Итгэл <b>${Math.round(res.tolerance.auto_threshold * 100)}%</b>-иас доош бол шалгах шаардлагатай гэж тэмдэглэнэ${res.review_count ? ` — одоо <b style="color:var(--warning)">${res.review_count}</b> мөр` : ''}.
+      </div>` : ''}
 
     <!-- Tab filters -->
     <div style="display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;">
