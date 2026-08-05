@@ -20,12 +20,13 @@ from .amounts import parse_date
 from .classify import classify_batch
 from .extract_excel import extract_xlsx, scan_cells
 from .models import (
-    BankAccount, BankTxn, ClassificationSuggestion, Direction,
+    Account, BankAccount, BankTxn, ClassificationSuggestion, Company, Direction,
     ExtractionPath, SourceType, Statement, StatementStatus,
 )
 from .normalize import normalize
 from .registry import load_registry, select_descriptor
 from .validate import run_gate
+from .vat import VAT_RATE
 
 
 class PipelineError(Exception):
@@ -181,7 +182,9 @@ def process_file(
     except Exception as e:
         raise PipelineError(f"Файлыг хадгалахад алдаа гарлаа: {e}")
 
-    if not gate.ok:
+    # Зөвхөн орлогын/зарлагын шүүлттэй хуулгаас бусад ноцтой уналтад (V3, V6, холилдсон данс) гүйлгээ хадгалагдахгүй
+    is_single_dir_warning = any("зөвхөн орлогын" in d or "зөвхөн зарлагын" in d for d in gate.diagnosis)
+    if not gate.ok and not is_single_dir_warning:
         return report   # gate даваагүй хуулгын гүйлгээ систем рүү орохгүй
 
     saved: list[BankTxn] = []
@@ -209,6 +212,42 @@ def process_file(
     return report
 
 
+VAT_INPUT_CODE = "1203"        # НӨАТ-ын авлага (худалдан авалт)
+VAT_OUTPUT_CODE = "3105"       # НӨАТ-ын өглөг (борлуулалт)
+
+
+def _split_vat(session: Session, company_id: str, total_minor: int,
+               sug, is_credit: bool) -> tuple[int, int]:
+    """Гүйлгээний дүнг цэвэр дүн ба НӨАТ болгон салгана.
+
+    Монголд үнэ дотор НӨАТ багтсан байдаг тул цэвэр = нийт ÷ 1.1, НӨАТ нь
+    үлдсэн хэсэг. Бүхэл тоогоор бодож үлдэгдлийг НӨАТ-д өгснөөр бичилт үргэлж
+    яг тэнцэнэ.
+
+    Салгахгүй нөхцөл (цэвэр = нийт, НӨАТ = 0):
+      · санал НӨАТ-гүй гэж тэмдэглэсэн
+      · компани НӨАТ төлөгч биш
+      · НӨАТ-ын данс төлөвлөгөөнд байхгүй
+    Салгаагүй тохиолдолд зардал НӨАТ-ын дүнгээр хэтэрч, ТТ-03А тайланд
+    суутгах НӨАТ дутуу орно.
+    """
+    if not getattr(sug, "vat_flag", False) or total_minor <= 0:
+        return total_minor, 0
+
+    company = session.get(Company, company_id)
+    if not company or not company.vat_payer:
+        return total_minor, 0
+
+    code = VAT_OUTPUT_CODE if is_credit else VAT_INPUT_CODE
+    exists = session.scalar(select(Account.id).where(
+        Account.company_id == company_id, Account.code == code))
+    if not exists:
+        return total_minor, 0
+
+    net = int(round(total_minor * 100 / (100 + VAT_RATE)))
+    return net, total_minor - net
+
+
 def approve_suggestions(
     session: Session,
     company_id: str,
@@ -230,20 +269,32 @@ def approve_suggestions(
         txn = session.get(BankTxn, sug.bank_txn_id)
         gl = (bank_gl_code if isinstance(bank_gl_code, str)
               else bank_gl_code[txn.bank_account_key])
-        if txn.direction == Direction.credit:
+        is_credit = txn.direction == Direction.credit
+        net, vat = _split_vat(session, company_id, txn.amount_minor, sug, is_credit)
+        if is_credit:
+            # Мөнгө орсон: Дт банк / Кт орлого (+ Кт НӨАТ-ын өглөг)
             lines = [
                 ledger.LineInput(gl, debit_minor=txn.amount_minor,
                                  description=txn.description_norm),
-                ledger.LineInput(sug.account_code, credit_minor=txn.amount_minor,
+                ledger.LineInput(sug.account_code, credit_minor=net,
                                  description=txn.description_norm),
             ]
+            if vat:
+                lines.append(ledger.LineInput(
+                    VAT_OUTPUT_CODE, credit_minor=vat,
+                    description=f"Борлуулалтын НӨАТ — {txn.description_norm}"))
         else:
+            # Мөнгө гарсан: Дт зардал (+ Дт НӨАТ-ын авлага) / Кт банк
             lines = [
-                ledger.LineInput(sug.account_code, debit_minor=txn.amount_minor,
-                                 description=txn.description_norm),
-                ledger.LineInput(gl, credit_minor=txn.amount_minor,
+                ledger.LineInput(sug.account_code, debit_minor=net,
                                  description=txn.description_norm),
             ]
+            if vat:
+                lines.append(ledger.LineInput(
+                    VAT_INPUT_CODE, debit_minor=vat,
+                    description=f"Худалдан авалтын НӨАТ — {txn.description_norm}"))
+            lines.append(ledger.LineInput(gl, credit_minor=txn.amount_minor,
+                                          description=txn.description_norm))
         entry = ledger.post_entry(
             session, company_id, txn.posted_at.date(), lines,
             source_type=SourceType.bank_txn, source_id=txn.id,
