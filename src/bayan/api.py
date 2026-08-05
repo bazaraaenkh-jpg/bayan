@@ -527,6 +527,39 @@ def list_company_accounts(company_id: str, ctx: dict = Depends(company_guard("re
     } for a in accs]
 
 
+@app.post("/api/companies/{company_id}/accounts/import")
+def import_company_accounts(company_id: str,
+                            file: UploadFile = File(...),
+                            apply: bool = Form(False),
+                            ctx: dict = Depends(company_guard("admin")),
+                            db: Session = Depends(get_db)):
+    """Нягтлангийн өөрийн Excel дансны төлөвлөгөөг оруулна.
+
+    apply=False үед зөвхөн задалж буцаана — хэрэглэгч юу орохыг урьдчилан
+    хараад баталгаажуулна. apply=True үед л өгөгдлийн санд бичнэ."""
+    from . import coa_import
+
+    raw = file.file.read()
+    if not raw:
+        raise HTTPException(400, "Файл хоосон байна.")
+
+    result = coa_import.parse(raw, file.filename or "")
+    payload = result.to_dict()
+    if not result.accounts:
+        raise HTTPException(
+            422, "Дансны код, нэрийн багана танигдсангүй. Файлдаа код, нэр "
+                 "гэсэн хоёр багана байгаа эсэхийг шалгана уу.")
+
+    payload["preview"] = payload.pop("accounts")[:200]
+    payload["parsed_count"] = len(result.accounts)
+
+    if apply:
+        payload.update(coa_import.apply(db, company_id, result.accounts))
+        db.commit()
+    payload["applied"] = bool(apply)
+    return payload
+
+
 class AccountIn(BaseModel):
     code: str
     name: str

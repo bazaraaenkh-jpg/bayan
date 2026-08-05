@@ -1852,6 +1852,50 @@ async function saveUserSettings() {
 }
 
 // ---------------------------------------------------- Chart of Accounts Tab
+// Нягтлангийн өөрийн Excel төлөвлөгөөг оруулах — эхлээд урьдчилан харуулж,
+// зөвшөөрсөн тохиолдолд л санд бичнэ.
+window.importCoaFile = async (input) => {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  input.value = '';
+
+  const send = async (apply) => {
+    const fd = new FormData();
+    fd.append('file', f);
+    fd.append('apply', apply ? 'true' : 'false');
+    const r = await fetch(`/api/companies/${companyId}/accounts/import`,
+      { method: 'POST', body: fd, headers: { Authorization: 'Bearer ' + token() } });
+    const text = await r.text();
+    let res = null;
+    try { res = JSON.parse(text); } catch (_) {}
+    if (!r.ok || !res) throw new Error(
+      res && res.detail ? res.detail : `Серверийн алдаа (${r.status}). ${text.slice(0, 160)}`);
+    return res;
+  };
+
+  try {
+    const p = await send(false);
+    const sample = p.preview.slice(0, 8)
+      .map(a => `  ${a.code}  ${a.name}`).join('\n');
+    const skipped = p.skipped_count
+      ? `\n\nАлгасах ${p.skipped_count} мөр (толгой, нийлбэр, давхардал):\n  ${p.skipped.slice(0, 4).join('\n  ')}`
+      : '';
+    const ok = confirm(
+      `"${f.name}" файлаас ${p.parsed_count} данс танигдлаа.\n\n${sample}` +
+      (p.parsed_count > 8 ? `\n  … бусад ${p.parsed_count - 8}` : '') + skipped +
+      `\n\nОруулах уу? Одоо байгаа данс хөндөгдөхгүй.`);
+    if (!ok) return;
+
+    const done = await send(true);
+    alert(`${done.created} данс шинээр үүслээ.\n` +
+          `${done.skipped_existing} данс аль хэдийн байсан тул алгаслаа.\n` +
+          `Нийт: ${done.total_after} данс.`);
+    renderCoaTab();
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
 async function renderCoaTab() {
   const accs = await api(`/companies/${companyId}/accounts`);
   
@@ -1993,6 +2037,12 @@ async function renderCoaTab() {
           <p class="muted">Компанид идэвхтэй ашиглагдаж буй нийт дансны жагсаалт.</p>
         </div>
         <div style="display:flex; gap:10px; align-items:center;">
+          <input type="file" id="coaImportFile" accept=".xlsx,.xlsm,.xls,.csv"
+                 style="display:none" onchange="importCoaFile(this)">
+          <button class="btn secondary" onclick="document.getElementById('coaImportFile').click()"
+                  title="Өөрийн Excel дансны төлөвлөгөөг оруулах">
+            <i class="fa-solid fa-file-import"></i> Excel-ээс оруулах
+          </button>
           <button class="btn" onclick="coaAdd()"><i class="fa-solid fa-plus"></i> Данс нэмэх</button>
           <div style="width: 240px; position: relative;">
             <input id="coaSearch" class="input-field" placeholder="Код эсвэл нэрээр хайх..." style="padding-left:36px">
@@ -4438,12 +4488,14 @@ async function upload(files) {
       const r = await fetch(`/api/companies/${companyId}/statements`, {
         method: 'POST', body: fd, headers: { Authorization: 'Bearer ' + token() }
       });
-      const j = await r.json();
-      if (r.ok) {
+      const text = await r.text();
+      let j = null;
+      try { j = JSON.parse(text); } catch (_) {}
+      if (r.ok && j) {
         successCount++;
         totalTxns += (j.txn_count || 0);
       } else {
-        errMsgs.push(`${f.name}: ${j.detail || 'уншиж чадсангүй'}`);
+        errMsgs.push(`${f.name}: ${j && j.detail ? j.detail : (text ? text.slice(0, 120) : 'уншиж чадсангүй')}`);
       }
     } catch (err) {
       errMsgs.push(`${f.name}: ${err.message}`);
