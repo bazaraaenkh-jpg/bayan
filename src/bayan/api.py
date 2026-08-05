@@ -3108,7 +3108,7 @@ def reconcile_ebarimt_with_bank(
                 "date": b.posted_at.strftime("%Y-%m-%d") if b.posted_at else "-",
                 "total_mnt": b.amount_minor / 100,
                 "ebarimt_id": "-",
-                "party": b.narration or "Банкны гүйлгээ",
+                "party": b.counterparty_name or b.description_raw or "Банкны гүйлгээ",
                 "bank_txn_id": b.id,
                 "status": "NO_EBARIMT"
             })

@@ -7876,10 +7876,16 @@ async function runEbarimtBankReconciliation() {
       headers: { Authorization: 'Bearer ' + token() },
       body: formData
     });
-    const res = await r.json();
+    // Серверийн дотоод алдаа JSON биш (HTML/текст) буцаадаг тул шууд задалж
+    // болохгүй — эс тэгвэл "is not valid JSON" гэсэн ойлгомжгүй алдаа гарна
+    const text = await r.text();
+    let res = null;
+    try { res = JSON.parse(text); } catch (_) {}
     $('#eb_sync_msg').innerText = "";
-    if (!r.ok) {
-      alert(res.detail || "Алдаа гарлаа.");
+    if (!r.ok || !res) {
+      alert(res && res.detail
+        ? res.detail
+        : `Серверийн алдаа (${r.status}). Дэлгэрэнгүй: ${text.slice(0, 200) || 'хариу хоосон'}`);
       return;
     }
     openEbarimtBankReconModal(res);
