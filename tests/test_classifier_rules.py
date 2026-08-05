@@ -156,3 +156,35 @@ def test_sync_is_idempotent_and_keeps_user_rules(session, company):
     assert mine is not None and mine.priority == 10 and mine.account_code == "3101"
     # Хэрэглэгчийн дүрэм үндсэн дүрмээс ӨМНӨ шалгагдана
     assert _classify(session, company, "МИНИЙ НИЙЛҮҮЛЭГЧ ТӨЛБӨР") == "3101"
+
+
+# ------------------------------------------------------- чиглэлийн утга
+
+def test_credit_means_money_in_when_posted(session, company):
+    """credit = банк руу мөнгө ОРСОН → Дт банк / Кт харьцах данс.
+
+    Энэ бол чиглэлийн утгын эх сурвалж. UI-ийн шошго үүнээс урвуу байвал
+    хэрэглэгч дүрмээ эсрэгээр нь тохируулна."""
+    from bayan import ledger
+    from bayan.models import Direction as D
+    e = ledger.post_entry(session, company.id, __import__("datetime").date(2026, 7, 1), [
+        ledger.LineInput("1101", debit_minor=50_000_00, description="орлого"),
+        ledger.LineInput("5101", credit_minor=50_000_00, description="орлого"),
+    ])
+    from bayan.models import Account
+    bank_id = session.scalar(select(Account.id).where(
+        Account.company_id == company.id, Account.code == "1101"))
+    bank = next(l for l in e.lines if l.account_id == bank_id)
+    assert bank.debit_minor == 50_000_00, "мөнгө орох үед банкны данс дебетлэгдэнэ"
+    assert D.credit.value == "credit"
+
+
+def test_ui_labels_credit_as_income_not_expense():
+    """Дэлгэц дээрх шошго урвуу байсныг барих регресс тест."""
+    from pathlib import Path
+    html = Path(__file__).resolve().parents[1] / "web" / "index.html"
+    text = html.read_text(encoding="utf-8")
+    assert "Зарлага (Credit)" not in text, "credit нь зарлага БИШ — мөнгө орж байна"
+    assert "Орлого (Debit)" not in text, "debit нь орлого БИШ — мөнгө гарч байна"
+    assert "Орлого (Credit)" in text
+    assert "Зарлага — данснаас мөнгө гарсан (Debit)" in text

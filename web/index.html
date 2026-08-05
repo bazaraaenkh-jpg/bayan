@@ -3349,7 +3349,8 @@ async function renderRulesTab() {
   const rows = (rules || []).map(r => `
     <tr style="border-bottom:1px solid var(--border)">
       <td style="padding:10px; font-weight:700;">${r.keyword}</td>
-      <td style="padding:10px;">${r.direction === 'debit' ? '🟢 Орлого (Debit)' : r.direction === 'credit' ? '🔴 Зарлага (Credit)' : 'Бүх чиглэл'}</td>
+      ${/* Банкны хуулгын талаас: credit = данс руу мөнгө ОРСОН, debit = ГАРСАН */ ''}
+      <td style="padding:10px;">${r.direction === 'credit' ? '🟢 Орлого (Credit)' : r.direction === 'debit' ? '🔴 Зарлага (Debit)' : 'Бүх чиглэл'}</td>
       <td style="padding:10px;"><b>${r.account_code}</b></td>
       <td style="padding:10px;">${r.vat_flag ? '✅ Тийм' : '❌ Үгүй'}</td>
       <td style="padding:10px; text-align:center;">${r.priority}</td>
@@ -3397,8 +3398,8 @@ async function renderRulesTab() {
           <label style="font-size:12px; margin-bottom:4px;">Чиглэл</label>
           <select id="rule_direction" class="input-field" style="height:38px;">
             <option value="">Бүгд</option>
-            <option value="debit">Орлого (Debit)</option>
-            <option value="credit">Зарлага (Credit)</option>
+            <option value="credit">Орлого — данс руу мөнгө орсон (Credit)</option>
+            <option value="debit">Зарлага — данснаас мөнгө гарсан (Debit)</option>
           </select>
         </div>
         <div style="display:flex; gap:12px; align-items: center; justify-content: space-between; width: 100%;">
