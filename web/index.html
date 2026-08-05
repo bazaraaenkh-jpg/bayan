@@ -4086,6 +4086,25 @@ async function saveManualJournalEntry() {
 }
 
 // ---------------------------------------------------- Bank Statement Tab
+window.deleteStatement = async (id, file) => {
+  if (!confirm(`"${file}" хуулгыг гүйлгээ, саналын хамт бүрмөсөн устгах уу?\n\nЭнэ үйлдлийг буцаах боломжгүй.`)) return;
+  try {
+    const r = await fetch(`/api/companies/${companyId}/statements/${id}`,
+      { method: 'DELETE', headers: { Authorization: 'Bearer ' + token() } });
+    const text = await r.text();
+    let res = null;
+    try { res = JSON.parse(text); } catch (_) {}
+    if (!r.ok || !res) {
+      alert(res && res.detail ? res.detail : `Устгаж чадсангүй (${r.status}). ${text.slice(0, 160)}`);
+      return;
+    }
+    alert(`Устгалаа: ${res.file}\n${res.deleted_txns} гүйлгээ цэвэрлэгдлээ.`);
+    statements();
+  } catch (e) {
+    alert('Холболтын алдаа: ' + e.message);
+  }
+};
+
 async function statements() {
   const [sts, recon] = await Promise.all([
     api(`/companies/${companyId}/statements`),
@@ -4162,7 +4181,7 @@ async function statements() {
       <h2>Оруулсан хуулгууд</h2>
       <div style="overflow-x:auto">
         <table>
-          <tr><th>Файл</th><th>Төлөв</th><th class="num">Нээлт</th><th class="num">Хаалт</th><th>Алдаа</th></tr>
+          <tr><th>Файл</th><th>Төлөв</th><th class="num">Нээлт</th><th class="num">Хаалт</th><th>Алдаа</th><th style="width:44px"></th></tr>
           ${sts.map(s=>`<tr><td>${s.file}</td>
           <td><span class="pill ${s.status==='parsed_verified'||s.status==='posted'?'ok':'bad'}"><i class="fa-solid ${s.status==='parsed_verified'||s.status==='posted'?'fa-circle-check':'fa-circle-xmark'}"></i> ${
           s.status==='parsed_verified'?'✓ баталгаажсан':s.status==='failed_validation'?'✗ gate уналаа':s.status}</span></td>
@@ -4179,7 +4198,14 @@ async function statements() {
                   ${s.issues.map(i=>`[${i.check}]${i.row!=null?` мөр ${i.row}`:''} ${i.detail}`).join('<br>')}
                 </div>
               </details>` : ''}
-          </td></tr>`).join('') || '<tr><td colspan="5" class="muted" style="text-align:center; padding:18px">Хуулга оруулаагүй байна.</td></tr>'}
+          </td>
+          <td style="text-align:center;">
+            <button class="btn secondary" title="Хуулгыг гүйлгээний хамт устгах"
+                    style="padding:5px 9px; color:var(--danger);"
+                    onclick="deleteStatement('${s.id}', ${JSON.stringify(s.file)})">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </td></tr>`).join('') || '<tr><td colspan="6" class="muted" style="text-align:center; padding:18px">Хуулга оруулаагүй байна.</td></tr>'}
         </table>
       </div>
     </div>`;

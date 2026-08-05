@@ -24,7 +24,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile, File, 
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import delete as sa_delete, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from . import (assets, auth, ebarimt, ebarimt_match, fx, inventory, ledger,
@@ -670,6 +670,56 @@ def list_statements(company_id: str, ctx: dict = Depends(company_guard("read")),
         "issues": (s.validation_report or {}).get("issues", []),
     } for s in db.scalars(select(Statement).where(
         Statement.company_id == company_id))]
+
+
+def _delete_statement_rows(db: Session, stmt: Statement) -> int:
+    """Хуулга ба түүнээс үүссэн бүх мөрийг устгана. Устгасан гүйлгээний тоо."""
+    from .models import BankTxn, ClassificationSuggestion
+
+    txn_ids = [t.id for t in db.scalars(
+        select(BankTxn).where(BankTxn.statement_id == stmt.id))]
+    if txn_ids:
+        db.execute(sa_delete(ClassificationSuggestion).where(
+            ClassificationSuggestion.bank_txn_id.in_(txn_ids)))
+        db.execute(sa_delete(BankTxn).where(BankTxn.id.in_(txn_ids)))
+
+    # Байршуулсан эх файлыг мөн цэвэрлэнэ
+    suffix = Path(stmt.file_name or "").suffix
+    try:
+        storage.delete_file(stmt.company_id, f"statements/{stmt.id}{suffix}")
+    except Exception:
+        pass                      # файл аль хэдийн алга бол устгалт зогсоохгүй
+
+    db.delete(stmt)
+    return len(txn_ids)
+
+
+@app.delete("/api/companies/{company_id}/statements/{statement_id}")
+def delete_statement(company_id: str, statement_id: str,
+                     ctx: dict = Depends(company_guard("post")),
+                     db: Session = Depends(get_db)):
+    """Оруулсан хуулгыг гүйлгээ, саналын хамт устгана.
+
+    Дэвтэрт бичигдсэн гүйлгээтэй хуулгыг устгахгүй — журналын бичилт
+    эзэнгүй үлдэж, дэвтрийн бүрэн бүтэн байдал алдагдана. Тийм тохиолдолд
+    эхлээд журналын бичилтийг буцаалтаар цуцлана."""
+    from .models import BankTxn
+
+    stmt = db.get(Statement, statement_id)
+    if not stmt or stmt.company_id != company_id:
+        raise HTTPException(404, "Хуулга олдсонгүй")
+
+    posted = db.scalar(select(func.count()).select_from(BankTxn).where(
+        BankTxn.statement_id == stmt.id, BankTxn.reconciled_line_id.is_not(None)))
+    if posted:
+        raise HTTPException(
+            409, f"Энэ хуулгын {posted} гүйлгээ дэвтэрт бичигдсэн байна. "
+                 f"Эхлээд холбогдох журналын бичилтийг буцаана уу.")
+
+    file_name = stmt.file_name
+    removed = _delete_statement_rows(db, stmt)
+    db.commit()
+    return {"ok": True, "file": file_name, "deleted_txns": removed}
 
 
 @app.post("/api/companies/{company_id}/bank-accounts/sync")
@@ -3640,6 +3690,68 @@ def admin_create_company(body: AdminCreateCompanyIn, db: Session = Depends(get_d
     seed_company(session=db, company=c, industry=body.industry, is_vat_payer=body.is_vat_payer)
     db.commit()
     return {"id": c.id, "name": c.name, "message": "Шинэ компани болон COA данснууд амжилттай үүсгэгдлээ."}
+
+class AdminDeleteCompanyIn(BaseModel):
+    confirm_name: str
+
+
+@app.delete("/api/admin/companies/{company_id}")
+def admin_delete_company(company_id: str, confirm_name: str,
+                         db: Session = Depends(get_db),
+                         admin=Depends(superadmin_guard)):
+    """Компанийг бүх өгөгдлийн хамт бүрмөсөн устгана (зөвхөн супер админ).
+
+    Санамсаргүй устгалтаас сэргийлж компанийн нэрийг яг бичиж баталгаажуулна.
+    Хэрэглэгчийн бүртгэл устахгүй — зөвхөн энэ компанийн гишүүнчлэл арилна.
+    """
+    from .models import Base, BankTxn, ClassificationSuggestion, JournalEntry, JournalLine
+
+    company = db.get(Company, company_id)
+    if not company:
+        raise HTTPException(404, "Компани олдсонгүй")
+    if (confirm_name or "").strip() != (company.name or "").strip():
+        raise HTTPException(
+            400, "Баталгаажуулалт таарахгүй байна — компанийн нэрийг яг бичнэ үү.")
+
+    counts = {
+        "statements": db.scalar(select(func.count()).select_from(Statement)
+                                .where(Statement.company_id == company_id)),
+        "bank_txns": db.scalar(select(func.count()).select_from(BankTxn)
+                               .where(BankTxn.company_id == company_id)),
+        "journal_entries": db.scalar(select(func.count()).select_from(JournalEntry)
+                                     .where(JournalEntry.company_id == company_id)),
+    }
+
+    # company_id баганагүй, зөвхөн эцэг мөрөөрөө холбогддог хүснэгтүүд
+    db.execute(sa_delete(ClassificationSuggestion).where(
+        ClassificationSuggestion.bank_txn_id.in_(
+            select(BankTxn.id).where(BankTxn.company_id == company_id))))
+    db.execute(sa_delete(JournalLine).where(
+        JournalLine.entry_id.in_(
+            select(JournalEntry.id).where(JournalEntry.company_id == company_id))))
+
+    # Үлдсэн бүх хүснэгтийг хамаарлын эсрэг дарааллаар цэвэрлэнэ. Ингэснээр
+    # шинэ модуль нэмэгдэхэд энд гараар нэмэх шаардлагагүй.
+    for table in reversed(Base.metadata.sorted_tables):
+        if "company_id" in table.c:
+            db.execute(sa_delete(table).where(table.c.company_id == company_id))
+
+    db.delete(company)
+    db.commit()
+
+    # Байршуулсан файлуудыг устгана
+    removed_files = 0
+    try:
+        folder = storage.LOCAL_STORAGE_DIR / company_id
+        if folder.exists():
+            removed_files = sum(1 for _ in folder.rglob("*") if _.is_file())
+            shutil.rmtree(folder, ignore_errors=True)
+    except Exception:
+        pass
+
+    return {"ok": True, "deleted": company.name, "counts": counts,
+            "removed_files": removed_files}
+
 
 @app.post("/api/admin/companies/{company_id}/subscription")
 def admin_update_subscription(company_id: str, body: AdminSubscriptionUpdateIn, db: Session = Depends(get_db), admin=Depends(superadmin_guard)):
