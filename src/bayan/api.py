@@ -1599,6 +1599,52 @@ def payroll_run(company_id: str, body: PayrollIn,
         raise HTTPException(422, str(e))
 
 
+@app.post("/api/companies/{company_id}/payroll/import-tt11")
+def payroll_import_tt11(company_id: str,
+                        file: UploadFile = File(...),
+                        year: int = Form(...),
+                        month: int = Form(...),
+                        apply: bool = Form(False),
+                        post_entry: bool = Form(False),
+                        ctx: dict = Depends(company_guard("post")),
+                        db: Session = Depends(get_db)):
+    """ТТ-11 маягтаас ажилтан ба цалингийн бүртгэлийг сэргээнэ.
+
+    apply=False үед зөвхөн задалж буцаана — хэрэглэгч юу орохыг урьдчилан
+    хараад баталгаажуулна. apply=True үед л өгөгдлийн санд бичнэ.
+    post_entry=True үед нэмж журналын бичилт хийнэ."""
+    from . import tt11_import
+    from .ledger import LedgerError
+
+    if not 1 <= month <= 12:
+        raise HTTPException(400, "Сар 1-12 хооронд байна.")
+
+    raw = file.file.read()
+    if not raw:
+        raise HTTPException(400, "Файл хоосон байна.")
+
+    result = tt11_import.parse(raw, file.filename or "")
+    if not result.rows:
+        raise HTTPException(
+            422, "Ажилтны мөр танигдсангүй. Файлдаа нэр болон орлогын дүнтэй "
+                 "багана (ж: «Овог нэр», «Нийт орлого») байгаа эсэхийг шалгана уу.")
+
+    payload = result.to_dict()
+    payload["preview"] = payload.pop("rows")[:200]
+    payload["parsed_count"] = len(result.rows)
+    payload["year"], payload["month"] = year, month
+
+    if apply:
+        try:
+            payload.update(tt11_import.apply(
+                db, company_id, year, month, result.rows, post_entry=post_entry))
+        except LedgerError as e:
+            raise HTTPException(422, str(e))
+        db.commit()
+    payload["applied"] = bool(apply)
+    return payload
+
+
 @app.get("/api/companies/{company_id}/payroll")
 def get_payroll_lines(company_id: str, year: int, month: int,
                       ctx: dict = Depends(company_guard("read")),
@@ -2641,35 +2687,39 @@ async def import_employees_excel(company_id: str, file: UploadFile = File(...),
     import io, pandas as pd
     from .salary import Employee
     
+    from .tt11_import import split_name
+
     contents = await file.read()
     df = pd.read_excel(io.BytesIO(contents))
-    
+
     count = 0
     for idx, row in df.iterrows():
-        code = str(row.get("Ажилтны код", "") or f"EMP-{idx+1}").strip()
         name = str(row.get("Овог нэр", "") or "").strip()
+        if not name:
+            continue
+        last_name, first_name = split_name(name)
+        # Регистрийг тусад нь хадгалах багана Employee-д байхгүй тул
+        # ажилтны код заагаагүй үед түүнийг кодоор ашиглана.
+        code = str(row.get("Ажилтны код", "") or "").strip()
         reg_no = str(row.get("Регистрийн №", "") or "").strip()
+        code = (code or reg_no or f"EMP-{idx + 1}")[:16]
         position = str(row.get("Албан тушаал", "") or "").strip()
-        email = str(row.get("И-мэйл хаяг", "") or "").strip()
-        phone = str(row.get("Утасны дугаар", "") or "").strip()
         base_salary_minor = int(round(float(row.get("Үндсэн цалин ₮", 0) or 0) * 100))
-        
-        if name:
-            emp = Employee(
-                company_id=company_id,
-                code=code,
-                name=name,
-                reg_no=reg_no,
-                position=position,
-                email=email,
-                phone=phone,
-                base_salary_minor=base_salary_minor
-            )
-            db.add(emp)
-            count += 1
-            
+
+        db.add(Employee(
+            company_id=company_id,
+            code=code,
+            last_name=last_name,
+            first_name=first_name,
+            position=position or None,
+            base_salary_minor=base_salary_minor,
+        ))
+        count += 1
+
     db.commit()
-    return {"ok": True, "count": count, "msg": f"{count} ажилтны анкет амжилттай импортлогдлоо."}
+    return {"ok": True, "count": count,
+            "msg": f"{count} ажилтны анкет амжилттай импортлогдлоо. "
+                   "И-мэйл, утасны багана одоогоор хадгалагдахгүй."}
 
 
 
