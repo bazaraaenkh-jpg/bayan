@@ -8,7 +8,7 @@
 from datetime import datetime
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from bayan import classify
 from bayan.coa_seed import DEFAULT_RULES, SEED
@@ -109,3 +109,50 @@ def test_interest_income_vs_interest_expense(session, company):
 def test_unknown_narration_returns_nothing(session, company):
     """Дүрэм таарахгүй бол AI давхаргад шилжинэ — таамаглаж болохгүй."""
     assert _classify(session, company, "ТОДОРХОЙГҮЙ ГҮЙЛГЭЭ XYZ") is None
+
+
+# ------------------------------------------------- одоо байгаа компанид нөхөх
+
+def test_sync_adds_missing_rules_to_existing_company(session, company):
+    """Хуучин компанид цөөн дүрэм байхад дутууг нь нөхнө."""
+    from sqlalchemy import delete
+    from bayan.coa_seed import DEFAULT_RULE_PRIORITY_BASE, sync_default_rules
+
+    keep = ["цалин", "түрээс"]
+    session.execute(delete(ClassifierRule).where(
+        ClassifierRule.company_id == company.id,
+        ClassifierRule.keyword.notin_(keep)))
+    session.flush()
+    assert session.scalar(select(func.count()).select_from(ClassifierRule)
+                          .where(ClassifierRule.company_id == company.id)) == 2
+
+    res = sync_default_rules(session, company.id)
+    assert res["added"] == len(DEFAULT_RULES) - 2
+    total = session.scalar(select(func.count()).select_from(ClassifierRule)
+                           .where(ClassifierRule.company_id == company.id))
+    assert total == len(DEFAULT_RULES)
+    # Дараалал зөв болсон эсэх — нөхсний дараа ч нарийн үг түрүүлнэ
+    assert _classify(session, company, "НИЙГМИЙН ДААТГАЛЫН ШИМТГЭЛ") == "3103"
+    assert _classify(session, company, "ЦАХИЛГААНЫ ТӨЛБӨР") == "7122"
+    assert all(r.priority >= DEFAULT_RULE_PRIORITY_BASE for r in session.scalars(
+        select(ClassifierRule).where(ClassifierRule.company_id == company.id)))
+
+
+def test_sync_is_idempotent_and_keeps_user_rules(session, company):
+    """Дахин ажиллуулахад давхардуулахгүй, хэрэглэгчийн дүрмийг хөндөхгүй."""
+    from bayan.coa_seed import sync_default_rules
+
+    session.add(ClassifierRule(company_id=company.id, keyword="миний нийлүүлэгч",
+                               account_code="3101", priority=10))
+    session.flush()
+
+    first = sync_default_rules(session, company.id)
+    second = sync_default_rules(session, company.id)
+    assert second["added"] == 0 and second["reordered"] == 0
+
+    mine = session.scalar(select(ClassifierRule).where(
+        ClassifierRule.company_id == company.id,
+        ClassifierRule.keyword == "миний нийлүүлэгч"))
+    assert mine is not None and mine.priority == 10 and mine.account_code == "3101"
+    # Хэрэглэгчийн дүрэм үндсэн дүрмээс ӨМНӨ шалгагдана
+    assert _classify(session, company, "МИНИЙ НИЙЛҮҮЛЭГЧ ТӨЛБӨР") == "3101"

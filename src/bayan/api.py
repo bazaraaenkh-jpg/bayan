@@ -2409,6 +2409,22 @@ class ClassifierRuleIn(BaseModel):
     vat_flag: bool = False
     priority: int = 100
 
+@app.post("/api/companies/{company_id}/classifier-rules/sync-defaults")
+def sync_default_classifier_rules(company_id: str,
+                                  ctx: dict = Depends(company_guard("post")),
+                                  db: Session = Depends(get_db)):
+    """Системийн үндсэн ангиллын дүрмүүдийг энэ компанид нийлүүлнэ.
+
+    Дүрэм нь компани үүсэх агшинд суудаг тул өмнө нь үүсгэсэн компаниуд шинэ
+    дүрмийг автоматаар авдаггүй. Энэ нь дутууг нөхөж, эрэмбийг зөв болгоно.
+    Хэрэглэгчийн өөрийн дүрмийг хөндөхгүй."""
+    from .coa_seed import sync_default_rules
+
+    result = sync_default_rules(db, company_id)
+    db.commit()
+    return {"ok": True, **result}
+
+
 @app.post("/api/companies/{company_id}/classifier-rules")
 def create_classifier_rule(company_id: str, body: ClassifierRuleIn,
                            ctx: dict = Depends(company_guard("post")),

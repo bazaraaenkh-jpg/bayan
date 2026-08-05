@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from datetime import datetime, timedelta
@@ -242,6 +243,50 @@ DEFAULT_RULES = [
 ]
 
 
+# Үндсэн дүрмүүд ЭНЭ дугаараас эхэлнэ. Хэрэглэгчийн өөрийн дүрэм (анхдагчаар
+# priority=100) үргэлж ӨМНӨ нь шалгагдаж, үндсэн дүрмийг дарж бичих боломжтой.
+DEFAULT_RULE_PRIORITY_BASE = 1000
+
+
+def sync_default_rules(session: Session, company_id: str,
+                       known_codes: set[str] | None = None) -> dict:
+    """Үндсэн ангиллын дүрмүүдийг компанид нийлүүлнэ.
+
+    Шинэ дүрмийг нэмж, аль хэдийн байгаа үндсэн дүрмийн ЭРЭМБИЙГ л шинэчилнэ
+    (нарийн түлхүүр үг ерөнхийгөөс өмнө шалгагдах ёстой). Хэрэглэгчийн
+    өөрийн үүсгэсэн дүрэм болон дансны сонголтыг огт хөндөхгүй."""
+    from .models import Account, ClassifierRule, Direction
+
+    if known_codes is None:
+        known_codes = {a.code for a in session.scalars(
+            select(Account).where(Account.company_id == company_id))}
+
+    existing = {r.keyword: r for r in session.scalars(
+        select(ClassifierRule).where(ClassifierRule.company_id == company_id))}
+
+    added = reordered = skipped = 0
+    for idx, rule in enumerate(DEFAULT_RULES):
+        kw, code = rule[0], rule[1]
+        if code not in known_codes:
+            skipped += 1            # дансны төлөвлөгөөнд байхгүй данс
+            continue
+        priority = DEFAULT_RULE_PRIORITY_BASE + idx
+        found = existing.get(kw)
+        if found:
+            if found.priority != priority:
+                found.priority = priority
+                reordered += 1
+        else:
+            session.add(ClassifierRule(
+                company_id=company_id, keyword=kw, account_code=code,
+                direction=Direction(rule[2]) if len(rule) > 2 else None,
+                priority=priority))
+            added += 1
+    session.flush()
+    return {"added": added, "reordered": reordered, "skipped": skipped,
+            "total_defaults": len(DEFAULT_RULES)}
+
+
 def setup_company(session: Session, name: str, industry: str, is_vat_payer: bool, inventory_method: str = "average", reg_no: str | None = None, director: str | None = None, address: str | None = None) -> Company:
     """Бизнесийн салбар болон НӨАТ-ын төлөвт тохируулан дансны төлөвлөгөө үүсгэнэ."""
     company = Company(name=name, vat_payer=is_vat_payer, inventory_method=inventory_method, reg_no=reg_no, director=director, address=address)
@@ -297,16 +342,7 @@ def setup_company(session: Session, name: str, industry: str, is_vat_payer: bool
         session.flush()
         by_code[code] = acc
 
-    from .models import ClassifierRule, Direction
-    # Жагсаалтын дараалал = priority. Ингэснээр нарийн түлхүүр үг ерөнхийгөөс
-    # ӨМНӨ шалгагдана ("нийгмийн даатгал" → "даатгал"-аас түрүүлнэ).
-    for idx, rule in enumerate(DEFAULT_RULES):
-        kw, code = rule[0], rule[1]
-        direction = Direction(rule[2]) if len(rule) > 2 else None
-        if code in by_code:
-            session.add(ClassifierRule(company_id=company.id, keyword=kw,
-                                       account_code=code, direction=direction,
-                                       priority=idx))
+    sync_default_rules(session, company.id, known_codes=set(by_code))
     session.flush()
     return company
 

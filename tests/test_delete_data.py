@@ -28,15 +28,17 @@ def client():
 
 def _register(client, superadmin=False):
     uid = uuid4().hex[:6]
+    email = f"del_{uid}@bayan.mn"
     r = client.post("/api/register", json={
-        "email": f"del_{uid}@bayan.mn", "name": "Нягтлан",
+        "email": email, "name": "Нягтлан",
         "password": "pass12345password", "company_name": f"Устгах ХХК {uid}"})
     assert r.status_code == 200, r.text
     j = r.json()
     if superadmin:
+        from sqlalchemy import select as sa_select
         s = apimod.SessionLocal()
-        u = s.get(apimod.auth.User, s.scalar(
-            __import__("sqlalchemy").select(apimod.auth.User.id)))
+        # ЯГ энэ бүртгэлийг эрхжүүлнэ — эхний хэрэглэгчийг биш
+        u = s.scalar(sa_select(apimod.auth.User).where(apimod.auth.User.email == email))
         u.is_superadmin = True
         s.commit(); s.close()
     return j["company_id"], {"Authorization": f"Bearer {j['token']}"}
