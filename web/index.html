@@ -1167,6 +1167,23 @@ async function loadCompanies(selectedId = null) {
   return true;
 }
 
+// Онбординг нь КОМПАНИ тус бүрд хамаарна. Өмнө нь дуусгасан/алгассан үед
+// 'onboarding_done_global' гэсэн нийтлэг тэмдэг тавьдаг байсан тул нэг удаа
+// онбординг хийсний дараа ЦААШИД үүсгэсэн бүх компани эхлэлтийн тохиргоог
+// алгасч, шууд хяналтын самбар руу үсэрдэг байв.
+function needsOnboarding(id, company) {
+  const done = localStorage.getItem(`onboarding_done_${id}`) === 'true';
+  const regNo = (company && company.reg_no) || '';
+  const configured = regNo && regNo !== 'ХӨТЛӨӨГҮЙ';
+  return !done && !configured;
+}
+
+// Хуучин нийтлэг тэмдгийг нэг удаа цэвэрлэнэ — үлдвэл шинэ компани бүр
+// онбордингоо алгасаад байна
+if (localStorage.getItem('onboarding_done_global')) {
+  localStorage.removeItem('onboarding_done_global');
+}
+
 function newCompany() {
   showForm('Шинэ компани үүсгэх', [{k:'name', label:'Компанийн нэр'}], async v => {
     const res = await api('/companies', {method:'POST',
@@ -1260,8 +1277,7 @@ async function render() {
 
   // Check company setup to determine if we show onboarding wizard
   const c = await api(`/companies/${companyId}`);
-  const isDone = localStorage.getItem(`onboarding_done_${companyId}`) === 'true' || localStorage.getItem('onboarding_done_global') === 'true';
-  if (!isDone && (!c.reg_no || c.reg_no === 'ХӨТЛӨӨГҮЙ')) {
+  if (needsOnboarding(companyId, c)) {
     isOnboarding = true;
     $('#sidebar').style.display = 'none';
     $('#main-container').style.marginLeft = '0px';
@@ -1487,7 +1503,6 @@ async function renderOnboarding2() {
 
 function skipOnboarding() {
   if (companyId) localStorage.setItem(`onboarding_done_${companyId}`, 'true');
-  localStorage.setItem('onboarding_done_global', 'true');
   isOnboarding = false;
   if ($('#sidebar')) $('#sidebar').style.display = 'flex';
   if ($('#main-container')) $('#main-container').style.marginLeft = '260px';
@@ -1497,7 +1512,6 @@ function skipOnboarding() {
 
 async function finishOnboarding() {
   if (companyId) localStorage.setItem(`onboarding_done_${companyId}`, 'true');
-  localStorage.setItem('onboarding_done_global', 'true');
   isOnboarding = false;
   try {
     if (companyId) {
@@ -6358,6 +6372,7 @@ async function salaryTab() {
           <h2 style="margin:0;">Цалингийн тооцоо (${year} оны ${month}-р сар)</h2>
           <div style="display:flex; gap:6px;">
             <button class="btn secondary" onclick="payrollRun()"><i class="fa-solid fa-calculator"></i> Цалин бодох</button>
+            <button class="btn secondary" onclick="openTt11ImportModal(${year}, ${month})" title="Татварт тушаасан ТТ-11 маягтаас цалингийн бүртгэл сэргээх"><i class="fa-solid fa-file-import"></i> ТТ-11-ээс оруулах</button>
             <button class="btn secondary" onclick="sendPayrollEmailSlips(${year}, ${month})"><i class="fa-solid fa-envelope"></i> И-мэйлдэх</button>
           </div>
         </div>
@@ -8839,6 +8854,148 @@ async function uploadEmployeeExcel() {
     salaryTab();
   } else {
     alert(res.detail || "Импортлоход алдаа гарлаа.");
+  }
+}
+
+// ----------------------------------------------------- ТТ-11-ээс цалин сэргээх
+
+function openTt11ImportModal(year, month) {
+  $('#modalCard').style.width = '640px';
+  $('#modalCard').innerHTML = `
+    <h2><i class="fa-solid fa-file-import" style="color:var(--primary)"></i> ТТ-11-ээс цалингийн бүртгэл оруулах</h2>
+    <p class="muted" style="margin-bottom:14px;">
+      Татварт тушаасан ХХОАТ-ын тайлан (ТТ-11)-аас ажилтан бүрийн орлого, НДШ,
+      ХХОАТ-ыг уншиж, ажилтны карт ба тухайн сарын цалингийн мөрийг үүсгэнэ.
+      Загвар шаардахгүй — багануудыг толгойн нэрээр нь өөрөө таьна.
+    </p>
+
+    <div style="display:flex; gap:10px; margin-bottom:12px;">
+      <div class="form-group" style="flex:1; margin:0;">
+        <label>Жил</label>
+        <input id="tt11_year" type="number" class="input-field" value="${year}">
+      </div>
+      <div class="form-group" style="flex:1; margin:0;">
+        <label>Сар</label>
+        <input id="tt11_month" type="number" min="1" max="12" class="input-field" value="${month}">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>ТТ-11 файл (.xlsx, .xls, .csv)</label>
+      <input type="file" id="tt11_file" accept=".xlsx,.xlsm,.xls,.csv" class="input-field">
+    </div>
+
+    <label style="display:flex; align-items:center; gap:8px; margin:10px 0 4px; cursor:pointer;">
+      <input type="checkbox" id="tt11_post_entry">
+      <span>Журналд бичилт хийх (7101/7102 → 3102/3103/3104)</span>
+    </label>
+    <p class="muted" style="font-size:12px; margin:0 0 14px 26px;">
+      Зөвхөн түүх сэргээж байвал тэмдэглэхгүй үлдээнэ — эхний үлдэгдэлд
+      цалингийн өглөг аль хэдийн орсон бол давхардана.
+    </p>
+
+    <div id="tt11_preview"></div>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+      <button class="btn secondary" onclick="hideModal()">Болих</button>
+      <button class="btn" id="tt11_btn" onclick="tt11Preview()">
+        <i class="fa-solid fa-magnifying-glass"></i> Шалгах
+      </button>
+    </div>`;
+  $('#modalOverlay').style.display = 'flex';
+}
+
+async function tt11Send(apply) {
+  const file = $('#tt11_file').files[0];
+  if (!file) { alert('ТТ-11 файлаа сонгоно уу.'); return null; }
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('year', $('#tt11_year').value);
+  fd.append('month', $('#tt11_month').value);
+  fd.append('apply', apply ? 'true' : 'false');
+  fd.append('post_entry', $('#tt11_post_entry').checked ? 'true' : 'false');
+
+  const r = await fetch(`/api/companies/${companyId}/payroll/import-tt11`,
+    { method: 'POST', body: fd, headers: { Authorization: 'Bearer ' + token() } });
+  const text = await r.text();
+  let res = null;
+  try { res = JSON.parse(text); } catch (_) {}
+  if (!r.ok || !res) throw new Error(
+    res && res.detail ? res.detail : `Серверийн алдаа (${r.status}). ${text.slice(0, 160)}`);
+  return res;
+}
+
+async function tt11Preview() {
+  const btn = $('#tt11_btn');
+  try {
+    btn.disabled = true;
+    const p = await tt11Send(false);
+    if (!p) return;
+
+    const rows = p.preview.map(x => `<tr>
+      <td>${x.name}</td>
+      <td class="muted" style="font-size:12px">${x.register || '—'}</td>
+      <td class="num">${fmt(x.gross_minor)}</td>
+      <td class="num">${fmt(x.ndsh_employee_minor)}</td>
+      <td class="num">${fmt(x.hhoat_minor)}</td>
+      <td class="num" style="font-weight:600">${fmt(x.net_minor)}</td>
+    </tr>`).join('');
+
+    const t = p.totals;
+    const notes = [];
+    if (p.skipped_count) notes.push(
+      `<div class="muted" style="font-size:12px; margin-top:8px">
+         Алгасах ${p.skipped_count} мөр: ${p.skipped.slice(0, 4).join('; ')}</div>`);
+    if (p.warnings_count) notes.push(
+      `<div style="font-size:12px; margin-top:8px; color:var(--warning, #d08700)">
+         <b>${p.warnings_count} мөрийн тэнцэл зөрж байна:</b><br>
+         ${p.warnings.slice(0, 3).join('<br>')}</div>`);
+
+    $('#tt11_preview').innerHTML = `
+      <div style="max-height:260px; overflow:auto; border:1px solid var(--border, #2a2a3a); border-radius:8px;">
+        <table class="grid-table" style="font-size:12.5px; margin:0;">
+          <thead><tr>
+            <th>Ажилтан</th><th>Регистр</th><th class="num">Бохир</th>
+            <th class="num">НДШ</th><th class="num">ХХОАТ</th><th class="num">Гарт</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr style="font-weight:700">
+            <td colspan="2">${p.parsed_count} ажилтан</td>
+            <td class="num">${fmt(t.gross_minor)}</td>
+            <td class="num">${fmt(t.ndsh_employee_minor)}</td>
+            <td class="num">${fmt(t.hhoat_minor)}</td>
+            <td class="num">${fmt(t.net_minor)}</td>
+          </tr></tfoot>
+        </table>
+      </div>${notes.join('')}`;
+
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Оруулах';
+    btn.onclick = tt11Apply;
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function tt11Apply() {
+  const btn = $('#tt11_btn');
+  try {
+    btn.disabled = true;
+    const d = await tt11Send(true);
+    if (!d) return;
+    hideModal();
+    alert(`${d.created_lines} ажилтны цалин ${d.year} оны ${d.month}-р сард бүртгэгдлээ.\n` +
+          `Шинэ ажилтан: ${d.created_employees}\n` +
+          `Өмнө нь бодогдсон тул алгассан: ${d.skipped_existing}\n` +
+          `Нийт бохир: ${fmt(d.gross)}, гарт олгох: ${fmt(d.net)}\n` +
+          (d.entry_id ? 'Журналд бичилт хийгдлээ.' : 'Журналд бичилт хийгээгүй.'));
+    salaryTab();
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
