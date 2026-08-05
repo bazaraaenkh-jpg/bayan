@@ -4168,7 +4168,18 @@ async function statements() {
           s.status==='parsed_verified'?'✓ баталгаажсан':s.status==='failed_validation'?'✗ gate уналаа':s.status}</span></td>
           <td class="num">${s.opening_minor!=null?fmt(s.opening_minor):'—'}</td>
           <td class="num">${s.closing_minor!=null?fmt(s.closing_minor):'—'}</td>
-          <td class="muted">${(s.issues||[]).slice(0,2).map(i=>`[${i.check}] ${i.detail}`).join('<br>')}</td></tr>`).join('') || '<tr><td colspan="5" class="muted" style="text-align:center; padding:18px">Хуулга оруулаагүй байна.</td></tr>'}
+          <td>${(s.diagnosis||[]).map(d=>`
+              <div style="margin-bottom:6px; padding:8px 10px; border-radius:6px; border:1px solid var(--warning); background:rgba(245,158,11,.08); font-size:12px; line-height:1.5;">
+                <i class="fa-solid fa-lightbulb" style="color:var(--warning)"></i> ${d}
+              </div>`).join('')}
+            ${(s.issues||[]).length ? `
+              <details style="font-size:11.5px;">
+                <summary class="muted" style="cursor:pointer;">Техник дэлгэрэнгүй (${s.issues.length} шалгуур)</summary>
+                <div class="muted" style="margin-top:6px; max-height:150px; overflow-y:auto;">
+                  ${s.issues.map(i=>`[${i.check}]${i.row!=null?` мөр ${i.row}`:''} ${i.detail}`).join('<br>')}
+                </div>
+              </details>` : ''}
+          </td></tr>`).join('') || '<tr><td colspan="5" class="muted" style="text-align:center; padding:18px">Хуулга оруулаагүй байна.</td></tr>'}
         </table>
       </div>
     </div>`;
@@ -7860,9 +7871,9 @@ async function runEbarimtBankReconciliation() {
 
   $('#eb_sync_msg').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> eBarimt тулгалт хийж байна...';
   try {
-    const r = await fetch(`${API_BASE}/companies/${companyId}/ebarimt/reconcile-bank`, {
+    const r = await fetch(`/api/companies/${companyId}/ebarimt/reconcile-bank`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { Authorization: 'Bearer ' + token() },
       body: formData
     });
     const res = await r.json();

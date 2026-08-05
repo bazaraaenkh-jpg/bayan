@@ -451,25 +451,30 @@ def update_company_profile(company_id: str, body: CompanyProfileIn,
 
 @app.get("/api/companies/{company_id}/tax-pull")
 def tax_pull(company_id: str, reg_no: str,
-             ctx: dict = Depends(company_guard("read"))):
+             ctx: dict = Depends(company_guard("read")),
+             db: Session = Depends(get_db)):
     if not reg_no or len(reg_no) < 7:
         raise HTTPException(422, "РД зөв оруулна уу (дор хаяж 7 оронтой)")
     
-    reg_val = sum(ord(c) for c in reg_no)
-    names = [
-        "Төгс Санхүү ХХК", "Баян Хангай Групп ХХК", "Говийн Номин Дэлгүүр ХХК",
-        "Ачит Эх Үйлдвэр ХХК", "Эрдэнэс Монгол Ложистик ХХК", "Сарны Гэрэл Ресторан ХХК"
-    ]
-    name = names[reg_val % len(names)]
+    reg_clean = reg_no.strip()
+    existing_c = db.scalar(select(Company).where(Company.reg_no == reg_clean))
+    curr_c = db.get(Company, company_id)
     
-    vat_payer = (reg_val % 2 == 0)
-    city_tax_payer = (reg_val % 3 == 0)
+    if existing_c and existing_c.name:
+        name = existing_c.name
+        vat_payer = existing_c.vat_payer
+    elif curr_c and curr_c.name and curr_c.name != "Шинэ компани":
+        name = curr_c.name
+        vat_payer = curr_c.vat_payer
+    else:
+        name = ""
+        vat_payer = False
     
     return {
         "name": name,
-        "taxpayer_no": f"TX-{reg_no}",
+        "taxpayer_no": f"TX-{reg_clean}",
         "vat_payer": vat_payer,
-        "city_tax_payer": city_tax_payer
+        "city_tax_payer": False
     }
 
 
@@ -650,7 +655,8 @@ async def upload_statement(company_id: str, file: UploadFile,
     return {"statement_id": report.statement_id,
             "descriptor": report.descriptor_id,
             "txn_count": report.txn_count,
-            "gate_ok": report.gate_ok, "issues": report.issues}
+            "gate_ok": report.gate_ok, "diagnosis": report.diagnosis,
+            "issues": report.issues}
 
 
 @app.get("/api/companies/{company_id}/statements")
@@ -659,6 +665,7 @@ def list_statements(company_id: str, ctx: dict = Depends(company_guard("read")),
     return [{
         "id": s.id, "file": s.file_name, "status": s.status.value,
         "opening_minor": s.opening_minor, "closing_minor": s.closing_minor,
+        "diagnosis": (s.validation_report or {}).get("diagnosis", []),
         "issues": (s.validation_report or {}).get("issues", []),
     } for s in db.scalars(select(Statement).where(
         Statement.company_id == company_id))]
@@ -2859,6 +2866,37 @@ def cash_flow(company_id: str, date_from: str, date_to: str,
     except ValueError:
         raise HTTPException(400, "date_from болон date_to нь YYYY-MM-DD форматтай байх ёстой")
     return reports.cash_flow_statement(db, company_id, d_from, d_to)
+
+
+@app.get("/api/companies/{company_id}/reports/notes")
+def financial_notes_api(company_id: str, date_from: str | None = None, date_to: str | None = None,
+                        ctx: dict = Depends(company_guard("read")),
+                        db: Session = Depends(get_db)):
+    d_from = date.fromisoformat(date_from) if date_from else None
+    d_to = date.fromisoformat(date_to) if date_to else None
+    return reports.financial_notes(db, company_id, d_from, d_to)
+
+
+@app.get("/api/companies/{company_id}/reports/nbfi")
+def nbfi_reports_api(company_id: str, as_of_date: str | None = None,
+                     ctx: dict = Depends(company_guard("read")),
+                     db: Session = Depends(get_db)):
+    as_of = date.fromisoformat(as_of_date) if as_of_date else None
+    return reports.nbfi_financial_reports(db, company_id, as_of)
+
+
+@app.get("/api/companies/{company_id}/reports/tax/tt02")
+def tax_tt02_api(company_id: str, year: int = 2026,
+                 ctx: dict = Depends(company_guard("read")),
+                 db: Session = Depends(get_db)):
+    return reports.aanoat_tt02_report(db, company_id, year)
+
+
+@app.get("/api/companies/{company_id}/reports/tax/tt11")
+def tax_tt11_api(company_id: str, year: int = 2026,
+                 ctx: dict = Depends(company_guard("read")),
+                 db: Session = Depends(get_db)):
+    return reports.haoat_tt11_report(db, company_id, year)
 
 
 @app.get("/api/companies/{company_id}/reports/xml")

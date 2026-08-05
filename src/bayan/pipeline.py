@@ -39,6 +39,7 @@ class PipelineReport:
     txn_count: int = 0
     gate_ok: bool = False
     issues: list[dict] = field(default_factory=list)
+    diagnosis: list[str] = field(default_factory=list)
     fingerprint_log: list[tuple[str, int]] = field(default_factory=list)
 
 
@@ -78,9 +79,16 @@ def process_file(
 
     # --- Шат 0: файлын давхардал
     sha = _sha256(path)
-    if session.scalar(select(Statement).where(
-            Statement.company_id == company_id, Statement.file_sha256 == sha)):
-        raise PipelineError("Энэ файл өмнө нь оруулсан байна (SHA-256 давхардал)")
+    dup = session.scalar(select(Statement).where(
+        Statement.company_id == company_id, Statement.file_sha256 == sha))
+    if dup:
+        if dup.status != StatementStatus.failed_validation:
+            raise PipelineError("Энэ файл өмнө нь оруулсан байна (SHA-256 давхардал)")
+        # Gate даваагүй хуулгад гүйлгээ хадгалагддаггүй тул зөвхөн толгой мөр
+        # үлддэг. Задлагч/шалгуур сайжирсан үед дахин оролдох боломжтой байх
+        # ёстой — хуучин уналтын бичлэгийг сольж дарж бичнэ.
+        session.delete(dup)
+        session.flush()
 
     # --- Шат 1: descriptor сонголт
     suffix = path.suffix.lower()
@@ -144,9 +152,11 @@ def process_file(
         declared_row_count=int(float(declared)) if declared else None,
         period_from=period_from, period_to=period_to,
         prev_closing_minor=prev_closing,
+        expected_account=raw.metadata.get("account_no") or account_key,
     )
     report.gate_ok = gate.ok
     report.issues = gate.to_dict()["issues"]
+    report.diagnosis = gate.diagnosis
 
     # --- хадгалалт
     stmt = Statement(
