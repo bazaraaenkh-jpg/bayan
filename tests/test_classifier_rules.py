@@ -188,3 +188,32 @@ def test_ui_labels_credit_as_income_not_expense():
     assert "Орлого (Debit)" not in text, "debit нь орлого БИШ — мөнгө гарч байна"
     assert "Орлого (Credit)" in text
     assert "Зарлага — данснаас мөнгө гарсан (Debit)" in text
+
+
+def test_expense_rules_only_fire_on_outgoing_money(session, company):
+    """Зардлын дүрэм зөвхөн ЗАРЛАГАД ажиллана.
+
+    "Даатгал" гэсэн үгтэй ОРЛОГО нь даатгалын нөхөн төлбөр — түүнийг
+    даатгалын зардал руу хийвэл зардлыг хасах буруу бичилт үүснэ."""
+    assert _classify(session, company, "МИГ ДААТГАЛ НӨХӨН ТӨЛБӨР",
+                     Direction.debit) == "7116"
+    assert _classify(session, company, "МИГ ДААТГАЛ НӨХӨН ТӨЛБӨР",
+                     Direction.credit) is None      # AI/хүний шалгалтад үлдэнэ
+
+
+def test_liability_rules_still_work_both_ways(session, company):
+    """Зээл авах нь орлого, төлөх нь зарлага — хоёулаа 3201 руу орно."""
+    assert _classify(session, company, "БОГИНО ХУГАЦААТ ЗЭЭЛ", Direction.credit) == "3201"
+    assert _classify(session, company, "БОГИНО ХУГАЦААТ ЗЭЭЛ", Direction.debit) == "3201"
+
+
+def test_every_expense_rule_carries_debit_direction(session, company):
+    from bayan.models import Account
+    expense_codes = {a.code for a in session.scalars(
+        select(Account).where(Account.company_id == company.id))
+        if a.code[0] in "67"}
+    rules = session.scalars(select(ClassifierRule).where(
+        ClassifierRule.company_id == company.id)).all()
+    for r in rules:
+        if r.account_code in expense_codes:
+            assert r.direction == Direction.debit, f"'{r.keyword}' чиглэлгүй байна"

@@ -248,6 +248,24 @@ DEFAULT_RULES = [
 DEFAULT_RULE_PRIORITY_BASE = 1000
 
 
+def _default_rule_direction(rule: tuple):
+    """Дүрэм аль чиглэлийн гүйлгээнд ажиллахыг тодорхойлно.
+
+    Тодорхой заасан бол түүнийг нь авна. Заагаагүй бол ЗАРДЛЫН данс
+    (6x, 7x) руу заасан дүрмийг зөвхөн ЗАРЛАГАД (debit) хязгаарлана —
+    эс тэгвэл "даатгал" гэсэн үг агуулсан ОРЛОГО (даатгалын нөхөн төлбөр)
+    зардлын данс руу орж, зардлыг хасах буруу бичилт үүснэ. Ийм орлогыг
+    дүрмээр таамаглахын оронд AI/хүний шалгалтад үлдээх нь зөв.
+
+    Өр төлбөрийн данс (31xx, 32xx) хоёр чиглэлд хүчинтэй хэвээр: зээл авах
+    нь орлого, эргэн төлөх нь зарлага — хоёулаа мөн ижил данс руу орно."""
+    from .models import Direction
+
+    if len(rule) > 2:
+        return Direction(rule[2])
+    return Direction.debit if rule[1][0] in "67" else None
+
+
 def sync_default_rules(session: Session, company_id: str,
                        known_codes: set[str] | None = None) -> dict:
     """Үндсэн ангиллын дүрмүүдийг компанид нийлүүлнэ.
@@ -264,27 +282,30 @@ def sync_default_rules(session: Session, company_id: str,
     existing = {r.keyword: r for r in session.scalars(
         select(ClassifierRule).where(ClassifierRule.company_id == company_id))}
 
-    added = reordered = skipped = 0
+    added = reordered = redirected = skipped = 0
     for idx, rule in enumerate(DEFAULT_RULES):
         kw, code = rule[0], rule[1]
         if code not in known_codes:
             skipped += 1            # дансны төлөвлөгөөнд байхгүй данс
             continue
         priority = DEFAULT_RULE_PRIORITY_BASE + idx
+        direction = _default_rule_direction(rule)
         found = existing.get(kw)
         if found:
             if found.priority != priority:
                 found.priority = priority
                 reordered += 1
+            if found.direction != direction:
+                found.direction = direction
+                redirected += 1
         else:
             session.add(ClassifierRule(
                 company_id=company_id, keyword=kw, account_code=code,
-                direction=Direction(rule[2]) if len(rule) > 2 else None,
-                priority=priority))
+                direction=direction, priority=priority))
             added += 1
     session.flush()
-    return {"added": added, "reordered": reordered, "skipped": skipped,
-            "total_defaults": len(DEFAULT_RULES)}
+    return {"added": added, "reordered": reordered, "redirected": redirected,
+            "skipped": skipped, "total_defaults": len(DEFAULT_RULES)}
 
 
 def setup_company(session: Session, name: str, industry: str, is_vat_payer: bool, inventory_method: str = "average", reg_no: str | None = None, director: str | None = None, address: str | None = None) -> Company:
