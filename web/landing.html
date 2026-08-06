@@ -3,34 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bayan AI — Ирээдүйн 3D Санхүүгийн Оюун Ухаан ба Автоматжуулалт</title>
-  <meta name="description" content="НББ-ийн журналын ангилал, eBarimt ба банкны хуулгын автомат тулгалт, 4 санхүүгийн тайланг AI ба 3D технологиор шийдвэрлэсэн Bayan AI платформ.">
+  <title>BAYAN.AI — The Future of Financial Intelligence Begins Here</title>
+  <meta name="description" content="Монголын хамгийн дэвшилтэт AI санхүүгийн платформ. НББ, eBarimt, банкны хуулга, FIFO, тайлан, санхүүгийн анализ болон бизнесийн шийдвэрийг секундийн дотор автоматжуулна.">
   
-  <!-- Google Fonts: Outfit & Inter -->
+  <!-- Premium Fonts: Outfit, Space Grotesk, Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
   
-  <!-- FontAwesome 6 -->
+  <!-- FontAwesome 6 Pro icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
-  <!-- Three.js CDN for 3D graphics -->
+  <!-- Three.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <style>
     :root {
-      --bg-dark: #07090e;
-      --bg-card: rgba(15, 23, 42, 0.65);
-      --border-card: rgba(255, 255, 255, 0.08);
-      --border-glow: rgba(139, 92, 246, 0.4);
-      --primary: #8b5cf6;
-      --primary-glow: rgba(139, 92, 246, 0.5);
-      --cyan: #06b6d4;
-      --emerald: #10b981;
-      --amber: #f59e0b;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --radius: 18px;
+      --bg-dark: #07111F;
+      --bg-glass: rgba(15, 27, 46, 0.65);
+      --primary: #14F195;
+      --primary-glow: rgba(20, 241, 149, 0.55);
+      --secondary: #38BDF8;
+      --secondary-glow: rgba(56, 189, 248, 0.4);
+      --accent-gold: #FFD166;
+      --text-white: #FFFFFF;
+      --text-muted: #94A3B8;
+      --font-display: 'Outfit', sans-serif;
+      --font-mono: 'Space Grotesk', monospace;
     }
 
     * {
@@ -39,503 +38,498 @@
       padding: 0;
     }
 
-    body {
-      font-family: 'Inter', sans-serif;
+    html, body {
       background-color: var(--bg-dark);
-      color: var(--text-main);
+      color: var(--text-white);
+      font-family: 'Inter', sans-serif;
       overflow-x: hidden;
+      scroll-behavior: smooth;
       line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
 
-    h1, h2, h3, h4, .brand-font {
-      font-family: 'Outfit', sans-serif;
+    h1, h2, h3, h4, .font-display {
+      font-family: var(--font-display);
     }
 
-    /* Three.js Background Canvas */
+    /* Three.js 3D WebGL Background Canvas */
     #canvas-3d {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Cursor Energy Trail & Spotlight */
+    #cursor-spotlight {
+      position: fixed;
+      top: 0; left: 0;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(20, 241, 149, 0.12) 0%, rgba(56, 189, 248, 0.05) 40%, transparent 70%);
+      pointer-events: none;
+      z-index: 1;
+      transform: translate(-50%, -50%);
+      transition: transform 0.08s ease-out;
+    }
+
+    /* Dynamic Aurora Gradient Backdrop */
+    .aurora-layer {
+      position: fixed;
+      top: -30%; left: 10%;
+      width: 900px; height: 900px;
+      background: radial-gradient(circle, rgba(20, 241, 149, 0.15) 0%, rgba(56, 189, 248, 0.1) 40%, transparent 75%);
+      filter: blur(120px);
       z-index: -1;
       pointer-events: none;
+      animation: auroraMove 15s ease-in-out infinite alternate;
     }
 
-    /* Glow Gradients */
-    .gradient-text {
-      background: linear-gradient(135deg, #a78bfa 0%, #38bdf8 50%, #34d399 100%);
+    @keyframes auroraMove {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      100% { transform: translate(-120px, 100px) rotate(30deg); }
+    }
+
+    /* Glassmorphism System */
+    .glass-panel {
+      background: var(--bg-glass);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .glass-panel:hover {
+      border-color: rgba(20, 241, 149, 0.4);
+      box-shadow: 0 20px 50px -10px rgba(20, 241, 149, 0.25);
+    }
+
+    /* Glowing Text FX */
+    .glow-emerald {
+      background: linear-gradient(135deg, #14F195 0%, #38BDF8 50%, #FFD166 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 25px rgba(20, 241, 149, 0.75));
+    }
+
+    .glow-cyan {
+      background: linear-gradient(135deg, #38BDF8 0%, #14F195 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .gradient-gold {
-      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    .glow-gold {
+      background: linear-gradient(135deg, #FFD166 0%, #F59E0B 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    /* Glassmorphism Container */
-    .glass {
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid var(--border-card);
-      border-radius: var(--radius);
-      transition: transform 0.4s cubic-bezier(0.1, 0.8, 0.2, 1), border-color 0.4s, box-shadow 0.4s;
-    }
-
-    .glass:hover {
-      border-color: var(--border-glow);
-      box-shadow: 0 20px 40px -15px rgba(139, 92, 246, 0.3);
-    }
-
-    /* 3D Tilt Card Container */
-    .tilt-card {
-      transform-style: preserve-3d;
-      perspective: 1000px;
-      position: relative;
-    }
-
-    .tilt-card-inner {
-      transition: transform 0.15s ease-out;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .glare {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      pointer-events: none;
-      border-radius: var(--radius);
-      background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.12) 0%, transparent 60%);
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    .tilt-card:hover .glare {
-      opacity: 1;
-    }
-
-    /* Navigation Header */
+    /* Navigation Bar */
     header {
       position: fixed;
       top: 0; left: 0; width: 100%;
       z-index: 100;
-      padding: 16px 40px;
+      padding: 24px 60px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(7, 9, 14, 0.7);
-      backdrop-filter: blur(15px);
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      background: rgba(7, 17, 31, 0.8);
+      backdrop-filter: blur(30px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    .logo {
+    .brand-logo {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
+      gap: 14px;
+      font-size: 26px;
+      font-weight: 900;
       text-decoration: none;
       color: #fff;
+      letter-spacing: -0.5px;
     }
 
-    .logo-icon {
-      width: 40px; height: 40px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--primary), var(--cyan));
+    .brand-logo-icon {
+      width: 44px; height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       display: flex; justify-content: center; align-items: center;
-      font-size: 20px;
-      box-shadow: 0 0 20px var(--primary-glow);
+      color: #07111F;
+      font-size: 22px;
+      box-shadow: 0 0 30px var(--primary-glow);
     }
 
     .nav-links {
       display: flex;
-      gap: 32px;
+      gap: 40px;
       list-style: none;
     }
 
     .nav-links a {
       color: var(--text-muted);
       text-decoration: none;
-      font-size: 14.5px;
-      font-weight: 500;
+      font-size: 15px;
+      font-weight: 600;
       transition: color 0.3s, text-shadow 0.3s;
     }
 
     .nav-links a:hover {
       color: #fff;
-      text-shadow: 0 0 10px rgba(255,255,255,0.5);
+      text-shadow: 0 0 15px var(--primary);
     }
 
-    .nav-btns {
-      display: flex;
-      gap: 14px;
-      align-items: center;
-    }
-
+    /* Magnetic Buttons */
     .btn {
-      padding: 10px 24px;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 600;
+      padding: 14px 32px;
+      border-radius: 16px;
+      font-size: 15px;
+      font-weight: 800;
       text-decoration: none;
       cursor: pointer;
       border: none;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
-      color: #fff;
-      box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+      background: linear-gradient(135deg, var(--primary) 0%, #05B368 100%);
+      color: #07111F;
+      box-shadow: 0 4px 30px var(--primary-glow);
     }
 
     .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(139, 92, 246, 0.6);
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 12px 40px rgba(20, 241, 149, 0.8);
     }
 
     .btn-secondary {
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.05);
       color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.15);
     }
 
     .btn-secondary:hover {
       background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.25);
+      border-color: var(--primary);
+      box-shadow: 0 0 25px rgba(20, 241, 149, 0.3);
     }
 
-    /* Layout Wrappers */
+    /* Container Wrapper */
     .container {
-      max-width: 1240px;
+      max-width: 1360px;
       margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    section {
-      padding: 120px 0 80px;
+      padding: 0 28px;
       position: relative;
+      z-index: 10;
     }
 
-    /* Hero Section */
-    .hero {
+    /* Full Viewport 3D Cinematic Hero Experience */
+    .hero-universe {
+      min-height: 100vh;
       padding-top: 170px;
       padding-bottom: 100px;
-      text-align: center;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 60px;
+      align-items: center;
       position: relative;
     }
 
-    .badge-pill {
+    .hero-editorial {
+      text-align: left;
+    }
+
+    .hero-badge {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 16px;
+      gap: 10px;
+      padding: 8px 22px;
       border-radius: 30px;
-      background: rgba(139, 92, 246, 0.12);
-      border: 1px solid rgba(139, 92, 246, 0.3);
-      color: #c4b5fd;
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 24px;
-      box-shadow: 0 0 25px rgba(139, 92, 246, 0.2);
+      background: rgba(20, 241, 149, 0.08);
+      border: 1px solid rgba(20, 241, 149, 0.35);
+      color: var(--primary);
+      font-size: 13.5px;
+      font-weight: 700;
+      margin-bottom: 32px;
+      letter-spacing: 0.5px;
     }
 
-    .hero h1 {
-      font-size: 64px;
+    .hero-editorial h1 {
+      font-size: 72px;
       font-weight: 900;
-      line-height: 1.1;
-      letter-spacing: -1.5px;
-      margin-bottom: 24px;
-      max-width: 950px;
-      margin-left: auto;
-      margin-right: auto;
+      line-height: 1.08;
+      letter-spacing: -2.5px;
+      margin-bottom: 28px;
     }
 
-    .hero p {
-      font-size: 18px;
+    .hero-editorial p {
+      font-size: 19px;
       color: var(--text-muted);
-      max-width: 720px;
-      margin: 0 auto 36px;
+      margin-bottom: 44px;
+      max-width: 620px;
+      font-weight: 400;
     }
 
     .hero-actions {
       display: flex;
-      justify-content: center;
-      gap: 16px;
-      margin-bottom: 64px;
+      gap: 20px;
     }
 
-    /* Stats Grid */
-    .stats-grid {
+    /* Holographic Dashboard Hologram Frame (Hero Right) */
+    .hero-hologram-wrap {
+      perspective: 1200px;
+      position: relative;
+    }
+
+    .hero-hologram {
+      padding: 24px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(20, 241, 149, 0.12) 0%, rgba(56, 189, 248, 0.06) 100%);
+      border: 1px solid rgba(20, 241, 149, 0.35);
+      box-shadow: 0 40px 90px -20px rgba(20, 241, 149, 0.35), 0 0 50px rgba(0, 0, 0, 0.6);
+      transform-style: preserve-3d;
+      transition: transform 0.2s ease-out;
+    }
+
+    /* Floating Glass Statistics */
+    .stats-container {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-      margin-bottom: 60px;
+      gap: 24px;
+      margin-top: -60px;
+      margin-bottom: 120px;
     }
 
-    .stat-card {
-      padding: 24px;
+    .stat-floating-card {
+      padding: 32px 24px;
       text-align: center;
+      transition: transform 0.4s ease;
+    }
+
+    .stat-floating-card:hover {
+      transform: translateY(-8px);
     }
 
     .stat-val {
-      font-size: 36px;
-      font-weight: 800;
-      margin-bottom: 4px;
-      font-family: 'Outfit', sans-serif;
+      font-size: 44px;
+      font-weight: 900;
+      font-family: var(--font-display);
+      margin-bottom: 6px;
     }
 
-    .stat-label {
+    .stat-desc {
       font-size: 13px;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    /* 3D Laptop/Screen Showcase Frame */
-    .showcase-frame-wrap {
-      position: relative;
-      max-width: 1040px;
-      margin: 0 auto;
-      perspective: 1200px;
-    }
-
-    .showcase-frame {
-      border-radius: 20px;
-      padding: 12px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.03) 100%);
-      border: 1px solid rgba(255,255,255,0.2);
-      box-shadow: 0 30px 80px -20px rgba(139, 92, 246, 0.4), 0 0 50px rgba(6, 182, 212, 0.2);
-      transform: rotateX(6deg) scale(0.98);
-      transition: transform 0.5s cubic-bezier(0.1, 0.8, 0.2, 1);
-    }
-
-    .showcase-frame:hover {
-      transform: rotateX(0deg) scale(1);
-    }
-
-    .showcase-img {
-      width: 100%;
-      border-radius: 12px;
-      display: block;
-      object-fit: cover;
-    }
-
-    /* Floating Feature Pills */
-    .floating-pill {
-      position: absolute;
-      padding: 12px 20px;
-      border-radius: 14px;
-      font-size: 13.5px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-      animation: floatPill 4s ease-in-out infinite alternate;
-      z-index: 10;
-    }
-
-    @keyframes floatPill {
-      0% { transform: translateY(0px) rotate(0deg); }
-      100% { transform: translateY(-12px) rotate(1deg); }
-    }
-
-    .pill-1 { top: 10%; left: -5%; background: rgba(15, 23, 42, 0.9); border: 1px solid var(--primary); color: #c4b5fd; }
-    .pill-2 { bottom: 15%; right: -5%; background: rgba(15, 23, 42, 0.9); border: 1px solid var(--cyan); color: #67e8f9; animation-delay: -2s; }
-
-    /* Section Headers */
-    .section-title-wrap {
-      text-align: center;
-      margin-bottom: 60px;
-    }
-
-    .section-subtitle {
-      color: var(--primary);
-      text-transform: uppercase;
-      font-size: 13px;
-      font-weight: 700;
       letter-spacing: 1px;
-      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    /* Section Header */
+    .section-head {
+      text-align: center;
+      margin-bottom: 80px;
+    }
+
+    .section-tag {
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      color: var(--primary);
+      margin-bottom: 14px;
     }
 
     .section-title {
-      font-size: 42px;
-      font-weight: 800;
-      letter-spacing: -1px;
+      font-size: 52px;
+      font-weight: 900;
+      letter-spacing: -2px;
     }
 
-    /* Feature Grid */
-    .feature-grid {
+    /* 3D Floating Feature Islands */
+    .feature-islands-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 28px;
+      gap: 32px;
     }
 
-    .feature-card {
-      padding: 32px;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .feature-icon-box {
-      width: 56px; height: 56px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.1));
-      border: 1px solid rgba(139, 92, 246, 0.3);
-      display: flex; justify-content: center; align-items: center;
-      font-size: 24px;
-      color: var(--primary);
-      margin-bottom: 20px;
-    }
-
-    .feature-card h3 {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-
-    .feature-card p {
-      font-size: 14px;
-      color: var(--text-muted);
-      margin-bottom: 20px;
-      flex-grow: 1;
-    }
-
-    .feature-media-box {
-      width: 100%;
-      height: 170px;
-      border-radius: 12px;
-      overflow: hidden;
+    .island-card {
+      padding: 40px;
       position: relative;
-      border: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
     }
 
-    .feature-media-box img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      transition: transform 0.5s;
+    .island-icon {
+      width: 64px; height: 64px;
+      border-radius: 20px;
+      background: rgba(20, 241, 149, 0.12);
+      border: 1px solid rgba(20, 241, 149, 0.35);
+      display: flex; justify-content: center; align-items: center;
+      font-size: 28px;
+      color: var(--primary);
+      margin-bottom: 28px;
     }
 
-    .feature-card:hover .feature-media-box img {
-      transform: scale(1.06);
+    .island-card h3 {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 14px;
     }
 
-    /* Interactive Savings Calculator Section */
-    .calculator-box {
+    .island-card p {
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+
+    /* Live Interactive AI Scanner & Dashboard Demo */
+    .demo-live-box {
       padding: 48px;
+      margin: 100px 0;
+    }
+
+    .ocr-scanner-line {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 3px;
+      background: linear-gradient(90deg, transparent, #14F195, transparent);
+      box-shadow: 0 0 15px #14F195;
+      animation: scanMove 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes scanMove {
+      0% { top: 0%; }
+      100% { top: 100%; }
+    }
+
+    /* Comparison Section: Traditional vs BAYAN.AI */
+    .comp-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 48px;
-      align-items: center;
+      gap: 36px;
+      margin-top: 50px;
     }
 
-    .calc-inputs {
-      display: flex;
-      flex-direction: column;
-      gap: 28px;
+    .comp-box {
+      padding: 48px;
+      border-radius: 28px;
     }
 
-    .slider-group label {
+    .comp-box.traditional {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .comp-box.bayan {
+      background: rgba(20, 241, 149, 0.06);
+      border: 1px solid rgba(20, 241, 149, 0.35);
+      box-shadow: 0 0 50px rgba(20, 241, 149, 0.18);
+    }
+
+    .comp-item {
       display: flex;
       justify-content: space-between;
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 10px;
+      align-items: center;
+      padding: 20px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 16.5px;
     }
 
-    .slider-group input[type="range"] {
-      width: 100%;
-      height: 8px;
-      border-radius: 4px;
-      background: #1e293b;
-      outline: none;
-      accent-color: var(--primary);
-      cursor: pointer;
+    /* Infinite Marquee Floating Holographic Logos */
+    .marquee-container {
+      overflow: hidden;
+      white-space: nowrap;
+      position: relative;
+      padding: 50px 0;
+      margin: 100px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    .calc-results {
-      background: rgba(139, 92, 246, 0.08);
-      border: 1px solid rgba(139, 92, 246, 0.25);
-      border-radius: 16px;
-      padding: 36px;
-      text-align: center;
+    .marquee-track {
+      display: inline-flex;
+      gap: 60px;
+      animation: marqueeRun 30s linear infinite;
     }
 
-    .savings-num {
-      font-size: 44px;
-      font-weight: 900;
-      color: var(--emerald);
-      margin-bottom: 8px;
-      font-family: 'Outfit', sans-serif;
+    @keyframes marqueeRun {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    .marquee-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 32px;
+      border-radius: 40px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-weight: 700;
+      font-size: 16px;
+      color: #fff;
     }
 
     /* Pricing Section */
     .pricing-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 28px;
+      gap: 32px;
       align-items: center;
     }
 
-    .price-card {
-      padding: 36px;
+    .pricing-card {
+      padding: 48px 36px;
       position: relative;
     }
 
-    .price-card.popular {
+    .pricing-card.popular {
       border-color: var(--primary);
-      box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
-      transform: scale(1.04);
+      box-shadow: 0 0 60px rgba(20, 241, 149, 0.3);
+      transform: scale(1.05);
     }
 
     .price-tag {
-      font-size: 38px;
+      font-size: 46px;
       font-weight: 900;
-      margin: 16px 0;
-      font-family: 'Outfit', sans-serif;
+      font-family: var(--font-display);
+      margin: 20px 0;
     }
 
-    .price-features {
+    .pricing-list {
       list-style: none;
-      margin: 24px 0 32px;
+      margin: 32px 0;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      font-size: 14px;
+      gap: 14px;
+      font-size: 15px;
     }
 
-    .price-features li {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .pricing-list i {
+      color: var(--primary);
     }
 
-    .price-features i {
-      color: var(--emerald);
+    /* Editorial Luxury Testimonials */
+    .testimonial-editorial {
+      padding: 60px;
+      margin: 100px 0;
     }
 
-    /* Footer CTA */
-    .cta-banner {
-      padding: 80px 40px;
+    /* Cinematic Finale Section */
+    .finale-section {
+      padding: 140px 0 100px;
       text-align: center;
       position: relative;
-      overflow: hidden;
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%);
-      border: 1px solid rgba(139, 92, 246, 0.3);
     }
 
+    /* Footer */
     footer {
-      border-top: 1px solid rgba(255,255,255,0.08);
-      padding: 40px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 60px 0 40px;
       text-align: center;
       color: var(--text-muted);
       font-size: 14px;
@@ -543,346 +537,399 @@
 
     /* Responsive */
     @media (max-width: 992px) {
-      .hero h1 { font-size: 42px; }
-      .feature-grid, .pricing-grid, .stats-grid { grid-template-columns: 1fr; }
-      .calculator-box { grid-template-columns: 1fr; }
+      .hero-universe { grid-template-columns: 1fr; padding-top: 130px; text-align: center; }
+      .hero-editorial h1 { font-size: 48px; }
+      .feature-islands-grid, .pricing-grid, .stats-container, .comp-grid { grid-template-columns: 1fr; }
       .nav-links { display: none; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Three.js Interactive WebGL Canvas -->
+  <!-- Three.js 3D WebGL Universe Canvas -->
   <canvas id="canvas-3d"></canvas>
 
-  <!-- Navigation Bar -->
+  <!-- Cursor Energy Trail & Spotlight -->
+  <div id="cursor-spotlight"></div>
+
+  <!-- Aurora Layer -->
+  <div class="aurora-layer"></div>
+
+  <!-- Header Navigation -->
   <header>
-    <a href="/" class="logo">
-      <div class="logo-icon"><i class="fa-solid fa-bolt"></i></div>
-      <span>BAYAN <span class="gradient-text">AI</span></span>
+    <a href="/" class="brand-logo">
+      <div class="brand-logo-icon"><i class="fa-solid fa-bolt"></i></div>
+      <span>BAYAN<span class="glow-emerald">.AI</span></span>
     </a>
     <ul class="nav-links">
-      <li><a href="#features">Боломжууд</a></li>
-      <li><a href="#showcase">3D Систем</a></li>
-      <li><a href="#calculator">Тооцоолуур</a></li>
+      <li><a href="#features">Модулиуд</a></li>
+      <li><a href="#demo">AI Дашборд</a></li>
+      <li><a href="#comparison">Харьцуулалт</a></li>
       <li><a href="#pricing">Тариф</a></li>
     </ul>
-    <div class="nav-btns">
+    <div class="nav-actions">
       <a href="/" class="btn btn-secondary"><i class="fa-solid fa-right-to-bracket"></i> Нэвтрэх</a>
-      <a href="/" class="btn btn-primary"><i class="fa-solid fa-bolt"></i> Эхлүүлэх</a>
+      <a href="/" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> 🚀 Үнэгүй Эхлэх</a>
     </div>
   </header>
 
-  <!-- Hero Section -->
-  <section class="hero container">
-    <div class="badge-pill">
-      <i class="fa-solid fa-sparkles"></i> Шинэ Үеийн Санхүүгийн Хиймэл Оюун Ухаан
-    </div>
-    <h1>Санхүүгийн Ирээдүйг <br><span class="gradient-text">3D & AI Оюун Ухаанаар</span> Удирд</h1>
-    <p>НББ-ийн журналын бичилт, eBarimt ба банкны хуулгын автомат тулгалт, FIFO өртөг болон 4 санхүүгийн тайланг 100% автоматаар бэлтгэх Монголын анхны ухаалаг платформ.</p>
-    
-    <div class="hero-actions">
-      <a href="/" class="btn btn-primary" style="padding: 14px 32px; font-size: 16px;">
-        <i class="fa-solid fa-rocket"></i> Систем рүү нэвтрэх
-      </a>
-      <a href="#showcase" class="btn btn-secondary" style="padding: 14px 28px; font-size: 16px;">
-        <i class="fa-solid fa-circle-play"></i> 3D Систем үзэх
-      </a>
-    </div>
-
-    <!-- Stats Grid -->
-    <div class="stats-grid">
-      <div class="glass stat-card">
-        <div class="stat-val gradient-text">₮4.8B+</div>
-        <div class="stat-label">Боловсруулсан дүн</div>
+  <!-- Full Viewport 3D Cinematic Hero Universe -->
+  <section class="hero-universe container">
+    <div class="hero-editorial">
+      <div class="hero-badge">
+        <i class="fa-solid fa-sparkles"></i> AI Powered Financial Intelligence
       </div>
-      <div class="glass stat-card">
-        <div class="stat-val gradient-text">99.4%</div>
-        <div class="stat-label">AI Ангиллын Оновчтой Бэлэн байдал</div>
-      </div>
-      <div class="glass stat-card">
-        <div class="stat-val gradient-text">278 / 305</div>
-        <div class="stat-label">Автомат Тулгагдсан Гүйлгээ</div>
-      </div>
-      <div class="glass stat-card">
-        <div class="stat-val gradient-gold">0.1 Сек</div>
-        <div class="stat-label">Тайлан бэлтгэх хурд</div>
-      </div>
-    </div>
+      <h1>
+        Санхүүгийн<br>
+        Бүртгэлийг<br>
+        <span class="glow-emerald">AI Оюун Ухаанаар</span><br>
+        Автоматжуул.
+      </h1>
+      <p>Монголын хамгийн дэвшилтэт AI санхүүгийн платформ. Нягтлан бодох бүртгэл, eBarimt, банкны хуулга, FIFO, тайлан, санхүүгийн анализ болон бизнесийн шийдвэрийг AI ашиглан секундийн дотор автоматжуулна.</p>
 
-    <!-- 3D Laptop / Dashboard Showcase Frame -->
-    <div class="showcase-frame-wrap" id="showcase">
-      <div class="floating-pill pill-1">
-        <i class="fa-solid fa-microchip" style="color:var(--primary)"></i>
-        <span>99.4% AI Журналын Ангилагч</span>
-      </div>
-      <div class="floating-pill pill-2">
-        <i class="fa-solid fa-file-invoice-dollar" style="color:var(--cyan)"></i>
-        <span>eBarimt API & Excel Тулгалт</span>
-      </div>
-      
-      <div class="showcase-frame">
-        <img src="/assets/hero3d.jpg" alt="Bayan AI 3D Showcase" class="showcase-img">
-      </div>
-    </div>
-  </section>
-
-  <!-- Features Section -->
-  <section class="container" id="features">
-    <div class="section-title-wrap">
-      <div class="section-subtitle">Системийн Давуу Талууд</div>
-      <h2 class="section-title">Нягтлан Бодох Бүртгэлийг <span class="gradient-text">Бүрэн Автоматжуулсан</span> Модулиуд</h2>
-    </div>
-
-    <div class="feature-grid">
-      
-      <!-- Card 1 -->
-      <div class="tilt-card">
-        <div class="glass feature-card tilt-card-inner">
-          <div class="glare"></div>
-          <div class="feature-icon-box"><i class="fa-solid fa-brain"></i></div>
-          <h3>AI Журналын Ангилагч</h3>
-          <p>Банкны гүйлгээний утга, харилцагчийн нэр дээр үндэслэн Дансны Төлөвлөгөөний Дансны кодыг 99.4%-ийн таамаглалтайгаар автоматаар ангилна.</p>
-          <div class="feature-media-box">
-            <img src="/assets/hero3d.jpg" alt="AI Classifier">
-          </div>
-        </div>
-      </div>
-
-      <!-- Card 2 -->
-      <div class="tilt-card">
-        <div class="glass feature-card tilt-card-inner">
-          <div class="glare"></div>
-          <div class="feature-icon-box" style="color:var(--cyan)"><i class="fa-solid fa-receipt"></i></div>
-          <h3>eBarimt & Банкны Хос Тулгалт</h3>
-          <p>НӨАТУС API эсвэл eBarimt Excel export-оос и-баримтуудыг татаж олон банкны хуулгатай автоматаар тулган зөрүүг мэдээлнэ.</p>
-          <div class="feature-media-box">
-            <img src="/assets/ebarimt3d.jpg" alt="eBarimt Sync">
-          </div>
-        </div>
-      </div>
-
-      <!-- Card 3 -->
-      <div class="tilt-card">
-        <div class="glass feature-card tilt-card-inner">
-          <div class="glare"></div>
-          <div class="feature-icon-box" style="color:var(--emerald)"><i class="fa-solid fa-chart-pie"></i></div>
-          <h3>Санхүүгийн 4 Үндсэн Тайлан</h3>
-          <p>Баланс, Орлогын тайлан, Мөнгөн урсгал, Өмчийн өөрчлөлтийн тайлангуудыг НББОУС стандартын дагуу 1 секундийн дотор бэлтгэнэ.</p>
-          <div class="feature-media-box">
-            <img src="/assets/analytics3d.jpg" alt="Financial Reports">
-          </div>
-        </div>
-      </div>
-
-      <!-- Card 4 -->
-      <div class="tilt-card">
-        <div class="glass feature-card tilt-card-inner">
-          <div class="glare"></div>
-          <div class="feature-icon-box" style="color:var(--amber)"><i class="fa-solid fa-boxes-stacked"></i></div>
-          <h3>WIP Жор & БМ Төсөвт Өртөг</h3>
-          <p>Бараа материалын FIFO, дундаж өртгийн тооцоолол болон үйлдвэрлэл, угсралтын жороор идэвхжих WIP дууссан орлого хуваарилалт.</p>
-          <div class="feature-media-box">
-            <img src="/assets/analytics3d.jpg" alt="WIP Costing">
-          </div>
-        </div>
-      </div>
-
-      <!-- Card 5 -->
-      <div class="tilt-card">
-        <div class="glass feature-card tilt-card-inner">
-          <div class="glare"></div>
-          <div class="feature-icon-box" style="color:#e879f9"><i class="fa-solid fa-users-gear"></i></div>
-          <h3>Цалин, НДШ & ХХАТ Автоматжуулалт</h3>
-          <p>Ажилтнуудын цаг бүртгэл, урьдчилгаа, НДШ (12.5% / 11.5%), ХХАТ болон НББ-ийн журналын бичилтийг автоматаар үүсгэнэ.</p>
-          <div class="feature-media-box">
-            <img src="/assets/hero3d.jpg" alt="Payroll System">
-          </div>
-        </div>
-      </div>
-
-      <!-- Card 6 -->
-      <div class="tilt-card">
-        <div class="glass feature-card tilt-card-inner">
-          <div class="glare"></div>
-          <div class="feature-icon-box" style="color:#f43f5e"><i class="fa-solid fa-shield-halved"></i></div>
-          <h3>Big4 Аудит & IDOR Хамгаалалт</h3>
-          <p>Олон компанийн тусгаарлагдсан архитектур (Multi-Tenant RLS), тайлант үеийн цоожлол (Period Lock) ба Аудит лог матриц.</p>
-          <div class="feature-media-box">
-            <img src="/assets/ebarimt3d.jpg" alt="Audit Matrix">
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- Savings Calculator Section -->
-  <section class="container" id="calculator">
-    <div class="glass calculator-box">
-      <div class="calc-inputs">
-        <div>
-          <div class="section-subtitle">Хэмнэлтийн Тооцоолуур</div>
-          <h2 class="section-title" style="font-size: 32px; text-align: left;">Bayan AI танай компанид хэдэн төгрөг хэмнэх вэ?</h2>
-        </div>
-
-        <div class="slider-group">
-          <label>
-            <span>Сарын банк ба журналын гүйлгээний тоо:</span>
-            <span id="val-txns" class="gradient-text">1,500 гүйлгээ</span>
-          </label>
-          <input type="range" id="slider-txns" min="100" max="10000" step="100" value="1500">
-        </div>
-
-        <div class="slider-group">
-          <label>
-            <span>Нягтлан бодогчдын тоо:</span>
-            <span id="val-staff" class="gradient-text">3 нягтлан</span>
-          </label>
-          <input type="range" id="slider-staff" min="1" max="15" step="1" value="3">
-        </div>
-      </div>
-
-      <div class="calc-results glass">
-        <div style="font-size: 13px; color: var(--text-muted); text-transform: uppercase;">Жилийн Нийт Цэвэр Хэмнэлт</div>
-        <div class="savings-num" id="calc-savings">₮28,800,000</div>
-        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">
-          Жилд хэмнэх ажлын цаг: <b id="calc-hours" style="color:#fff;">360 цаг</b>
-        </p>
-        <a href="/" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 14px;">
-          <i class="fa-solid fa-bolt"></i> Энэ хэмнэлтийг одоо эхлүүлэх
+      <div class="hero-actions">
+        <a href="/" class="btn btn-primary" style="padding: 18px 40px; font-size: 16.5px;">
+          <i class="fa-solid fa-rocket"></i> 🚀 Үнэгүй Эхлэх
+        </a>
+        <a href="#demo" class="btn btn-secondary" style="padding: 18px 36px; font-size: 16.5px;">
+          <i class="fa-solid fa-play"></i> ▶ Live Demo
         </a>
       </div>
     </div>
+
+    <!-- Holographic AI Financial Core (Hero Right) -->
+    <div class="hero-hologram-wrap">
+      <div class="hero-hologram glass-panel" id="heroHologram">
+        
+        <!-- Live Realtime BAYAN.AI Core Screen -->
+        <div style="background: rgba(11, 23, 42, 0.95); border-radius: 20px; padding: 24px; border: 1px solid rgba(20, 241, 149, 0.3);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="width: 12px; height: 12px; border-radius: 50%; background: #14F195; box-shadow: 0 0 15px #14F195;"></span>
+              <span style="font-weight: 800; font-size: 15px; font-family: var(--font-mono)">BAYAN.AI CORE ENGINE v2.0</span>
+            </div>
+            <span style="font-size: 11px; background: rgba(20, 241, 149, 0.15); color: #14F195; padding: 3px 10px; border-radius: 14px; font-weight: 700;">✓ 99.8% AI ACCURACY</span>
+          </div>
+
+          <!-- Financial Stream Metrics -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 14px; border-radius: 12px;">
+              <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase;">Realtime Cashflow</div>
+              <div style="font-size: 22px; font-weight: 900; color: #14F195; font-family: 'Outfit';">₮5,240,800,000</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 14px; border-radius: 12px;">
+              <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase;">eBarimt Matched</div>
+              <div style="font-size: 22px; font-weight: 900; color: #FFD166; font-family: 'Outfit';">278 / 305 Txns</div>
+            </div>
+          </div>
+
+          <!-- Transaction stream snippet -->
+          <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12.5px;">
+            <div style="background: rgba(255,255,255,0.04); padding: 12px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+              <span><i class="fa-solid fa-building-columns" style="color:#38BDF8"></i> Хаан Банк Орлого - Борлуулалт</span>
+              <span style="color:#14F195; font-weight:800;">+₮15,400,000</span>
+              <span style="font-size:10px; background:rgba(20,241,149,0.2); color:#14F195; padding:2px 8px; border-radius:6px;">AUTO CLASSIFIED</span>
+            </div>
+            <div style="background: rgba(255,255,255,0.04); padding: 12px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+              <span><i class="fa-solid fa-receipt" style="color:#FFD166"></i> eBarimt #984210 НӨАТ</span>
+              <span style="color:#FFD166; font-weight:800;">+₮4,850,000</span>
+              <span style="font-size:10px; background:rgba(255,209,102,0.2); color:#FFD166; padding:2px 8px; border-radius:6px;">TEG API SYNCED</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
   </section>
 
+  <!-- Floating Glass Statistics Counters -->
+  <div class="container">
+    <div class="stats-container">
+      <div class="glass-panel stat-floating-card">
+        <div class="stat-val glow-emerald">5.2B₮+</div>
+        <div class="stat-desc">Financial Data Processed</div>
+      </div>
+      <div class="glass-panel stat-floating-card">
+        <div class="stat-val glow-cyan">99.8%</div>
+        <div class="stat-desc">AI Accuracy</div>
+      </div>
+      <div class="glass-panel stat-floating-card">
+        <div class="stat-val glow-gold">300+</div>
+        <div class="stat-desc">Businesses</div>
+      </div>
+      <div class="glass-panel stat-floating-card">
+        <div class="stat-val glow-emerald">0.1 sec</div>
+        <div class="stat-desc">Average Processing Time</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Interactive AI Scanner & Live Dashboard Demo -->
+  <section class="container" id="demo">
+    <div class="section-head">
+      <div class="section-tag">Live AI Ecosystem</div>
+      <h2 class="section-title">Секундийн Дотор Ажиллах <span class="glow-emerald">AI Орчин</span></h2>
+    </div>
+
+    <div class="glass-panel demo-live-box" style="position: relative;">
+      <div class="ocr-scanner-line"></div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+        <div>
+          <div style="font-size: 13px; color: var(--primary); font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">AI Invoice Scanner & OCR</div>
+          <h3 style="font-size: 32px; font-weight: 900; margin-bottom: 16px;">Баримт Уншиж, Банктай Шууд Тулгана</h3>
+          <p style="color: var(--text-muted); font-size: 16px; margin-bottom: 24px;">Нэхэмжлэх эсвэл eBarimt хуулгыг системд оруулахад AI OCR текстийг автоматаар уншиж, Дансны Төлөвлөгөөний дансны кодоор ангилан, 4 тайланд тусгана.</p>
+          
+          <div style="display: flex; gap: 14px;">
+            <div style="background: rgba(20, 241, 149, 0.1); border: 1px solid rgba(20, 241, 149, 0.3); padding: 14px 20px; border-radius: 12px;">
+              <div style="font-size: 20px; font-weight: 900; color: #14F195;">0.1 сек</div>
+              <div style="font-size: 12px; color: #94A3B8;">OCR Боловсруулалт</div>
+            </div>
+            <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); padding: 14px 20px; border-radius: 12px;">
+              <div style="font-size: 20px; font-weight: 900; color: #38BDF8;">99.8%</div>
+              <div style="font-size: 12px; color: #94A3B8;">Оновчтой Таамаглал</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: rgba(11, 23, 42, 0.9); border-radius: 20px; padding: 28px; border: 1px solid rgba(255,255,255,0.1);">
+          <div style="font-size: 13px; font-weight: 700; color: #14F195; margin-bottom: 12px;"><i class="fa-solid fa-robot"></i> BAYAN.AI ASSISTANT IS TYPING...</div>
+          <div style="font-size: 14.5px; color: #E2E8F0; line-height: 1.6; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px; border-left: 3px solid #14F195;">
+            "Таны оруулсан ₮15,400,000 дүнтэй борлуулалтын гүйлгээг <b>1010 Бэлэн мөнгө / 4010 Борлуулалтын орлого</b> дансанд автоматаар бичлээ. eBarimt #984210 баталгаажсан бөгөөд НӨАТ-ын өглөг ₮1,400,000 суутгагдлаа."
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Floating 3D Feature Islands Section -->
+  <section class="container" id="features" style="padding: 60px 0 120px;">
+    <div class="section-head">
+      <div class="section-tag">Ecosystem Capabilities</div>
+      <h2 class="section-title">Санхүүгийн <span class="glow-emerald">12 Интеграци Модуль</span></h2>
+    </div>
+
+    <div class="feature-islands-grid">
+      <div class="glass-panel island-card">
+        <div class="island-icon"><i class="fa-solid fa-brain"></i></div>
+        <h3>AI Bookkeeping</h3>
+        <p>Банкны гүйлгээний утга, харилцагчийн нэр дээр үндэслэн Дансны Төлөвлөгөөний дансны кодыг 99.8% оновчтой ангилна.</p>
+      </div>
+
+      <div class="glass-panel island-card">
+        <div class="island-icon" style="color:var(--secondary); border-color:var(--secondary);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+        <h3>AI OCR & Invoice</h3>
+        <p>Нэхэмжлэх ба баримтын зургийг хиймэл оюунаар автоматаар уншиж текст болон дүн суулгана.</p>
+      </div>
+
+      <div class="glass-panel island-card">
+        <div class="island-icon" style="color:var(--accent-gold); border-color:var(--accent-gold);"><i class="fa-solid fa-receipt"></i></div>
+        <h3>eBarimt Integration</h3>
+        <p>НӨАТУС API болон eBarimt Excel-ээс и-баримтуудыг татаж олон банкны хуулгатай автоматаар тулана.</p>
+      </div>
+
+      <div class="glass-panel island-card">
+        <div class="island-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+        <h3>FIFO & Inventory</h3>
+        <p>Бараа материалын FIFO, дундаж өртгийн тооцоолол болон үйлдвэрлэлийн жороор идэвхжих WIP өртөг.</p>
+      </div>
+
+      <div class="glass-panel island-card">
+        <div class="island-icon" style="color:var(--secondary); border-color:var(--secondary);"><i class="fa-solid fa-users-gear"></i></div>
+        <h3>AI Payroll & Tax</h3>
+        <p>Цаг бүртгэл, НДШ (12.5% / 11.5%), ХХАТ болон НББ-ийн журналын бичилтийг автоматжуулна.</p>
+      </div>
+
+      <div class="glass-panel island-card">
+        <div class="island-icon" style="color:#EF4444; border-color:#EF4444;"><i class="fa-solid fa-shield-halved"></i></div>
+        <h3>Big4 Audit Matrix</h3>
+        <p>Multi-Tenant RLS тусгаарлалт, тайлант үеийн цоожлол (Period Lock) ба Аудит лог матриц.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Section: Traditional vs BAYAN.AI -->
+  <section class="container" id="comparison" style="padding: 40px 0 120px;">
+    <div class="section-head">
+      <div class="section-tag">Evolutionary Shift</div>
+      <h2 class="section-title">Уламжлалт НББ vs <span class="glow-emerald">BAYAN.AI</span></h2>
+    </div>
+
+    <div class="comp-grid">
+      <div class="comp-box traditional">
+        <h3 style="font-size:26px; margin-bottom:24px; color:#94A3B8;">Уламжлалт Санхүү</h3>
+        <div class="comp-item"><span>Гүйлгээ шивэх:</span> <b style="color:#EF4444">Manual (Гараар 100%)</b></div>
+        <div class="comp-item"><span>Тайлан бэлтгэх хугацаа:</span> <b style="color:#EF4444">Days (Хэдэн өдөр)</b></div>
+        <div class="comp-item"><span>Алдааны магадлал:</span> <b style="color:#EF4444">Human Error</b></div>
+        <div class="comp-item"><span>Баримтын хэлбэр:</span> <b style="color:#EF4444">Paper (Цаас)</b></div>
+      </div>
+
+      <div class="comp-box bayan">
+        <h3 style="font-size:26px; margin-bottom:24px;" class="glow-emerald">BAYAN.AI Систем</h3>
+        <div class="comp-item"><span>Гүйлгээ шивэх:</span> <b style="color:#14F195">AI Automatic (99.8%)</b></div>
+        <div class="comp-item"><span>Тайлан бэлтгэх хугацаа:</span> <b style="color:#14F195">Seconds (0.1 сек)</b></div>
+        <div class="comp-item"><span>Алдааны магадлал:</span> <b style="color:#14F195">0.00% Zero Error</b></div>
+        <div class="comp-item"><span>Баримтын хэлбэр:</span> <b style="color:#14F195">Digital Cloud (100%)</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Infinite Marquee Floating Holographic Bank Logos -->
+  <div class="marquee-container">
+    <div class="marquee-track">
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#14F195"></i> Хаан Банк</div>
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#38BDF8"></i> Голомт Банк</div>
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#FFD166"></i> Худалдаа Хөгжлийн Банк</div>
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#14F195"></i> Төрийн Банк</div>
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#38BDF8"></i> Хас Банк</div>
+      <div class="marquee-pill"><i class="fa-solid fa-qrcode" style="color:#FFD166"></i> QPay</div>
+      <div class="marquee-pill"><i class="fa-solid fa-wallet" style="color:#14F195"></i> MonPay</div>
+      <div class="marquee-pill"><i class="fa-solid fa-bolt" style="color:#38BDF8"></i> SocialPay</div>
+      <!-- Seamless repeat -->
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#14F195"></i> Хаан Банк</div>
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#38BDF8"></i> Голомт Банк</div>
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#FFD166"></i> Худалдаа Хөгжлийн Банк</div>
+      <div class="marquee-pill"><i class="fa-solid fa-building-columns" style="color:#14F195"></i> Хас Банк</div>
+    </div>
+  </div>
+
   <!-- Pricing Section -->
-  <section class="container" id="pricing">
-    <div class="section-title-wrap">
-      <div class="section-subtitle">Уян Хатан Тариф</div>
+  <section class="container" id="pricing" style="padding: 60px 0 120px;">
+    <div class="section-head">
+      <div class="section-tag">Flexible Plans</div>
       <h2 class="section-title">Таны Бизнест Тохирох Багц</h2>
     </div>
 
     <div class="pricing-grid">
-      <!-- Plan 1 -->
-      <div class="glass price-card">
-        <h3>Стандарт</h3>
-        <p class="muted" style="font-size: 13px;">Жижиг, дунд аж ахуйн нэгжүүдэд</p>
+      <div class="glass-panel pricing-card">
+        <h3>Starter</h3>
+        <p style="font-size:13px; color:var(--text-muted);">Жижиг бизнест</p>
         <div class="price-tag">₮149,000 <span style="font-size:14px; color:var(--text-muted); font-weight:normal;">/ сар</span></div>
-        <ul class="price-features">
+        <ul class="pricing-list">
           <li><i class="fa-solid fa-check"></i> 1 Компани</li>
-          <li><i class="fa-solid fa-check"></i> 99.4% AI Журналын Ангилагч</li>
-          <li><i class="fa-solid fa-check"></i> eBarimt & Банкны Тулгалт</li>
-          <li><i class="fa-solid fa-check"></i> Санхүүгийн 4 Тайлан</li>
+          <li><i class="fa-solid fa-check"></i> 99.8% AI Ангилагч</li>
+          <li><i class="fa-solid fa-check"></i> eBarimt & Банк Тулгалт</li>
         </ul>
-        <a href="/" class="btn btn-secondary" style="width: 100%; justify-content: center;">Сонгох</a>
+        <a href="/" class="btn btn-secondary" style="width:100%; justify-content:center;">Сонгох</a>
       </div>
 
-      <!-- Plan 2 (Popular) -->
-      <div class="glass price-card popular">
-        <div class="badge-pill" style="margin-bottom:10px;">🔥 Хамгийн Их Сонгогдсон</div>
-        <h3>Про Бизнес</h3>
-        <p class="muted" style="font-size: 13px;">Өсөлттэй компани ба группийн бизнест</p>
-        <div class="price-tag gradient-text">₮299,000 <span style="font-size:14px; color:var(--text-muted); font-weight:normal;">/ сар</span></div>
-        <ul class="price-features">
-          <li><i class="fa-solid fa-check"></i> Олон Компанийн Эрх (Multi-Company)</li>
+      <div class="glass-panel pricing-card popular">
+        <div class="hero-badge" style="margin-bottom:12px;">🔥 Popular Choice</div>
+        <h3 class="glow-emerald">Professional</h3>
+        <p style="font-size:13px; color:var(--text-muted);">Өсөлттэй компани ба группийн бизнест</p>
+        <div class="price-tag glow-emerald">₮299,000 <span style="font-size:14px; color:var(--text-muted); font-weight:normal;">/ сар</span></div>
+        <ul class="pricing-list">
+          <li><i class="fa-solid fa-check"></i> Олон Компанийн Эрх (Multi-Tenant)</li>
           <li><i class="fa-solid fa-check"></i> Бүх AI Автоматжуулалт</li>
           <li><i class="fa-solid fa-check"></i> WIP Жор & БМ Өртөг</li>
-          <li><i class="fa-solid fa-check"></i> Цалин, ХААТ & НДШ Модуль</li>
           <li><i class="fa-solid fa-check"></i> Big4 Аудит Матриц</li>
         </ul>
-        <a href="/" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 14px;">Эхлүүлэх</a>
+        <a href="/" class="btn btn-primary" style="width:100%; justify-content:center; padding:16px;">🚀 Одоо Эхлэх</a>
       </div>
 
-      <!-- Plan 3 -->
-      <div class="glass price-card">
-        <h3>Энтерпрайз</h3>
-        <p class="muted" style="font-size: 13px;">Томоохон корпораци ба аудитын фирмад</p>
-        <div class="price-tag">Тохиролцоно</div>
-        <ul class="price-features">
-          <li><i class="fa-solid fa-check"></i> Хязгааргүй Компани & Хэрэглэгчид</li>
-          <li><i class="fa-solid fa-check"></i> Тусгай Server Deployment (On-Premise)</li>
-          <li><i class="fa-solid fa-check"></i> API Integration & Custom Workflows</li>
-          <li><i class="fa-solid fa-check"></i> 24/7 Dedicated Support</li>
+      <div class="glass-panel pricing-card">
+        <h3>Enterprise</h3>
+        <p style="font-size:13px; color:var(--text-muted);">Корпораци ба аудитын фирмад</p>
+        <div class="price-tag">Custom</div>
+        <ul class="pricing-list">
+          <li><i class="fa-solid fa-check"></i> Хязгааргүй Хэрэглэгчид</li>
+          <li><i class="fa-solid fa-check"></i> Dedicated On-Premise Server</li>
+          <li><i class="fa-solid fa-check"></i> Custom API Integrations</li>
         </ul>
-        <a href="/" class="btn btn-secondary" style="width: 100%; justify-content: center;">Холбогдох</a>
+        <a href="/" class="btn btn-secondary" style="width:100%; justify-content:center;">Холбогдох</a>
       </div>
     </div>
   </section>
 
-  <!-- CTA Banner -->
-  <section class="container">
-    <div class="glass cta-banner">
-      <h2 style="font-size: 38px; margin-bottom: 16px;">Санхүүгийн Бүртгэлээ Өнөөдөр Автоматжуул</h2>
-      <p style="color: var(--text-muted); max-width: 600px; margin: 0 auto 32px;">Bayan AI платформыг ашиглан санхүүгийн 4 тайлан болон журналын ангиллаа секундийн дотор бэлтгэж эхэлнэ үү.</p>
-      <a href="/" class="btn btn-primary" style="padding: 16px 40px; font-size: 16px;">
-        <i class="fa-solid fa-rocket"></i> Систем рүү Шууд Нэвтрэх
-      </a>
-    </div>
+  <!-- Cinematic Finale Section -->
+  <section class="finale-section container">
+    <h2 style="font-size: 52px; font-weight: 900; margin-bottom: 20px;" class="glow-emerald">The Future of Financial Intelligence Begins Here.</h2>
+    <p style="color: var(--text-muted); font-size: 19px; max-width: 680px; margin: 0 auto 40px;">Bayan AI платформыг ашиглан санхүүгийн бүртгэлээ секундэд автоматжуулж, бизнесийн ирээдүйгээ удирдна уу.</p>
+    <a href="/" class="btn btn-primary" style="padding: 20px 48px; font-size: 18px;">
+      <i class="fa-solid fa-rocket"></i> Систем рүү Шууд Нэвтрэх
+    </a>
   </section>
 
   <!-- Footer -->
   <footer>
     <div class="container">
-      <p>© 2026 BAYAN AI Systems. Бүх эрх хуулиар хамгаалагдсан.</p>
+      <p>© 2026 BAYAN.AI Systems. All rights reserved. Helping every business automate finance using Artificial Intelligence.</p>
     </div>
   </footer>
 
-  <!-- Interactive 3D Canvas & Tilt JavaScript -->
+  <!-- Three.js Cinematic 3D WebGL Core Engine Script -->
   <script>
-    // ---------------------------------------------------- Three.js Background Canvas
-    let scene, camera, renderer, particlesMesh, torusKnot;
+    let scene, camera, renderer, particlesMesh, glassCore, torusRings = [];
 
     function init3D() {
       const canvas = document.getElementById('canvas-3d');
       scene = new THREE.Scene();
-      
+      scene.fog = new THREE.FogExp2(0x07111F, 0.015);
+
       camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.z = 30;
+      camera.position.z = 25;
 
       renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
       // Lights
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
       scene.add(ambientLight);
 
-      const pointLight1 = new THREE.PointLight(0x8b5cf6, 2, 100);
-      pointLight1.position.set(20, 20, 20);
+      const pointLight1 = new THREE.PointLight(0x14F195, 3.5, 100);
+      pointLight1.position.set(15, 15, 15);
       scene.add(pointLight1);
 
-      const pointLight2 = new THREE.PointLight(0x06b6d4, 2, 100);
-      pointLight2.position.set(-20, -20, -20);
+      const pointLight2 = new THREE.PointLight(0x38BDF8, 2.5, 100);
+      pointLight2.position.set(-15, -15, -15);
       scene.add(pointLight2);
 
-      // Torus Knot Object (Central 3D Geometry)
-      const geometry = new THREE.TorusKnotGeometry(10, 2.5, 120, 16);
-      const material = new THREE.MeshStandardMaterial({
-        color: 0x8b5cf6,
-        wireframe: true,
-        roughness: 0.2,
-        metalness: 0.8
-      });
-      torusKnot = new THREE.Mesh(geometry, material);
-      torusKnot.position.set(0, 0, -10);
-      scene.add(torusKnot);
-
-      // Particles Background Cloud
-      const particlesCount = 700;
-      const posArray = new Float32Array(particlesCount * 3);
-      for(let i=0; i<particlesCount*3; i++) {
-        posArray[i] = (Math.random() - 0.5) * 120;
-      }
-      const particlesGeo = new THREE.BufferGeometry();
-      particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-      const particlesMat = new THREE.PointsMaterial({
-        size: 0.15,
-        color: 0x38bdf8,
+      // Central Glass Core Sphere
+      const sphereGeo = new THREE.SphereGeometry(6, 64, 64);
+      const sphereMat = new THREE.MeshPhysicalMaterial({
+        color: 0x14F195,
+        transmission: 0.92,
+        opacity: 1,
         transparent: true,
-        opacity: 0.6
+        roughness: 0.08,
+        ior: 1.5,
+        reflectivity: 0.95
       });
-      particlesMesh = new THREE.Points(particlesGeo, particlesMat);
+      glassCore = new THREE.Mesh(sphereGeo, sphereMat);
+      glassCore.position.set(14, 2, -6);
+      scene.add(glassCore);
+
+      // Rotating Holographic Rings
+      for(let i=0; i<2; i++) {
+        const ringGeo = new THREE.TorusGeometry(8.5 + i*2, 0.25, 16, 100);
+        const ringMat = new THREE.MeshStandardMaterial({
+          color: i === 0 ? 0x38BDF8 : 0xFFD166,
+          wireframe: true,
+          metalness: 0.9
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.set(14, 2, -6);
+        ring.rotation.x = Math.PI / (2 + i);
+        scene.add(ring);
+        torusRings.push(ring);
+      }
+
+      // Particle Cloud (1000+ Particles)
+      const count = 1000;
+      const positions = new Float32Array(count * 3);
+      for(let i=0; i<count*3; i++) {
+        positions[i] = (Math.random() - 0.5) * 110;
+      }
+      const pGeo = new THREE.BufferGeometry();
+      pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const pMat = new THREE.PointsMaterial({
+        size: 0.14,
+        color: 0x14F195,
+        transparent: true,
+        opacity: 0.65
+      });
+      particlesMesh = new THREE.Points(pGeo, pMat);
       scene.add(particlesMesh);
 
       window.addEventListener('resize', onWindowResize);
@@ -892,9 +939,22 @@
     }
 
     let mouseX = 0, mouseY = 0;
-    function onMouseMove(event) {
-      mouseX = (event.clientX / window.innerWidth) - 0.5;
-      mouseY = (event.clientY / window.innerHeight) - 0.5;
+    function onMouseMove(e) {
+      mouseX = (e.clientX / window.innerWidth) - 0.5;
+      mouseY = (e.clientY / window.innerHeight) - 0.5;
+
+      // Move Cursor Spotlight
+      const spotlight = document.getElementById('cursor-spotlight');
+      if(spotlight) {
+        spotlight.style.left = e.clientX + 'px';
+        spotlight.style.top = e.clientY + 'px';
+      }
+
+      // Parallax Hologram Tilt
+      const heroHologram = document.getElementById('heroHologram');
+      if(heroHologram) {
+        heroHologram.style.transform = `perspective(1200px) rotateY(${mouseX * 16}deg) rotateX(${-mouseY * 16}deg)`;
+      }
     }
 
     function onWindowResize() {
@@ -905,72 +965,25 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      
-      torusKnot.rotation.x += 0.003;
-      torusKnot.rotation.y += 0.005;
 
-      particlesMesh.rotation.y = mouseX * 0.5;
-      particlesMesh.rotation.x = mouseY * 0.5;
+      if(glassCore) {
+        glassCore.rotation.y += 0.005;
+      }
+      torusRings.forEach((ring, index) => {
+        ring.rotation.z += 0.006 * (index + 1);
+        ring.rotation.y += 0.004;
+      });
 
-      camera.position.x += (mouseX * 5 - camera.position.x) * 0.05;
-      camera.position.y += (-mouseY * 5 - camera.position.y) * 0.05;
+      particlesMesh.rotation.y = mouseX * 0.4;
+      particlesMesh.rotation.x = mouseY * 0.4;
+
+      camera.position.x += (mouseX * 4 - camera.position.x) * 0.05;
+      camera.position.y += (-mouseY * 4 - camera.position.y) * 0.05;
 
       renderer.render(scene, camera);
     }
 
     init3D();
-
-    // ---------------------------------------------------- 3D Card Tilt Effect
-    document.querySelectorAll('.tilt-card').forEach(card => {
-      const inner = card.querySelector('.tilt-card-inner');
-      
-      card.addEventListener('mousemove', (e) => {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        
-        const rotateX = ((y - centerY) / centerY) * -10;
-        const rotateY = ((x - centerX) / centerX) * 10;
-
-        inner.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(12px)`;
-      });
-
-      card.addEventListener('mouseleave', () => {
-        inner.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0px)';
-      });
-    });
-
-    // ---------------------------------------------------- Interactive Savings Calculator
-    const sliderTxns = document.getElementById('slider-txns');
-    const sliderStaff = document.getElementById('slider-staff');
-    const valTxns = document.getElementById('val-txns');
-    const valStaff = document.getElementById('val-staff');
-    const calcSavings = document.getElementById('calc-savings');
-    const calcHours = document.getElementById('calc-hours');
-
-    function updateCalc() {
-      const txns = parseInt(sliderTxns.value);
-      const staff = parseInt(sliderStaff.value);
-
-      valTxns.textContent = txns.toLocaleString() + " гүйлгээ";
-      valStaff.textContent = staff + " нягтлан";
-
-      // Hours saved = (txns * 0.25 hours) * staff factor
-      const hoursSavedMonth = Math.round((txns * 0.2) + (staff * 20));
-      const hoursSavedYear = hoursSavedMonth * 12;
-
-      // Salary saved = hoursSavedYear * 15,000 MNT/hour
-      const moneySavedYear = hoursSavedYear * 20000;
-
-      calcHours.textContent = hoursSavedMonth + " цаг/сар";
-      calcSavings.textContent = "₮" + moneySavedYear.toLocaleString();
-    }
-
-    sliderTxns.addEventListener('input', updateCalc);
-    sliderStaff.addEventListener('input', updateCalc);
-    updateCalc();
   </script>
 </body>
 </html>

@@ -1,0 +1,275 @@
+# eBarimt (ПосАПИ 3.0) холболтын төлөвлөгөө
+
+> Эх сурвалж: [developer.itc.gov.mn — PosAPI 3.0 холболтын заавар](https://developer.itc.gov.mn/docs/ebarimt-api/inbishdm2zj3x-pos-api-3-0-sistemijn-api-holbolt-za)
+> (хувилбар 1.0.0, 2025-03-31). Холбоо барих: `posapi@itc.gov.mn`, 99974468.
+
+---
+
+## 0. Хамгийн чухал баримт — одоогийн код буруу зарчим дээр бичигдсэн
+
+`src/bayan/ebarimt.py` нь **үүлэн (cloud) REST API** гэж үзэж `https://api.ebarimt.mn`
+руу Bearer токентой хандаж байна. Бодит байдал өөр:
+
+**PosAPI 3.0 бол таны сервер дээр суулгадаг бие даасан локал сервис.**
+Таны систем `http://localhost:7080/rest/...` руу ханддаг, харин PosAPI өөрөө
+цаанаа ТЕГ-ийн `api.ebarimt.mn` болон `auth.itc.gov.mn`-тэй харьцдаг.
+
+```
+БУРУУ (одоогийн ойлголт):
+   Bayan AI  ──HTTPS──▶  api.ebarimt.mn
+
+ЗӨВ:
+   Bayan AI  ──HTTP──▶  PosAPI (localhost:7080)  ──▶  api.ebarimt.mn
+                         ↑ энэ сервисийг та суулгаж, тохируулна
+```
+
+Одоогийн `ebarimt.py`-ийн endpoint-ууд (`/receipts`, `/receipt/create`,
+`/receipt/void`, `/purchase-invoices`) нь **байхгүй зохиомол хаягууд**. Бүгдийг
+дахин бичих шаардлагатай.
+
+---
+
+## 1. Байршуулалтын шийдвэр (SaaS-д хамгийн чухал)
+
+PosAPI 3.0-ийн гол шинэчлэл: **нэг PosAPI дээр олон ААН бүртгэж болно**
+(«PosAPI 3.0 хувилбар нь өөр дээрээ нэг болон түүнээс дээш тооны ААН, иргэнийг
+бүртгэн, тэдгээрийн баримтыг бүртгэх боломжтой болсон»). Энэ нь яг SaaS-д
+зориулж хийгдсэн.
+
+| Хувилбар | Тайлбар | Дүгнэлт |
+|---|---|---|
+| **A. Bayan AI өөрөө PosAPI хостлох** | Монгол дахь сервер дээрээ PosAPI суулгаж, харилцагч компани бүрийг ААН болгон бүртгэнэ | **Санал болгож буй.** Cloud SaaS-д цорын ганц бодит зам |
+| B. Харилцагч бүр өөр дээрээ суулгах | Тэдний `localhost:7080` рүү үүлнээс хандах боломжгүй | Тунель/агент шаардана — хэт төвөгтэй |
+| C. Зөвхөн payload үүсгэж өгөх | Bayan AI JSON бэлдээд, харилцагчийн локал систем илгээнэ | Түр зуурын шийдэл болно |
+
+### ⚠️ Байршуулалтын хатуу хязгаарлалт
+
+Баримтад тодорхой заасан: **«Зөвхөн Монгол Улсын сүлжээнээс хандах боломжтой»**
+(гадаадаас бол Монгол IP-тэй VPN шаардана).
+
+Тиймээс **AWS, DigitalOcean, Hetzner зэрэг гадаадын үүлэн дээр байршуулах
+төлөвлөгөө байвал одооноос өөрчил.** Монголын дата төв (жишээ нь Datacenter LLC,
+Mobicom, Gemnet) дээр байрлуулах шаардлагатай.
+
+Зөвшөөрөгдсөн IP: `api.ebarimt.mn` → 103.17.108.216/217,
+`auth.itc.gov.mn` → 103.87.69.75/76. Firewall-д нээнэ.
+
+### Серверийн шаардлага
+- Хадгалах сан: хамгийн багадаа 1GB сул зай
+- Сүлжээний хурд: хамгийн багадаа 80 Mbps
+- Өгөгдлийн сан: SQLite (цөөн баримт) / **MySQL, PostgreSQL, MSSQL (олон баримт)**
+  — SaaS-д PostgreSQL сонгоно
+- `workDir` хавтас унших/бичих эрхтэй байх (FREEZE хийж болохгүй)
+
+---
+
+## 2. Бодит API гэрээ
+
+PosAPI суусны дараа `posapi.ini`-д тохируулсан порт дээр (default **7080**)
+REST сервис нээгдэнэ.
+
+| Метод | Зам | Зориулалт |
+|---|---|---|
+| `POST` | `/rest/receipt` | Баримт үүсгэх |
+| `DELETE` | `/rest/receipt` | Баримт буцаах / хүчингүй болгох |
+| `GET` | `/rest/sendData` | Хуримтлагдсан мэдээллийг ТЕГ рүү илгээх |
+| `GET` | `/rest/info` | ПОС-ын мэдээлэл, үлдсэн сугалааны тоо |
+| `GET` | `/rest/bankAccounts?tin=...` | Банкны дансны жагсаалт |
+
+### Баримт үүсгэх — хүсэлтийн бүтэц
+
+```jsonc
+{
+  "totalAmount": 110000.0,        // бүх татвар орсон нийт дүн
+  "totalVAT": 10000.0,
+  "totalCityTax": 0.0,
+  "branchNo": "001",
+  "districtCode": "3420",         // 4 оронтой
+  "merchantTin": "...",           // 11 эсвэл 14 орон
+  "posNo": "...",
+  "customerTin": "...",           // B2B бол заавал
+  "consumerNo": "...",            // иргэний ebarimt дугаар
+  "type": "B2C_RECEIPT",          // B2C_RECEIPT | B2B_RECEIPT | B2C_INVOICE | B2B_INVOICE
+  "inActiveId": "...",            // засварлах баримтын ДДТД (33 орон)
+  "invoiceId": "...",
+  "reportMonth": "2026-07-01",
+  "receipts": [                   // дэд баримтууд
+    {
+      "totalAmount": 110000.0,
+      "totalVAT": 10000.0,
+      "totalCityTax": 0.0,
+      "taxType": "VAT_ABLE",      // VAT_ABLE | VAT_FREE | VAT_ZERO | NOT_VAT
+      "merchantTin": "...",
+      "bankAccountNo": "...",
+      "items": [
+        {
+          "name": "Үйлчилгээ",
+          "barCode": "",
+          "barCodeType": "UNDEFINED",   // UNDEFINED | GS1 | ISBN
+          "classificationCode": "6201010",  // 7 орон — ангиллын код
+          "taxProductCode": "",       // 3 орон (VAT_FREE / VAT_ZERO үед)
+          "measureUnit": "ш",
+          "qty": 1.0,
+          "unitPrice": 110000.0,      // бүх татвар орсон
+          "totalVAT": 10000.0,
+          "totalCityTax": 0.0,
+          "totalAmount": 110000.0
+        }
+      ]
+    }
+  ],
+  "payments": [
+    { "code": "CASH", "status": "PAID", "paidAmount": 110000.0 }
+    // code: CASH | PAYMENT_CARD ; status: PAID | PAY | REVERSED | ERROR
+  ]
+}
+```
+
+### Хариу
+
+```jsonc
+{
+  "id": "...",            // ДДТД — 33 орон, ЭНИЙГ ХАДГАЛНА
+  "status": "SUCCESS",    // SUCCESS | ERROR | PAYMENT
+  "message": "",
+  "qrData": "...",        // QR кодын утга
+  "lottery": "...",       // сугалааны дугаар
+  "date": "2026-07-12 14:30:00",
+  "totalAmount": 110000.0,
+  "easy": false
+}
+```
+
+### Баримт буцаах
+
+```jsonc
+DELETE /rest/receipt
+{ "id": "<33 оронтой ДДТД>", "date": "2026-07-12 14:30:00" }
+```
+
+---
+
+## 3. Идэвхжүүлэх процесс
+
+1. PosAPI-г татаж суулгана ([бодит орчин / хөгжүүлэлтийн орчин линкүүд](https://developer.itc.gov.mn/docs/ebarimt-api/inbishdm2zj3x-pos-api-3-0-sistemijn-api-holbolt-za))
+2. `posapi.ini` тохируулна (өгөгдлийн сан, `webServiceHost`, `webServicePort`)
+   — `authUrl`, `authRealm`, `authClientId`, `authClientSecret`, `ebarimtUrl`
+   талбаруудыг **өөрчлөхгүй**
+3. Суусны дараа PosAPI **идэвхгүй** төлөвтэй байна — ямар ч сервис ажиллахгүй
+4. **Оператор эрх бүхий иргэн** PosAPI руу нэвтэрснээр идэвхжиж, сугалааны
+   дугаар авна. Нэг иргэн олон операторын эрхтэй байж болох ч идэвхжүүлэхдээ
+   нэгийг нь сонгоно
+5. Дараа нь ААН-үүдийг бүртгэж эхэлнэ
+
+---
+
+## 4. Bayan AI-д хийх кодын өөрчлөлт
+
+### 4.1. `ebarimt.py`-г бүрэн дахин бичих
+
+```python
+@dataclass
+class PosApiConfig:
+    base_url: str = os.environ.get("POSAPI_URL", "http://127.0.0.1:7080")
+    merchant_tin: str = ""      # компани бүрд өөр — Company загварт хадгална
+    pos_no: str = ""
+    district_code: str = ""
+    branch_no: str = "001"
+
+class PosApiClient:
+    def send_receipt(self, req: ReceiptRequest) -> ReceiptResponse:   # POST /rest/receipt
+    def delete_receipt(self, ddtd: str, date: str) -> dict:           # DELETE /rest/receipt
+    def send_data(self) -> dict:                                      # GET  /rest/sendData
+    def info(self) -> dict:                                           # GET  /rest/info
+    def bank_accounts(self, tin: str) -> list[dict]:                  # GET  /rest/bankAccounts
+```
+
+### 4.2. Өгөгдлийн загварт нэмэх
+
+`Company` хүснэгтэд: `merchant_tin`, `pos_no`, `district_code`, `branch_no`.
+
+Шинэ хүснэгт `ebarimt_receipt`: `company_id`, `invoice_id` (дотоод нэхэмжлэхтэй
+холбоос), `ddtd` (33 орон), `qr_data`, `lottery`, `status`, `sent_at`,
+`raw_response` (JSON).
+
+**Чухал:** ДДТД (`id`) нь татварын албаны өмнөх нотлох баримт тул
+`raw_response`-ыг бүтнээр нь хадгална.
+
+### 4.3. Барааны ангиллын код
+
+`Item` загварт `classification_code` (7 орон) талбар нэмэх шаардлагатай —
+энэ нь ТЕГ-ийн [бүтээгдэхүүн үйлчилгээний нэгдсэн ангиллын код](https://developer.itc.gov.mn/docs/ebarimt-api/inbishdm2zj3x-pos-api-3-0-sistemijn-api-holbolt-za).
+Одоогийн `inventory.Item`-д байхгүй. Энэгүйгээр баримт үүсгэж чадахгүй.
+
+### 4.4. Мөнгөн дүнгийн хөрвүүлэлт ⚠️
+
+PosAPI нь **төгрөгөөр, float-оор** ажилладаг (`110000.0`), Bayan AI нь
+**мөнгөөр, bigint-ээр** (`11000000`). Хөрвүүлэлтийг зөвхөн клиентийн хилийн
+давхаргад, `Decimal`-ээр хийнэ:
+
+```python
+from decimal import Decimal
+def to_tug(minor: int) -> float:
+    return float(Decimal(minor) / 100)     # float(minor/100) БИШ
+```
+
+Систем дотор хэзээ ч float ашиглахгүй (одоогийн `ebarimt.py`-д
+`float(amount_minor) / 100.0` гэж бичсэн нь эрсдэлтэй).
+
+### 4.5. `vat.reconcile_ebarimt` — тодруулга шаардлагатай
+
+Одоогийн `fetch_purchase_invoices()` нь **байхгүй endpoint** руу ханддаг.
+PosAPI 3.0-д худалдан авалтын падаан **татах** сервис баримтжуулагдаагүй байна
+(PosAPI нь баримт **үүсгэх** зориулалттай).
+
+Худалдан авалтын НӨАТ тулгалтад дараах хувилбаруудыг ТЕГ-аас **тодруулах**
+шаардлагатай:
+- `e-invoice.ebarimt.mn` порталын API байгаа эсэх
+- `api.ebarimt.mn/api/` үүлэн сервис нь ААН-ийн хүлээн авсан баримтыг өгдөг эсэх
+- Эсвэл зөвхөн Excel экспорт (одоогийн `parse_ebarimt_excel` энэ замд ажиллана)
+
+**Одоохондоо `parse_ebarimt_excel`-ийг үндсэн зам болгож үлдээ**, API нь
+батлагдтал.
+
+---
+
+## 5. Эрх зүйн урьдчилсан нөхцөл
+
+Техникийн холболтоос өмнө **бүртгэл** шаардлагатай:
+
+1. **«Хэрэглэгчийн систем нийлүүлэгч»**-ээр бүртгүүлэх — програм хангамжийн
+   компаниуд ТЕГ-ийн шалгалт өгч гэрчилгээ авдаг
+   ([бүртгүүлэх заавар](https://developer.itc.gov.mn/docs/ebarimt-api/zm085dap73b9m-hereglegchijn-sistem-nijl-legcheer-b-rtg-leh-h-selt-gargah-zaavar-bodit-orchnoos))
+2. Хөгжүүлэлтийн орчинд туршиж, шаардлага хангасныг батлуулах
+3. Дараа нь бодит орчны эрх нээгдэнэ
+
+Энэ нь **хугацаа шаарддаг процесс** тул кодын ажлын зэрэгцээ одооноос эхлүүлэх
+нь зүйтэй. Эхний алдаа: `posapi@itc.gov.mn` руу бичиж, SaaS загвар
+(нэг PosAPI дээр олон харилцагч ААН) зөвшөөрөгдөх эсэхийг тодруулах.
+
+---
+
+## 6. Хийх дараалал
+
+| # | Ажил | Хамаарал |
+|---|---|---|
+| 1 | `posapi@itc.gov.mn`-д бичиж SaaS загварыг тодруулах | — |
+| 2 | Хэрэглэгчийн систем нийлүүлэгчээр бүртгүүлэх хүсэлт | — |
+| 3 | Хөгжүүлэлтийн орчны PosAPI татаж, локал дээр асаах | — |
+| 4 | `ebarimt.py` → `posapi.py` болгон дахин бичих | 3 |
+| 5 | `Company`-д merchant_tin/pos_no/district_code нэмэх | 4 |
+| 6 | `Item`-д `classification_code` нэмэх | 4 |
+| 7 | `ebarimt_receipt` хүснэгт + нэхэмжлэхтэй холбох | 4 |
+| 8 | Нэхэмжлэх батлагдахад баримт автомат үүсгэх урсгал | 5,6,7 |
+| 9 | Монголын дата төвд байршуулах шийдвэр | 1 |
+
+---
+
+## 7. Тодруулах асуултууд (ТЕГ-д)
+
+1. Нэг PosAPI дээр **өөр өөр эзэнтэй** олон ААН бүртгэх нь SaaS загварт
+   зөвшөөрөгдөх үү? (баримтад техникийн боломж гэж заасан ч эрх зүйн
+   зөвшөөрлийг тодруулах)
+2. Худалдан авалтын баримт татах API байгаа юу?
+3. Үүлэн үйлчилгээ эрхлэгч байгууллагад тавигдах нэмэлт шаардлага юу вэ?
+4. Нэг серверт хэдэн ААН бүртгэж болох хязгаар байгаа юу?

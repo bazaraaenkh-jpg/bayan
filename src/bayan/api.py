@@ -1532,6 +1532,9 @@ class TimeSheetIn(BaseModel):
     vacation_days: float = 0.0
     sick_days: float = 0.0
     sick_pay_pct: float = 60.0
+    unpaid_leave_days: float = 0.0
+    overtime_hours: float = 0.0
+    holiday_hours: float = 0.0
 
 
 @app.post("/api/companies/{company_id}/timesheets")
@@ -1557,6 +1560,9 @@ def save_timesheet(company_id: str, body: TimeSheetIn,
         ts.vacation_days = body.vacation_days
         ts.sick_days = body.sick_days
         ts.sick_pay_pct = body.sick_pay_pct
+        ts.unpaid_leave_days = body.unpaid_leave_days
+        ts.overtime_hours = body.overtime_hours
+        ts.holiday_hours = body.holiday_hours
     db.flush()
     return {"id": ts.id, "employee_id": ts.employee_id, "year": ts.year, "month": ts.month}
 
@@ -1578,13 +1584,269 @@ def list_timesheets(company_id: str, year: int, month: int,
         "worked_days": ts.worked_days,
         "vacation_days": ts.vacation_days,
         "sick_days": ts.sick_days,
-        "sick_pay_pct": ts.sick_pay_pct
+        "sick_pay_pct": ts.sick_pay_pct,
+        "unpaid_leave_days": getattr(ts, 'unpaid_leave_days', 0.0) or 0.0,
+        "overtime_hours": ts.overtime_hours or 0.0,
     } for ts in ts_list]
+
+
+@app.get("/api/companies/{company_id}/timesheets/template")
+def download_timesheet_template(
+    company_id: str,
+    year: int = 2026,
+    month: int = 8,
+    ctx: dict = Depends(company_guard("read")),
+    db: Session = Depends(get_db)
+):
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    from fastapi.responses import StreamingResponse
+    from .salary import Employee, TimeSheet
+
+    employees = db.scalars(
+        select(Employee).where(Employee.company_id == company_id, Employee.active == True)
+    ).all()
+
+    ts_list = db.scalars(
+        select(TimeSheet).where(
+            TimeSheet.company_id == company_id,
+            TimeSheet.year == year,
+            TimeSheet.month == month
+        )
+    ).all()
+    ts_map = {ts.employee_id: ts for ts in ts_list}
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Табель_{year}_{month}"
+
+    headers = [
+        "Ажилтны код", "Ажилтны нэр", "Албан тушаал",
+        "Ажилласан (өдөр)", "Өвчтэй (өдөр)", "Өвчний %",
+        "Амарсан (өдөр)", "Чөлөөтэй (өдөр)",
+        "Илүү цаг 1.5x (цаг)", "Баяр/Амралт 2.0x (цаг)"
+    ]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="15803D", end_color="15803D", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for col_idx, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = align_center
+
+    for e in employees:
+        ts = ts_map.get(e.id)
+        w_days = ts.worked_days if ts else 22.0
+        s_days = ts.sick_days if ts else 0.0
+        s_pct = ts.sick_pay_pct if ts else 60.0
+        v_days = ts.vacation_days if ts else 0.0
+        u_days = getattr(ts, 'unpaid_leave_days', 0.0) if ts else 0.0
+        ot_hrs = ts.overtime_hours if ts else 0.0
+        hol_hrs = ts.holiday_hours if ts else 0.0
+
+        ws.append([
+            e.code, f"{e.last_name} {e.first_name}", e.position or "",
+            w_days, s_days, s_pct, v_days, u_days, ot_hrs, hol_hrs
+        ])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 14)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"Timesheet_Template_{year}_{month}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@app.post("/api/companies/{company_id}/timesheets/import-excel")
+def import_timesheet_excel(
+    company_id: str,
+    year: int = Form(2026),
+    month: int = Form(8),
+    file: UploadFile = File(...),
+    ctx: dict = Depends(company_guard("post")),
+    db: Session = Depends(get_db)
+):
+    import io
+    from openpyxl import load_workbook
+    from .salary import Employee, TimeSheet
+
+    file_bytes = file.file.read()
+    if not file_bytes:
+        raise HTTPException(400, "Файл хоосон байна")
+
+    try:
+        wb = load_workbook(io.BytesIO(file_bytes), data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        wb.close()
+    except Exception as e:
+        raise HTTPException(422, f"Excel файл уншихад алдаа гарлаа: {e}")
+
+    if not rows:
+        raise HTTPException(422, "Excel файл дотор өгөгдөл байхгүй байна")
+
+    headers = [str(cell or "").strip().lower() for cell in rows[0]]
+    
+    col_code, col_name = -1, -1
+    col_work, col_sick, col_pct, col_vac, col_unpaid, col_ot, col_hol = -1, -1, -1, -1, -1, -1, -1
+
+    for idx, h in enumerate(headers):
+        if "код" in h or "code" in h:
+            col_code = idx
+        elif "нэр" in h or "name" in h:
+            col_name = idx
+        elif "ажилласан" in h or "work" in h:
+            col_work = idx
+        elif "өвчтэй" in h or "sick" in h:
+            col_sick = idx
+        elif "өвчний %" in h or "pct" in h or "%" in h:
+            col_pct = idx
+        elif "амарсан" in h or "vacation" in h:
+            col_vac = idx
+        elif "чөлөө" in h or "unpaid" in h:
+            col_unpaid = idx
+        elif "илүү цаг" in h or "ot" in h or "overtime" in h:
+            col_ot = idx
+        elif "баяр" in h or "амралт 2" in h or "holiday" in h:
+            col_hol = idx
+
+    employees = db.scalars(select(Employee).where(Employee.company_id == company_id)).all()
+    emp_by_code = {e.code.strip().lower(): e for e in employees if e.code}
+    emp_by_name = {f"{e.last_name} {e.first_name}".strip().lower(): e for e in employees}
+
+    imported_count = 0
+    errors = []
+
+    def safe_float(val, default=0.0):
+        if val is None or val == "":
+            return default
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
+    for r_idx, row in enumerate(rows[1:], start=2):
+        if not any(row):
+            continue
+
+        emp = None
+        code_val = str(row[col_code]).strip() if col_code != -1 and row[col_code] is not None else ""
+        name_val = str(row[col_name]).strip() if col_name != -1 and row[col_name] is not None else ""
+
+        if code_val and code_val.lower() in emp_by_code:
+            emp = emp_by_code[code_val.lower()]
+        elif name_val and name_val.lower() in emp_by_name:
+            emp = emp_by_name[name_val.lower()]
+
+        if not emp:
+            errors.append(f"Мөр {r_idx}: Ажилтан олдсонгүй ({code_val} {name_val})")
+            continue
+
+        worked_days = safe_float(row[col_work] if col_work != -1 else None, 22.0)
+        sick_days = safe_float(row[col_sick] if col_sick != -1 else None, 0.0)
+        sick_pay_pct = safe_float(row[col_pct] if col_pct != -1 else None, 60.0)
+        vacation_days = safe_float(row[col_vac] if col_vac != -1 else None, 0.0)
+        unpaid_leave_days = safe_float(row[col_unpaid] if col_unpaid != -1 else None, 0.0)
+        overtime_hours = safe_float(row[col_ot] if col_ot != -1 else None, 0.0)
+        holiday_hours = safe_float(row[col_hol] if col_hol != -1 else None, 0.0)
+
+        ts = db.scalar(select(TimeSheet).where(
+            TimeSheet.company_id == company_id,
+            TimeSheet.employee_id == emp.id,
+            TimeSheet.year == year,
+            TimeSheet.month == month
+        ))
+        if not ts:
+            ts = TimeSheet(
+                company_id=company_id,
+                employee_id=emp.id,
+                year=year,
+                month=month,
+                worked_days=worked_days,
+                sick_days=sick_days,
+                sick_pay_pct=sick_pay_pct,
+                vacation_days=vacation_days,
+                unpaid_leave_days=unpaid_leave_days,
+                overtime_hours=overtime_hours,
+                holiday_hours=holiday_hours
+            )
+            db.add(ts)
+        else:
+            ts.worked_days = worked_days
+            ts.sick_days = sick_days
+            ts.sick_pay_pct = sick_pay_pct
+            ts.vacation_days = vacation_days
+            ts.unpaid_leave_days = unpaid_leave_days
+            ts.overtime_hours = overtime_hours
+            ts.holiday_hours = holiday_hours
+
+        imported_count += 1
+
+    db.flush()
+    return {
+        "ok": True,
+        "imported_count": imported_count,
+        "year": year,
+        "month": month,
+        "errors": errors
+    }
 
 
 class PayrollIn(BaseModel):
     year: int
     month: int
+
+
+@app.get("/api/companies/{company_id}/salary-sheets")
+def get_salary_sheets(company_id: str,
+                      ctx: dict = Depends(company_guard("read")),
+                      db: Session = Depends(get_db)):
+    from .salary import PayrollLine
+    from sqlalchemy import func
+    
+    rows = db.execute(
+        select(
+            PayrollLine.year,
+            PayrollLine.month,
+            func.count(PayrollLine.id).label("employees_count"),
+            func.sum(PayrollLine.gross_minor).label("total_gross_minor"),
+            func.sum(PayrollLine.ndsh_employee_minor).label("total_ndsh_employee_minor"),
+            func.sum(PayrollLine.ndsh_employer_minor).label("total_ndsh_employer_minor"),
+            func.sum(PayrollLine.hhoat_minor).label("total_pit_minor"),
+        )
+        .where(PayrollLine.company_id == company_id)
+        .group_by(PayrollLine.year, PayrollLine.month)
+        .order_by(PayrollLine.year.desc(), PayrollLine.month.desc())
+    ).all()
+    
+    result = []
+    for r in rows:
+        result.append({
+            "id": f"{r.year}-{r.month:02d}",
+            "year": r.year,
+            "month": r.month,
+            "employees_count": r.employees_count or 0,
+            "total_gross_minor": r.total_gross_minor or 0,
+            "total_ndsh_employee_minor": r.total_ndsh_employee_minor or 0,
+            "total_ndsh_employer_minor": r.total_ndsh_employer_minor or 0,
+            "total_pit_minor": r.total_pit_minor or 0,
+        })
+    return result
 
 
 @app.post("/api/companies/{company_id}/payroll/run")
@@ -2887,6 +3149,79 @@ def invoice_list(company_id: str, ctx: dict = Depends(company_guard("read")),
 
 # ---------------------------------------------------------------- тайлан
 
+# ================================================================= AI ТУСЛАХ (§5.3)
+
+class AssistantAskIn(BaseModel):
+    question: str
+
+
+@app.post("/api/companies/{company_id}/assistant/ask")
+def assistant_ask(company_id: str, body: AssistantAskIn,
+                  ctx: dict = Depends(company_guard("read")),
+                  db: Session = Depends(get_db)):
+    """Удирдлагын асуулт → метрикийн каталог → ledger-ийн тоо → үгэн тайлбар.
+
+    Тоо ЗӨВХӨН метрикээс гарна. Каталогт байхгүй асуултад таамаглахгүй,
+    эрх хүрэхгүй бол тоо огт тооцоологдохгүй."""
+    from . import assistant as assistant_mod
+
+    question = (body.question or "").strip()
+    if not question:
+        raise HTTPException(400, "Асуултаа бичнэ үү.")
+    if len(question) > 2000:
+        raise HTTPException(400, "Асуулт хэт урт байна (2000 тэмдэгт).")
+
+    out = assistant_mod.ask(db, company_id, ctx["role"], question,
+                            actor_id=ctx["uid"])
+    db.commit()
+    return out
+
+
+@app.get("/api/companies/{company_id}/assistant/catalog")
+def assistant_catalog(company_id: str,
+                      ctx: dict = Depends(company_guard("read"))):
+    """Тухайн хэрэглэгчид харагдах метрикүүд — UI-д санал болгоход."""
+    from . import metrics as metrics_mod
+    return [{"name": m.name, "title": m.title, "description": m.description,
+             "example": m.keywords[0]}
+            for m in metrics_mod.catalog_for(ctx["role"])]
+
+
+@app.get("/api/companies/{company_id}/assistant/history")
+def assistant_history(company_id: str, limit: int = 50,
+                      ctx: dict = Depends(company_guard("read")),
+                      db: Session = Depends(get_db)):
+    from . import assistant as assistant_mod
+    return assistant_mod.history(db, company_id, min(max(limit, 1), 200))
+
+
+class AssistantSettingsIn(BaseModel):
+    egress: str
+
+
+@app.get("/api/companies/{company_id}/assistant/settings")
+def assistant_get_settings(company_id: str,
+                           ctx: dict = Depends(company_guard("read")),
+                           db: Session = Depends(get_db)):
+    from . import assistant as assistant_mod
+    return {"egress": assistant_mod.get_egress(db, company_id),
+            "modes": list(assistant_mod.EGRESS_MODES),
+            "ai_available": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+
+
+@app.put("/api/companies/{company_id}/assistant/settings")
+def assistant_set_settings(company_id: str, body: AssistantSettingsIn,
+                           ctx: dict = Depends(company_guard("admin")),
+                           db: Session = Depends(get_db)):
+    from . import assistant as assistant_mod
+    try:
+        mode = assistant_mod.set_egress(db, company_id, body.egress)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    db.commit()
+    return {"egress": mode}
+
+
 @app.get("/api/companies/{company_id}/trial-balance")
 def trial_balance(company_id: str, date_from: str | None = None,
                   date_to: str | None = None,
@@ -3047,6 +3382,96 @@ def tax_tt11_api(company_id: str, year: int = 2026,
                  ctx: dict = Depends(company_guard("read")),
                  db: Session = Depends(get_db)):
     return reports.haoat_tt11_report(db, company_id, year)
+
+
+# ================================================================= ETAX ИЛГЭЭЛТ
+
+class EtaxFormIn(BaseModel):
+    form_code: str
+    year: int
+    month: int | None = None
+    small_election: bool = False
+
+
+@app.get("/api/companies/{company_id}/etax/forms")
+def etax_forms(company_id: str, ctx: dict = Depends(company_guard("read"))):
+    from . import etax
+    return {"forms": list(etax.FORMS),
+            "monthly": ["ТТ-03а", "ТТ-11"], "annual": ["ТТ-02"],
+            "credentials_configured": not etax.EtaxClient().is_mock}
+
+
+def _etax_kwargs(body: "EtaxFormIn") -> dict:
+    return {"small_election": body.small_election} if body.form_code == "ТТ-02" else {}
+
+
+@app.post("/api/companies/{company_id}/etax/prepare")
+def etax_prepare(company_id: str, body: EtaxFormIn,
+                 ctx: dict = Depends(company_guard("read")),
+                 db: Session = Depends(get_db)):
+    """Маягтыг бэлдэж, математик хаалтын үр дүнг хамт буцаана (илгээхгүй)."""
+    from . import etax
+    try:
+        pkg = etax.build(db, company_id, body.form_code, body.year, body.month,
+                         **_etax_kwargs(body))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return pkg.to_dict()
+
+
+@app.post("/api/companies/{company_id}/etax/xml")
+def etax_xml(company_id: str, body: EtaxFormIn,
+             ctx: dict = Depends(company_guard("read")),
+             db: Session = Depends(get_db)):
+    from fastapi.responses import Response
+
+    from . import etax
+    try:
+        pkg = etax.build(db, company_id, body.form_code, body.year, body.month,
+                         **_etax_kwargs(body))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    from urllib.parse import quote
+
+    # HTTP толгой латин-1 тул кирилл нэрийг RFC 5987-оор нэмж дамжуулна
+    ascii_name = f"{etax.ASCII_FORM.get(body.form_code, 'tax')}_{pkg.period}.xml"
+    utf8_name = quote(f"{body.form_code}_{pkg.period}.xml")
+    return Response(
+        content=etax.build_xml(pkg), media_type="application/xml",
+        headers={"Content-Disposition":
+                 f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{utf8_name}'})
+
+
+@app.post("/api/companies/{company_id}/etax/submit")
+def etax_submit(company_id: str, body: EtaxFormIn,
+                ctx: dict = Depends(company_guard("admin")),
+                db: Session = Depends(get_db)):
+    """ТЕГ рүү илгээнэ. Хаалт давахгүй бол илгээхгүй — 409 буцаана.
+
+    Татварын тайлан илгээх нь буцаахад хүндрэлтэй үйлдэл тул зөвхөн эзэн
+    болон ерөнхий нягтлан хийнэ."""
+    from . import etax
+    try:
+        out = etax.submit(db, company_id, body.form_code, body.year, body.month,
+                          actor_id=ctx["uid"], **_etax_kwargs(body))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    db.commit()
+
+    if out["status"] == "blocked":
+        raise HTTPException(409, {
+            "message": "Тайлан ерөнхий дэвтэртэй тэнцэхгүй тул илгээгээгүй.",
+            "detail": out["detail"], "checks": out["package"]["checks"]})
+    return {"status": out["status"], "receipt_id": out.get("receipt_id"),
+            "detail": out.get("detail"), "package": out["package"]}
+
+
+@app.get("/api/companies/{company_id}/etax/history")
+def etax_history(company_id: str, limit: int = 50,
+                 ctx: dict = Depends(company_guard("read")),
+                 db: Session = Depends(get_db)):
+    from . import etax
+    return etax.history(db, company_id, min(max(limit, 1), 200))
 
 
 @app.get("/api/companies/{company_id}/reports/xml")
@@ -4134,6 +4559,72 @@ async def import_inventory_issue_api(company_id: str, file: UploadFile,
         tmp_path.unlink(missing_ok=True)
 
 
+@app.get("/api/companies/{company_id}/wip/orders/template")
+def download_wip_template(
+    company_id: str,
+    ctx: dict = Depends(company_guard("read")),
+    db: Session = Depends(get_db)
+):
+    import io
+    from datetime import date
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    from fastapi.responses import StreamingResponse
+    from . import inventory
+
+    items = db.scalars(
+        select(inventory.Item).where(inventory.Item.company_id == company_id)
+    ).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Дуусаагүй_үйлдвэрлэл"
+
+    headers = [
+        "Захиалгын дугаар",
+        "Бүтээгдэхүүний код",
+        "Бүтээгдэхүүний нэр",
+        "Төлөвлөсөн тоо хэмжээ",
+        "Нээсэн огноо (YYYY-MM-DD)"
+    ]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="15803D", end_color="15803D", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for col_idx, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = align_center
+
+    if items:
+        for idx, item in enumerate(items[:5], start=1):
+            order_no = f"WO-{date.today().year}-{idx:03d}"
+            ws.append([order_no, item.code, item.name, 100, str(date.today())])
+    else:
+        ws.append(["WO-2026-001", "PROD-001", "Торгон цамц", 100, str(date.today())])
+        ws.append(["WO-2026-002", "PROD-002", "Ноосон цамц", 50, str(date.today())])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 16)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"WIP_Orders_Template_{company_id[:8]}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
 @app.post("/api/companies/{company_id}/import/wip-orders")
 async def import_wip_orders_api(company_id: str, file: UploadFile,
                                  ctx: dict = Depends(company_guard("post")),
@@ -4222,13 +4713,87 @@ async def import_wip_orders_api(company_id: str, file: UploadFile,
                 orders_added += 1
                 
         db.commit()
-        return {"orders_added": orders_added}
+        return {"ok": True, "orders_added": orders_added}
     except Exception as e:
         raise HTTPException(500, f"Захиалга импортлоход алдаа гарлаа: {e}")
     finally:
         tmp_path.unlink(missing_ok=True)
 
 
+@app.post("/api/companies/{company_id}/wip/orders/import-excel")
+async def import_wip_orders_excel_api(company_id: str, file: UploadFile,
+                                       ctx: dict = Depends(company_guard("post")),
+                                       db: Session = Depends(get_db)):
+    return await import_wip_orders_api(company_id, file, ctx, db)
+
+
+
+
+@app.get("/api/companies/{company_id}/assets/template")
+def download_assets_template(
+    company_id: str,
+    ctx: dict = Depends(company_guard("read")),
+    db: Session = Depends(get_db)
+):
+    import io
+    from datetime import date
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+    from fastapi.responses import StreamingResponse
+    from . import assets as assets_mod
+
+    existing_assets = assets_mod.asset_register(db, company_id)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Үндсэн_хөрөнгө"
+
+    headers = [
+        "Хөрөнгийн код",
+        "Хөрөнгийн нэр",
+        "Анхны өртөг (₮)",
+        "Ашиглах хугацаа (сар)",
+        "Ашиглалтад орсон огноо (YYYY-MM-DD)"
+    ]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="15803D", end_color="15803D", fill_type="solid")
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for col_idx, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = align_center
+
+    if existing_assets:
+        for a in existing_assets:
+            code = a.get("code") or ""
+            name = a.get("name") or ""
+            cost = (a.get("cost_minor") or 0) / 100
+            months = a.get("months") or 36
+            ws.append([code, name, cost, months, str(date.today())])
+    else:
+        ws.append(["FA-001", "Компьютер Dell XPS", 3500000, 36, "2026-01-15"])
+        ws.append(["FA-002", "Оффисын ширээ сандал", 1200000, 60, "2026-02-01"])
+
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or '')) for cell in col)
+        col_letter = get_column_letter(col[0].column)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 16)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"Fixed_Assets_Template_{company_id[:8]}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 @app.post("/api/companies/{company_id}/import/assets")
@@ -4247,11 +4812,18 @@ async def import_assets_api(company_id: str, file: UploadFile,
         from .opening_balances import import_assets_from_excel
         res = import_assets_from_excel(db, company_id, tmp_path)
         db.commit()
-        return res
+        return {"ok": True, "assets_added": res.get("assets_added", 0)}
     except Exception as e:
         raise HTTPException(500, f"Үндсэн хөрөнгө импортлоход алдаа гарлаа: {e}")
     finally:
         tmp_path.unlink(missing_ok=True)
+
+
+@app.post("/api/companies/{company_id}/assets/import-excel")
+async def import_assets_excel_api(company_id: str, file: UploadFile,
+                                  ctx: dict = Depends(company_guard("post")),
+                                  db: Session = Depends(get_db)):
+    return await import_assets_api(company_id, file, ctx, db)
 
 
 @app.get("/api/companies/{company_id}/financial-ratios")

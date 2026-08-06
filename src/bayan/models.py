@@ -221,7 +221,7 @@ class Statement(Base):
 class BankTxn(Base):
     """Каноник гүйлгээ — §3."""
     __tablename__ = "bank_txn"
-    __table_args__ = (UniqueConstraint("bank_account_key", "canonical_hash"),)
+    __table_args__ = (UniqueConstraint("company_id", "bank_account_key", "canonical_hash"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     statement_id: Mapped[str] = mapped_column(ForeignKey("statement.id"))

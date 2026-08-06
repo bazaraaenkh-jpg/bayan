@@ -59,6 +59,7 @@ class TimeSheet(Base):
     sick_pay_pct: Mapped[float] = mapped_column(Float, default=60.0)
     overtime_hours: Mapped[float] = mapped_column(Float, default=0.0)
     holiday_hours: Mapped[float] = mapped_column(Float, default=0.0)
+    unpaid_leave_days: Mapped[float] = mapped_column(Float, default=0.0)
 
 
 class PayrollLine(Base):

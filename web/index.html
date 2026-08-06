@@ -808,10 +808,10 @@
     <button data-tab="wip"><i class="fa-solid fa-gears"></i>Үйлдвэрлэл</button>
     
     <div class="sidebar-title">ТАЙЛАН</div>
+    <button data-tab="assistant"><i class="fa-solid fa-comments"></i>AI туслах</button>
     <button data-tab="tb"><i class="fa-solid fa-scale-balanced"></i>Гүйлгээний баланс</button>
     <button data-tab="financial_statements"><i class="fa-solid fa-file-lines"></i>Санхүүгийн тайлан</button>
-    <button data-tab="ndsh_reports"><i class="fa-solid fa-file-shield"></i>НДШ тайлан</button>
-    <button data-tab="tax_reports"><i class="fa-solid fa-file-invoice-dollar"></i>Татварын тайлан</button>
+    <button data-tab="tax_reports"><i class="fa-solid fa-file-invoice-dollar"></i>Татвар & НДШ тайлан</button>
     
     <div class="sidebar-title">ТОХИРГОО</div>
     <button data-tab="rules"><i class="fa-solid fa-list-check"></i>Ангилал</button>
@@ -1263,10 +1263,11 @@ async function render() {
     partners: 'Харилцагч (Авлага / Өглөг)',
     pos: 'POS Борлуулалт',
     wip: 'Үйлдвэрлэл (WIP)',
+    assistant: 'AI туслах',
     tb: 'Гүйлгээний баланс',
     financial_statements: 'Санхүүгийн тайлан',
-    ndsh_reports: 'НДШ тайлан',
-    tax_reports: 'Татварын тайлан',
+    ndsh_reports: 'Татвар & НДШ тайлан',
+    tax_reports: 'Татвар & НДШ тайлан',
     rules: 'Ангилал & Дүрмүүд',
     coa: 'Дансны төлөвлөгөө',
     profile: 'Компанийн тохиргоо',
@@ -1301,9 +1302,10 @@ async function render() {
       partners: partnersTab,
       pos: posTab,
       wip: wipTab,
-      tb: renderTrialBalanceTab, 
+      assistant: renderAssistantTab,
+      tb: renderTrialBalanceTab,
       financial_statements: renderFinancialStatementsTab,
-      ndsh_reports: renderNdshReportsTab,
+      ndsh_reports: () => { window._taxTab = 'ndsh'; return renderTaxReportsTab(); },
       tax_reports: renderTaxReportsTab,
       rules: renderRulesTab,
       coa: renderCoaTab, 
@@ -3223,153 +3225,181 @@ async function renderNdshReportsTab() {
   };
 }
 
-// ---------------------------------------------------- Tax Reports Tab
-async function renderTaxReportsTab() {
-  const currentYear = new Date().getFullYear();
-  if (!window._taxYear) window._taxYear = currentYear;
-  if (!window._taxTab) window._taxTab = "vat"; // vat | pit
+// ---------------------------------------------------- Tax & NDSH Reports Tab
+window.switchTaxTab = function(tab) {
+  window._taxTab = tab;
+  document.querySelectorAll('.coa-tab[data-taxtab]').forEach(btn => {
+    if (btn.getAttribute('data-taxtab') === tab) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  const contentEl = document.getElementById('taxReportsContent');
+  if (contentEl && typeof window.renderTaxSubTabContent === 'function') {
+    contentEl.innerHTML = window.renderTaxSubTabContent();
+  } else {
+    renderTaxReportsTab();
+  }
+};
 
-  const vatData = await api(`/companies/${companyId}/vat/tt03a?year=${window._taxYear}`).catch(() => null);
-  const salaries = await api(`/companies/${companyId}/salary-sheets`).catch(() => []);
+window.changeTaxYear = function(y) {
+  window._taxYear = parseInt(y, 10);
+  renderTaxReportsTab();
+};
 
-  let viewHtml = "";
+function renderTaxSubTabContent() {
+  const vatData = window._taxVatData;
+  const salaries = window._taxSalaries || [];
 
-  if (window._taxTab === "vat" && vatData) {
-    const rows = vatData.rows || {};
-    const netVat = (rows["31_nogduulsan_niit"] || 0) - (rows["49_hasagdah_noat"] || 0);
+  if (window._taxTab === "vat") {
+    if (vatData && vatData.rows) {
+      const rows = vatData.rows || {};
+      const netVat = (rows["31_nogduulsan_niit"] || 0) - (rows["49_hasagdah_noat"] || 0);
 
-    viewHtml = `
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:20px;">
-        <div style="background-color:rgba(16, 185, 129, 0.08); border:1px solid #10b981; padding:18px; border-radius:var(--radius);">
-          <div style="font-size:12.5px; font-weight:700; color:#10b981; display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> Ногдуулсан НӨАТ (мөр 31)
+      return `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:20px;">
+          <div style="background-color:rgba(16, 185, 129, 0.08); border:1px solid #10b981; padding:18px; border-radius:var(--radius);">
+            <div style="font-size:12.5px; font-weight:700; color:#10b981; display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Ногдуулсан НӨАТ (мөр 31)
+            </div>
+            <div style="font-size:28px; font-weight:800; color:#065f46; margin-top:8px;">
+              ${fmt(rows["31_nogduulsan_niit"] || 0)}
+            </div>
           </div>
-          <div style="font-size:28px; font-weight:800; color:#065f46; margin-top:8px;">
-            ${fmt(rows["31_nogduulsan_niit"] || 0)}
+
+          <div style="background-color:rgba(239, 68, 68, 0.08); border:1px solid #ef4444; padding:18px; border-radius:var(--radius);">
+            <div style="font-size:12.5px; font-weight:700; color:#ef4444; display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-arrow-down-left-and-arrow-up-right-to-center"></i> Хасагдах НӨАТ (мөр 49)
+            </div>
+            <div style="font-size:28px; font-weight:800; color:#991b1b; margin-top:8px;">
+              ${fmt(rows["49_hasagdah_noat"] || 0)}
+            </div>
+          </div>
+
+          <div style="background-color:rgba(59, 130, 246, 0.08); border:1px solid #3b82f6; padding:18px; border-radius:var(--radius);">
+            <div style="font-size:12.5px; font-weight:700; color:#3b82f6; display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-arrows-spin"></i> ${netVat >= 0 ? 'Улсад төлөх НӨАТ (мөр 64)' : 'Буцаан авах (мөр 65)'}
+            </div>
+            <div style="font-size:28px; font-weight:800; color:#1e3a8a; margin-top:8px;">
+              ${fmt(Math.abs(netVat))}
+            </div>
           </div>
         </div>
 
-        <div style="background-color:rgba(239, 68, 68, 0.08); border:1px solid #ef4444; padding:18px; border-radius:var(--radius);">
-          <div style="font-size:12.5px; font-weight:700; color:#ef4444; display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-arrow-down-left-and-arrow-up-right-to-center"></i> Хасагдах НӨАТ (мөр 49)
+        <div class="card" style="padding:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <div style="text-align:center; width:100%">
+              <span style="font-size:11px; font-weight:700;" class="muted">Маягт ТТ-03а</span>
+              <h3 style="font-size:16px; font-weight:800; margin:4px 0;">НЭМЭГДҮҮЛСЭН ӨРТГИЙН АЛБАН ТАТВАР СУУТГАН ТӨЛӨГЧИЙН ТАЙЛАН</h3>
+              <p class="muted" style="margin:2px 0 0 0; font-size:12.5px;"><b>${window._taxYear} он (жилийн)</b> — (төгрөгөөр)</p>
+            </div>
+            <button class="btn secondary" onclick="window.print()" style="position:absolute; right:20px;"><i class="fa-solid fa-print"></i> Хэвлэх</button>
           </div>
-          <div style="font-size:28px; font-weight:800; color:#991b1b; margin-top:8px;">
-            ${fmt(rows["49_hasagdah_noat"] || 0)}
+
+          <div style="overflow-x:auto">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr style="background-color: var(--border); border-bottom: 2px solid var(--border-dark)">
+                  <th style="padding:10px; text-align:center; width:80px;">Мөр</th>
+                  <th style="padding:10px; text-align:left;">Үзүүлэлт</th>
+                  <th style="padding:10px; text-align:center; width:140px;">Томьёо</th>
+                  <th style="padding:10px; text-align:right; width:200px;">Дүн (₮)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="font-weight:700; background-color:var(--border)"><td colspan="4">А. ТУХАЙН САРЫН БОРЛУУЛАЛТЫН ОРЛОГО, ҮЙЛЧИЛГЭЭНИЙ НӨАТ ТООЦОО</td></tr>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="text-align:center; font-weight:600;">1</td>
+                  <td>Тухайн сарын нийт борлуулалтын орлого</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">2 + 3</td>
+                  <td class="num">${fmt(rows["1_niit_borluulalt"] || 0)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="text-align:center; font-weight:600;">2</td>
+                  <td>Хуулийн 13 дугаар зүйлд заасан НӨАТ-аас чөлөөлөгдөх борлуулалт</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">1 - 3</td>
+                  <td class="num">${fmt((rows["1_niit_borluulalt"] || 0) - (rows["3_noat_nogdoh_borluulalt"] || 0))}</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="text-align:center; font-weight:600;">3</td>
+                  <td>НӨАТ ногдох борлуулалт (10% хувь хэмжээгээр)</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">Бааз</td>
+                  <td class="num">${fmt(rows["3_noat_nogdoh_borluulalt"] || 0)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border); font-weight:700;">
+                  <td style="text-align:center;">26</td>
+                  <td>Нийт ногдуулсан НӨАТ</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">3 * 10%</td>
+                  <td class="num">${fmt(rows["26_nogduulsan_tatvar"] || 0)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border); font-weight:700;">
+                  <td style="text-align:center;">31</td>
+                  <td>Нийт ногдуулсан татварын дүн</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">26</td>
+                  <td class="num">${fmt(rows["31_nogduulsan_niit"] || 0)}</td>
+                </tr>
+
+                <tr style="font-weight:700; background-color:var(--border)"><td colspan="4">Б. ТАЙЛАНТ ҮЕИЙН ХУДАЛДАН АВАЛТЫН НӨАТ ХАСАГДУУЛАХ ТООЦОО</td></tr>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="text-align:center; font-weight:600;">32</td>
+                  <td>Нийт худалдан авалтын дүн (НӨАТ-тай)</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">Бааз</td>
+                  <td class="num">${fmt(rows["32_niit_hudaldan_avalt"] || 0)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="text-align:center; font-weight:600;">33</td>
+                  <td>Дотоодын зах зээлээс худалдан авсан НӨАТ-тай бараа үйлчилгээ</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">Бааз</td>
+                  <td class="num">${fmt(rows["33_noattai_hudaldan_avalt"] || 0)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="text-align:center; font-weight:600;">42</td>
+                  <td>Төлсөн НӨАТ</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">33 * 10%</td>
+                  <td class="num">${fmt(rows["42_tolson_noat"] || 0)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border); font-weight:700;">
+                  <td style="text-align:center;">49</td>
+                  <td>Нийт хасагдах татвар</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">42 - 43</td>
+                  <td class="num">${fmt(rows["49_hasagdah_noat"] || 0)}</td>
+                </tr>
+
+                <tr style="font-weight:700; background-color:var(--border)"><td colspan="4">В. ЭЦСИЙН ТООЦОО</td></tr>
+                <tr style="border-bottom:1px solid var(--border); font-weight:700;">
+                  <td style="text-align:center;">64</td>
+                  <td>Тайлант хугацаанд төлөх эцсийн татвар</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">31 - 49 (хэрэв > 0)</td>
+                  <td class="num">${fmt(rows["64_etssiin_tolboh"] || 0)}</td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--border); font-weight:700;">
+                  <td style="text-align:center;">65</td>
+                  <td>Тайлант хугацаанаас буцаан авах (дараах үед шилжих) татвар</td>
+                  <td style="text-align:center; font-style:italic;" class="muted">49 - 31 (хэрэв > 0)</td>
+                  <td class="num">${fmt(rows["65_etssiin_butsaan_avah"] || 0)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-
-        <div style="background-color:rgba(59, 130, 246, 0.08); border:1px solid #3b82f6; padding:18px; border-radius:var(--radius);">
-          <div style="font-size:12.5px; font-weight:700; color:#3b82f6; display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-arrows-spin"></i> ${netVat >= 0 ? 'Улсад төлөх НӨАТ (мөр 64)' : 'Буцаан авах (мөр 65)'}
+      `;
+    } else {
+      return `
+        <div class="card" style="text-align:center; padding:40px; border:1px dashed var(--border); background:var(--card-bg);">
+          <div style="font-size:40px; color:var(--text-muted); margin-bottom:12px;">
+            <i class="fa-solid fa-file-invoice-dollar"></i>
           </div>
-          <div style="font-size:28px; font-weight:800; color:#1e3a8a; margin-top:8px;">
-            ${fmt(Math.abs(netVat))}
-          </div>
+          <h3 style="font-size:16px; font-weight:700; color:var(--text-main); margin-bottom:6px;">НӨАТ-ын тайлангийн мэдээлэл олдсонгүй</h3>
+          <p class="muted" style="margin:0 auto; font-size:13px; max-width:420px;">Сонгосон онд НӨАТ-ын орлого, худалдан авалтын гүйлгээ үүсээгүй эсвэл мэдээлэл хоосон байна.</p>
         </div>
-      </div>
-
-      <div class="card" style="padding:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
-          <div style="text-align:center; width:100%">
-            <span style="font-size:11px; font-weight:700;" class="muted">Маягт ТТ-03а</span>
-            <h3 style="font-size:16px; font-weight:800; margin:4px 0;">НЭМЭГДҮҮЛСЭН ӨРТГИЙН АЛБАН ТАТВАР СУУТГАН ТӨЛӨГЧИЙН ТАЙЛАН</h3>
-            <p class="muted" style="margin:2px 0 0 0; font-size:12.5px;"><b>${window._taxYear} он (жилийн)</b> — (төгрөгөөр)</p>
-          </div>
-          <button class="btn secondary" onclick="window.print()" style="position:absolute; right:20px;"><i class="fa-solid fa-print"></i> Хэвлэх</button>
-        </div>
-
-        <div style="overflow-x:auto">
-          <table style="width:100%; border-collapse:collapse; font-size:13px;">
-            <thead>
-              <tr style="background-color: var(--border); border-bottom: 2px solid var(--border-dark)">
-                <th style="padding:10px; text-align:center; width:80px;">Мөр</th>
-                <th style="padding:10px; text-align:left;">Үзүүлэлт</th>
-                <th style="padding:10px; text-align:center; width:140px;">Томьёо</th>
-                <th style="padding:10px; text-align:right; width:200px;">Дүн (₮)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="font-weight:700; background-color:var(--border)"><td colspan="4">А. ТУХАЙН САРЫН БОРЛУУЛАЛТЫН ОРЛОГО, ҮЙЛЧИЛГЭЭНИЙ НӨАТ ТООЦОО</td></tr>
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="text-align:center; font-weight:600;">1</td>
-                <td>Тухайн сарын нийт борлуулалтын орлого</td>
-                <td style="text-align:center; font-style:italic;" class="muted">2 + 3</td>
-                <td class="num">${fmt(rows["1_niit_borluulalt"] || 0)}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="text-align:center; font-weight:600;">2</td>
-                <td>Хуулийн 13 дугаар зүйлд заасан НӨАТ-аас чөлөөлөгдөх борлуулалт</td>
-                <td style="text-align:center; font-style:italic;" class="muted">1 - 3</td>
-                <td class="num">${fmt((rows["1_niit_borluulalt"] || 0) - (rows["3_noat_nogdoh_borluulalt"] || 0))}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="text-align:center; font-weight:600;">3</td>
-                <td>НӨАТ ногдох борлуулалт (10% хувь хэмжээгээр)</td>
-                <td style="text-align:center; font-style:italic;" class="muted">Бааз</td>
-                <td class="num">${fmt(rows["3_noat_nogdoh_borluulalt"] || 0)}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border); font-weight:700;">
-                <td style="text-align:center;">26</td>
-                <td>Нийт ногдуулсан НӨАТ</td>
-                <td style="text-align:center; font-style:italic;" class="muted">3 * 10%</td>
-                <td class="num">${fmt(rows["26_nogduulsan_tatvar"] || 0)}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border); font-weight:700;">
-                <td style="text-align:center;">31</td>
-                <td>Нийт ногдуулсан татварын дүн</td>
-                <td style="text-align:center; font-style:italic;" class="muted">26</td>
-                <td class="num">${fmt(rows["31_nogduulsan_niit"] || 0)}</td>
-              </tr>
-
-              <tr style="font-weight:700; background-color:var(--border)"><td colspan="4">Б. ТАЙЛАНТ ҮЕИЙН ХУДАЛДАН АВАЛТЫН НӨАТ ХАСАГДУУЛАХ ТООЦОО</td></tr>
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="text-align:center; font-weight:600;">32</td>
-                <td>Нийт худалдан авалтын дүн (НӨАТ-тай)</td>
-                <td style="text-align:center; font-style:italic;" class="muted">Бааз</td>
-                <td class="num">${fmt(rows["32_niit_hudaldan_avalt"] || 0)}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="text-align:center; font-weight:600;">33</td>
-                <td>Дотоодын зах зээлээс худалдан авсан НӨАТ-тай бараа үйлчилгээ</td>
-                <td style="text-align:center; font-style:italic;" class="muted">Бааз</td>
-                <td class="num">${fmt(rows["33_noattai_hudaldan_avalt"] || 0)}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="text-align:center; font-weight:600;">42</td>
-                <td>Төлсөн НӨАТ</td>
-                <td style="text-align:center; font-style:italic;" class="muted">33 * 10%</td>
-                <td class="num">${fmt(rows["42_tolson_noat"] || 0)}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border); font-weight:700;">
-                <td style="text-align:center;">49</td>
-                <td>Нийт хасагдах татвар</td>
-                <td style="text-align:center; font-style:italic;" class="muted">42 - 43</td>
-                <td class="num">${fmt(rows["49_hasagdah_noat"] || 0)}</td>
-              </tr>
-
-              <tr style="font-weight:700; background-color:var(--border)"><td colspan="4">В. ЭЦСИЙН ТООЦОО</td></tr>
-              <tr style="border-bottom:1px solid var(--border); font-weight:700;">
-                <td style="text-align:center;">64</td>
-                <td>Тайлант хугацаанд төлөх эцсийн татвар</td>
-                <td style="text-align:center; font-style:italic;" class="muted">31 - 49 (хэрэв > 0)</td>
-                <td class="num">${fmt(rows["64_etssiin_tolboh"] || 0)}</td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--border); font-weight:700;">
-                <td style="text-align:center;">65</td>
-                <td>Тайлант хугацаанаас буцаан авах (дараах үед шилжих) татвар</td>
-                <td style="text-align:center; font-style:italic;" class="muted">49 - 31 (хэрэв > 0)</td>
-                <td class="num">${fmt(rows["65_etssiin_butsaan_avah"] || 0)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
+      `;
+    }
   } else if (window._taxTab === "pit") {
     const totPit = salaries.reduce((sum, s) => sum + (s.total_pit_minor || 0), 0);
     const totGross = salaries.reduce((sum, s) => sum + (s.total_gross_minor || 0), 0);
 
-    viewHtml = `
+    return `
       <div class="card" style="padding:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
           <div style="text-align:center; width:100%">
@@ -3415,14 +3445,80 @@ async function renderTaxReportsTab() {
         </div>
       </div>
     `;
+  } else if (window._taxTab === "ndsh") {
+    if (!salaries || salaries.length === 0) {
+      return `
+        <div class="card" style="text-align:center; padding:60px 20px; border: 1px dashed var(--border); background:var(--card-bg);">
+          <div style="font-size:48px; color:var(--text-muted); margin-bottom:16px;">
+            <i class="fa-solid fa-folder-open"></i>
+          </div>
+          <h3 style="font-size:18px; font-weight:700; color:var(--text-main); margin-bottom:8px;">Баталгаажсан цалингийн тооцоо олдсонгүй</h3>
+          <p class="muted" style="max-width:460px; margin:0 auto 20px auto; font-size:13.5px;">Нийгмийн даатгалын тайланг гаргахын тулд эхлээд сарын цалингийн тооцоог бодож хадгалсан байх шаардлагатай.</p>
+          <button class="btn" onclick="switchTab('salary')"><i class="fa-solid fa-wallet"></i> Цалин бодолт руу шилжих</button>
+        </div>
+      `;
+    } else {
+      const rows = salaries.map(s => `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:12px; font-weight:700;">${s.year} оны ${s.month}-р сар</td>
+          <td style="padding:12px;" class="num">${s.employees_count || 1} хүн</td>
+          <td style="padding:12px;" class="num">${fmt(s.total_gross_minor || 0)}</td>
+          <td style="padding:12px;" class="num">${fmt(s.total_ndsh_employee_minor || 0)}</td>
+          <td style="padding:12px;" class="num">${fmt(s.total_ndsh_employer_minor || 0)}</td>
+          <td style="padding:12px; text-align:center; display:flex; gap:8px; justify-content:center;">
+            <button class="btn btn-xs secondary" onclick="printNdshForm1('${s.id}')"><i class="fa-solid fa-print"></i> Маягт 1 (НДШ)</button>
+            <button class="btn btn-xs secondary" onclick="printNdshForm2('${s.id}')"><i class="fa-solid fa-print"></i> Маягт 2 (Даатгуулагч)</button>
+          </td>
+        </tr>
+      `).join('');
+
+      return `
+        <div class="card" style="padding:0; overflow:hidden;">
+          <div style="overflow-x:auto">
+            <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+              <thead>
+                <tr style="background-color: var(--border); border-bottom: 2px solid var(--border-dark)">
+                  <th style="padding:12px; text-align:left;">Тайлант хугацаа</th>
+                  <th style="padding:12px; text-align:right;">Ажилтны тоо</th>
+                  <th style="padding:12px; text-align:right;">Нийт бодсон цалин</th>
+                  <th style="padding:12px; text-align:right;">НДШ (Ажилтан 11.5%)</th>
+                  <th style="padding:12px; text-align:right;">НДШ (Ажил олгогч 12.5%)</th>
+                  <th style="padding:12px; text-align:center; width:280px;">Үйлдэл</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
   }
+  return "";
+}
+
+window.renderTaxSubTabContent = renderTaxSubTabContent;
+
+async function renderTaxReportsTab() {
+  const currentYear = new Date().getFullYear();
+  if (!window._taxYear) window._taxYear = currentYear;
+  if (!window._taxTab) window._taxTab = "vat"; // vat | pit | ndsh
+
+  const [vatData, salaries] = await Promise.all([
+    api(`/companies/${companyId}/vat/tt03a?year=${window._taxYear}`).catch(() => null),
+    api(`/companies/${companyId}/salary-sheets`).catch(() => [])
+  ]);
+
+  window._taxVatData = vatData;
+  window._taxSalaries = salaries;
 
   $('#content').innerHTML = `
     <div class="card" style="margin-bottom: 20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
         <div>
-          <h2 style="margin:0;"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary)"></i> Татварын тайлан</h2>
-          <p class="muted" style="margin-top:2px;">Татварын Ерөнхий Газарт тушаах албан ёсны тайлангууд.</p>
+          <h2 style="margin:0;"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary)"></i> Татвар & НДШ тайлан</h2>
+          <p class="muted" style="margin-top:2px;">Татварын Ерөнхий Газар болон НДГ-т тушаах албан ёсны тайлангууд.</p>
         </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <div>
@@ -3437,28 +3533,21 @@ async function renderTaxReportsTab() {
     </div>
 
     <div class="coa-tabs" style="margin-bottom:20px;">
-      <button class="coa-tab ${window._taxTab === 'vat' ? 'active' : ''}" onclick="switchTaxTab('vat')">
+      <button class="coa-tab ${window._taxTab === 'vat' ? 'active' : ''}" data-taxtab="vat" onclick="switchTaxTab('vat')">
         <i class="fa-solid fa-percent"></i> НӨАТ (Маягт ТТ-03а)
       </button>
-      <button class="coa-tab ${window._taxTab === 'pit' ? 'active' : ''}" onclick="switchTaxTab('pit')">
+      <button class="coa-tab ${window._taxTab === 'pit' ? 'active' : ''}" data-taxtab="pit" onclick="switchTaxTab('pit')">
         <i class="fa-solid fa-user-tag"></i> ХХОАТ (Маягт ТТ-11)
+      </button>
+      <button class="coa-tab ${window._taxTab === 'ndsh' ? 'active' : ''}" data-taxtab="ndsh" onclick="switchTaxTab('ndsh')">
+        <i class="fa-solid fa-file-shield"></i> НДШ (Маягт 1, 2)
       </button>
     </div>
 
     <div id="taxReportsContent">
-      ${viewHtml}
+      ${renderTaxSubTabContent()}
     </div>
   `;
-
-  window.switchTaxTab = (tab) => {
-    window._taxTab = tab;
-    renderTaxReportsTab();
-  };
-
-  window.changeTaxYear = (y) => {
-    window._taxYear = parseInt(y, 10);
-    renderTaxReportsTab();
-  };
 }
 
 // ---------------------------------------------------- Classifier Rules Tab
@@ -5325,31 +5414,159 @@ async function wipTab() {
     api(`/companies/${companyId}/wip`), api(`/companies/${companyId}/stock`)]);
   $('#content').innerHTML = `
     <div class="card">
-      <h2>Ажлын захиалгууд (Дуусаагүй үйлдвэрлэл)</h2>
-      <p class="muted" style="margin-bottom: 12px;">Захиалга сар дамжин нээлттэй байж өртөг хуримтлуулна; ДҮ үлдэгдэл СТ-1-тэй автоматаар тулгагдана.</p>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px">
-        <button class="btn secondary" onclick="wipNewItem()"><i class="fa-solid fa-plus"></i> Бараа</button>
-        <button class="btn secondary" onclick="wipReceive()"><i class="fa-solid fa-box-open"></i> Материал орлого</button>
-        <button class="btn" onclick="wipNewOrder()"><i class="fa-solid fa-folder-plus"></i> Захиалга нээх</button>
-        <button class="btn secondary" onclick="wipAct('material')">Материал олгох</button>
-        <button class="btn secondary" onclick="wipAct('labor')">Хөдөлмөр нэмэх</button>
-        <button class="btn secondary" onclick="wipAct('overhead')">НЗ хуваарилах</button>
-        <button class="btn secondary" onclick="openAllocateOverheadModal()"><i class="fa-solid fa-calculator"></i> НЗ хуваарилалт (Олноор)</button>
-        <button class="btn secondary" onclick="wipAct('complete')">Хүлээлгэн өгөх</button>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h2 style="margin:0; font-size:20px; font-weight:700;"><i class="fa-solid fa-gears" style="color:var(--primary);"></i> Ажлын захиалгууд (Дуусаагүй үйлдвэрлэл)</h2>
+          <p class="muted" style="margin:4px 0 0 0; font-size:13px;">Захиалга сар дамжин нээлттэй байж өртөг хуримтлуулна. ДҮ үлдэгдэл СТ-1-тэй автоматаар тулгагдана.</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn secondary" onclick="downloadWipTemplate()">
+            <i class="fa-solid fa-file-excel" style="color:#16a34a;"></i> Загвар Татах
+          </button>
+          <button class="btn secondary" onclick="openWipImportModal()">
+            <i class="fa-solid fa-file-import" style="color:#2563eb;"></i> Excel Импортлох
+          </button>
+        </div>
       </div>
-      <table>
-        <tr><th>Захиалга</th><th>Төлөв</th><th>Тоо</th><th class="num">Материал</th>
-        <th class="num">Хөдөлмөр</th><th class="num">НЗ</th><th class="num">ДҮ үлдэгдэл</th><th style="width:100px; text-align:center;">Үйлдэл</th></tr>
-        ${orders.map(o=>`<tr><td>${o.order_no}</td>
-        <td><span class="pill ${o.status==='closed'?'ok':'review'}">${
-        o.status==='closed'?'хаагдсан':o.status==='in_progress'?'явцад':'нээлттэй'}</span></td>
-        <td>${o.qty}</td><td class="num">${fmt(o.material_minor)}</td>
-        <td class="num">${fmt(o.labor_minor)}</td><td class="num">${fmt(o.overhead_minor)}</td>
-        <td class="num"><b>${fmt(o.wip_balance_minor)}</b></td>
-        <td style="text-align:center;"><button class="btn secondary" style="padding:4px 8px; font-size:11px;" onclick="viewWipVariance('${o.id}')"><i class="fa-solid fa-chart-bar"></i> Зөрүү</button></td></tr>`).join('')
-        || '<tr><td colspan="8" class="muted" style="text-align:center">Захиалга одоогоор байхгүй байна.</td></tr>'}
-      </table>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; padding:12px; background:var(--bg-subtle, #f8fafc); border:1px solid var(--border); border-radius:10px; align-items:center;">
+        <button class="btn" onclick="wipNewOrder()"><i class="fa-solid fa-folder-plus"></i> Захиалга нээх</button>
+        <div style="width:1px; height:24px; background:var(--border); margin:0 4px;"></div>
+        <button class="btn secondary" onclick="wipNewItem()"><i class="fa-solid fa-plus"></i> Бараа нэмэх</button>
+        <button class="btn secondary" onclick="wipReceive()"><i class="fa-solid fa-box-open"></i> Материал орлого</button>
+        <div style="width:1px; height:24px; background:var(--border); margin:0 4px;"></div>
+        <button class="btn secondary" onclick="wipAct('material')"><i class="fa-solid fa-cubes"></i> Материал олгох</button>
+        <button class="btn secondary" onclick="wipAct('labor')"><i class="fa-solid fa-user-gear"></i> Хөдөлмөр нэмэх</button>
+        <button class="btn secondary" onclick="wipAct('overhead')"><i class="fa-solid fa-coins"></i> НЗ хуваарилах</button>
+        <button class="btn secondary" onclick="openAllocateOverheadModal()"><i class="fa-solid fa-calculator"></i> НЗ (Олноор)</button>
+        <button class="btn secondary" onclick="wipAct('complete')"><i class="fa-solid fa-circle-check" style="color:#16a34a;"></i> Хүлээлгэн өгөх</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
+          <thead>
+            <tr style="background:var(--border-light, #f1f5f9); border-bottom:2px solid var(--border);">
+              <th style="padding:12px 14px; text-align:left;">Захиалгын №</th>
+              <th style="padding:12px 14px; text-align:center;">Төлөв</th>
+              <th style="padding:12px 14px; text-align:right;">Тоо хэмжээ</th>
+              <th style="padding:12px 14px; text-align:right;" class="num">Материал (₮)</th>
+              <th style="padding:12px 14px; text-align:right;" class="num">Хөдөлмөр (₮)</th>
+              <th style="padding:12px 14px; text-align:right;" class="num">НЗ зардал (₮)</th>
+              <th style="padding:12px 14px; text-align:right;" class="num">ДҮ үлдэгдэл (₮)</th>
+              <th style="padding:12px 14px; text-align:center; width:110px;">Үйлдэл</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orders.map(o=>`
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:12px 14px; font-weight:700; color:var(--text-main);">${o.order_no}</td>
+                <td style="padding:12px 14px; text-align:center;">
+                  <span class="pill ${o.status==='closed'?'ok':'review'}" style="font-size:11.5px; padding:3px 8px;">
+                    ${o.status==='closed'?'Хаагдсан':o.status==='in_progress'?'Үйлдвэрлэлд':'Нээлттэй'}
+                  </span>
+                </td>
+                <td style="padding:12px 14px; text-align:right;">${o.qty}</td>
+                <td style="padding:12px 14px; text-align:right;" class="num">${fmt(o.material_minor)}</td>
+                <td style="padding:12px 14px; text-align:right;" class="num">${fmt(o.labor_minor)}</td>
+                <td style="padding:12px 14px; text-align:right;" class="num">${fmt(o.overhead_minor)}</td>
+                <td style="padding:12px 14px; text-align:right;" class="num"><b style="color:var(--primary);">${fmt(o.wip_balance_minor)}</b></td>
+                <td style="padding:12px 14px; text-align:center;">
+                  <button class="btn secondary" style="padding:4px 10px; font-size:11.5px;" onclick="viewWipVariance('${o.id}')">
+                    <i class="fa-solid fa-chart-bar"></i> Зөрүү
+                  </button>
+                </td>
+              </tr>
+            `).join('') || `
+              <tr>
+                <td colspan="8" style="text-align:center; padding:48px 16px;">
+                  <div style="font-size:40px; color:var(--text-muted); margin-bottom:12px;">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                  </div>
+                  <div style="font-size:15px; font-weight:600; color:var(--text-main); margin-bottom:4px;">Үйлдвэрлэлийн ажлын захиалга одоогоор байхгүй байна</div>
+                  <p class="muted" style="margin:0 auto 16px auto; max-width:400px; font-size:13px;">Дээд талын "Захиалга нээх" эсвэл "Excel Импортлох" товчийг ашиглан ажлын захиалга үүсгэнэ үү.</p>
+                </td>
+              </tr>
+            `}
+          </tbody>
+        </table>
+      </div>
     </div>`;
+}
+
+function openWipImportModal() {
+  $('#modalCard').style.width = '520px';
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h2 style="margin:0; font-size:18px;"><i class="fa-solid fa-file-excel" style="color:#16a34a;"></i> Ажлын Захиалгууд (Дуусаагүй Үйлдвэрлэл) Excel-ээс импортлох</h2>
+    </div>
+    <p class="muted" style="margin-bottom:16px; font-size:13px; line-height:1.5;">
+      Үйлдвэрлэлийн ажлын захиалгууд, бүтээгдэхүүний код болон төлөвлөсөн тоо хэмжээг бэлтгэсэн Excel файлаас олноор оруулах.
+    </p>
+    
+    <div style="background:var(--bg-subtle, #f8fafc); border:1px dashed var(--border); border-radius:8px; padding:18px; margin-bottom:18px; text-align:center;">
+      <div style="margin-bottom:14px;">
+        <button class="btn secondary btn-xs" onclick="downloadWipTemplate()" style="font-size:12.5px; padding:7px 14px;">
+          <i class="fa-solid fa-download" style="color:#16a34a;"></i> Загвар Excel файл татах
+        </button>
+      </div>
+      <label style="display:block; font-size:12.5px; font-weight:600; color:var(--text-main); margin-bottom:8px;">Импортлох Excel файлаа сонгоно уу (.xlsx, .xls):</label>
+      <input type="file" id="wip_excel_file_input" accept=".xlsx,.xls" class="input-field" style="max-width:380px; margin:0 auto; display:block; padding:6px;">
+    </div>
+    
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn secondary" onclick="hideModal()">Болих</button>
+      <button class="btn" onclick="uploadWipExcelModal()"><i class="fa-solid fa-upload"></i> Импортлох</button>
+    </div>
+  `;
+  $('#modalOverlay').style.display = 'flex';
+}
+
+async function uploadWipExcelModal() {
+  const input = $('#wip_excel_file_input');
+  if (!input || !input.files || input.files.length === 0) {
+    alert("Excel файлаа сонгоно уу.");
+    return;
+  }
+  const file = input.files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(`/api/companies/${companyId}/wip/orders/import-excel`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token() },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert("Excel импортлоход алдаа гарлаа: " + (data.detail || "үл мэдэгдэх алдаа"));
+      return;
+    }
+    alert(`Амжилттай! Нийт ${data.orders_added} ажлын захиалга нээгдлээ.`);
+    hideModal();
+    wipTab();
+  } catch (err) {
+    alert("Холболтын алдаа: " + err.message);
+  }
+}
+
+async function downloadWipTemplate() {
+  try {
+    const res = await fetch(`/api/companies/${companyId}/wip/orders/template`, {
+      headers: { Authorization: 'Bearer ' + token() }
+    });
+    if (!res.ok) throw new Error('Загвар файл татахад алдаа гарлаа');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `WIP_Orders_Template.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (err) {
+    alert("Алдаа: " + err.message);
+  }
 }
 
 function openAllocateOverheadModal() {
@@ -6218,10 +6435,18 @@ async function assetsTab() {
   const list = await api(`/companies/${companyId}/assets`);
   $('#content').innerHTML = `
     <div class="card">
-      <h2>Үндсэн хөрөнгө</h2>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px">
-        <button class="btn" onclick="assetNew()"><i class="fa-solid fa-plus"></i> Хөрөнгө бүртгэх</button>
-        <button class="btn secondary" onclick="assetDepreciate()"><i class="fa-solid fa-calculator"></i> Сарын элэгдэл бодох</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom:14px;">
+        <h2 style="margin:0;">Үндсэн хөрөнгө</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" onclick="assetNew()"><i class="fa-solid fa-plus"></i> Хөрөнгө бүртгэх</button>
+          <button class="btn secondary" onclick="assetDepreciate()"><i class="fa-solid fa-calculator"></i> Сарын элэгдэл бодох</button>
+          <button class="btn secondary" onclick="downloadAssetsTemplate()">
+            <i class="fa-solid fa-file-excel" style="color:#16a34a;"></i> Загвар Татах
+          </button>
+          <button class="btn secondary" onclick="openAssetsImportModal()">
+            <i class="fa-solid fa-file-import" style="color:#2563eb;"></i> Excel Импортлох
+          </button>
+        </div>
       </div>
       <table>
         <tr><th>Код</th><th>Нэр</th><th class="num">Өртөг</th>
@@ -6237,6 +6462,82 @@ async function assetsTab() {
         || '<tr><td colspan="7" class="muted" style="text-align:center">Үндсэн хөрөнгө бүртгэгдээгүй байна.</td></tr>'}
       </table>
     </div>`;
+}
+
+function openAssetsImportModal() {
+  $('#modalCard').style.width = '520px';
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h2 style="margin:0; font-size:18px;"><i class="fa-solid fa-file-excel" style="color:#16a34a;"></i> Үндсэн Хөрөнгө Excel-ээс импортлох</h2>
+    </div>
+    <p class="muted" style="margin-bottom:16px; font-size:13px; line-height:1.5;">
+      Байгууллагын үндсэн хөрөнгийн жагсаалт, өртөг, ашиглах хугацааг бэлтгэсэн Excel файлаас олноор оруулах.
+    </p>
+    
+    <div style="background:var(--bg-subtle, #f8fafc); border:1px dashed var(--border); border-radius:8px; padding:18px; margin-bottom:18px; text-align:center;">
+      <div style="margin-bottom:14px;">
+        <button class="btn secondary btn-xs" onclick="downloadAssetsTemplate()" style="font-size:12.5px; padding:7px 14px;">
+          <i class="fa-solid fa-download" style="color:#16a34a;"></i> Загвар Excel файл татах
+        </button>
+      </div>
+      <label style="display:block; font-size:12.5px; font-weight:600; color:var(--text-main); margin-bottom:8px;">Импортлох Excel файлаа сонгоно уу (.xlsx, .xls):</label>
+      <input type="file" id="assets_excel_file_input" accept=".xlsx,.xls" class="input-field" style="max-width:380px; margin:0 auto; display:block; padding:6px;">
+    </div>
+    
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn secondary" onclick="hideModal()">Болих</button>
+      <button class="btn" onclick="uploadAssetsExcelModal()"><i class="fa-solid fa-upload"></i> Импортлох</button>
+    </div>
+  `;
+  $('#modalOverlay').style.display = 'flex';
+}
+
+async function uploadAssetsExcelModal() {
+  const input = $('#assets_excel_file_input');
+  if (!input || !input.files || input.files.length === 0) {
+    alert("Excel файлаа сонгоно уу.");
+    return;
+  }
+  const file = input.files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(`/api/companies/${companyId}/assets/import-excel`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token() },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert("Excel импортлоход алдаа гарлаа: " + (data.detail || "үл мэдэгдэх алдаа"));
+      return;
+    }
+    alert(`Амжилттай! Нийт ${data.assets_added} үндсэн хөрөнгө нэмэгдлээ.`);
+    hideModal();
+    assetsTab();
+  } catch (err) {
+    alert("Холболтын алдаа: " + err.message);
+  }
+}
+
+async function downloadAssetsTemplate() {
+  try {
+    const res = await fetch(`/api/companies/${companyId}/assets/template`, {
+      headers: { Authorization: 'Bearer ' + token() }
+    });
+    if (!res.ok) throw new Error('Загвар файл татахад алдаа гарлаа');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Fixed_Assets_Template.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (err) {
+    alert("Алдаа: " + err.message);
+  }
 }
 
 function assetRetire(assetId, assetLabel) {
@@ -7511,7 +7812,7 @@ async function showTimesheetsModal() {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
   
-  $('#modalCard').style.width = '750px';
+  $('#modalCard').style.width = '1050px';
   
   const [emps, tsList] = await Promise.all([
     api(`/companies/${companyId}/employees`),
@@ -7522,56 +7823,192 @@ async function showTimesheetsModal() {
   tsList.forEach(t => { tsMap[t.employee_id] = t; });
   
   let html = `
-    <h2><i class="fa-solid fa-calendar-days" style="color:var(--primary)"></i> Цагийн бүртгэл (Табель) - ${year} оны ${month}-р сар</h2>
-    <p class="muted" style="margin-bottom:16px;">Ажилчдын ажилласан өдөр, ээлжийн амралт, өвчтэй өдрүүдийн бүртгэлийг хөтөлнө.</p>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div>
+        <h2 style="margin:0; font-size:18px; color:var(--text-main);"><i class="fa-solid fa-calendar-days" style="color:var(--primary)"></i> Ажилтны Цагийн Бүртгэл (Табель) - ${year} оны ${month}-р сар</h2>
+        <p class="muted" style="margin:4px 0 0 0; font-size:12.5px;">Монгол Улсын хөдөлмөрийн стандартын дагуу ажилласан хоног/цаг, чөлөө, өвчтэй, ээлжийн амралт болон илүү цагийн тооцоо.</p>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn secondary" style="font-size:12px; padding:6px 10px;" onclick="downloadTimesheetTemplate(${year}, ${month})">
+          <i class="fa-solid fa-file-excel" style="color:#16a34a;"></i> Загвар Татах
+        </button>
+        <button class="btn secondary" style="font-size:12px; padding:6px 10px;" onclick="openTimesheetImportModal(${year}, ${month})">
+          <i class="fa-solid fa-file-import" style="color:#2563eb;"></i> Excel Импортлох
+        </button>
+      </div>
+    </div>
     
-    <div style="max-height:300px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; margin-bottom:20px;">
-      <table class="grid-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+    <div style="max-height:420px; overflow-y:auto; overflow-x:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:16px;">
+      <table class="grid-table" style="width:100%; border-collapse:collapse; font-size:12.5px; white-space:nowrap;">
         <thead>
-          <tr style="border-bottom:1px solid var(--border); background-color:var(--border);">
-            <th style="padding:8px; text-align:left;">Ажилтан</th>
-            <th style="padding:8px; text-align:center; width:90px;">Ажилласан (өдөр)</th>
-            <th style="padding:8px; text-align:center; width:90px;">Амарсан (өдөр)</th>
-            <th style="padding:8px; text-align:center; width:90px;">Өвчтэй (өдөр)</th>
-            <th style="padding:8px; text-align:center; width:90px;">Өвчний %</th>
+          <tr style="border-bottom:2px solid var(--border); background-color:var(--bg-subtle, #f1f5f9); color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.3px;">
+            <th style="padding:10px 12px; text-align:left; min-width:160px;">Ажилтан</th>
+            <th style="padding:10px 8px; text-align:center; width:95px;" title="Ажлын өдөрт ажилласан хоног">Ажилласан (өдөр)</th>
+            <th style="padding:10px 8px; text-align:center; width:95px;" title="Эмнэлгийн хуудсаар чөлөө авсан өдөр">Өвчтэй (өдөр)</th>
+            <th style="padding:10px 8px; text-align:center; width:80px;" title="Өвчний олгох цалингийн хувь (60%, 75%, 100%)">Өвчний %</th>
+            <th style="padding:10px 8px; text-align:center; width:95px;" title="Ээлжийн амралттай байсан өдөр">Амарсан (өдөр)</th>
+            <th style="padding:10px 8px; text-align:center; width:95px;" title="Цалингүй чөлөөтэй өдөр">Чөлөөтэй (өдөр)</th>
+            <th style="padding:10px 8px; text-align:center; width:95px;" title="Ажлын өдрийн илүү цаг (1.5x нэмэгдэл)">Илүү цаг 1.5x</th>
+            <th style="padding:10px 8px; text-align:center; width:95px;" title="Баяр, амралтын өдрийн илүү цаг (2.0x нэмэгдэл)">Баяр/Амралт 2.0x</th>
+            <th style="padding:10px 12px; text-align:right; width:110px;" title="Нийт цалин бодогдох цаг (Worked*8 + OT*1.5 + Hol*2.0)">Нийт цаг</th>
           </tr>
         </thead>
         <tbody>
           ${emps.map((e, idx) => {
-            const ts = tsMap[e.id] || { worked_days: 22, vacation_days: 0, sick_days: 0, sick_pay_pct: 60 };
+            const ts = tsMap[e.id] || { worked_days: 22, vacation_days: 0, sick_days: 0, sick_pay_pct: 60, unpaid_leave_days: 0, overtime_hours: 0, holiday_hours: 0 };
+            const workedDays = ts.worked_days != null ? ts.worked_days : 22;
+            const vacDays = ts.vacation_days || 0;
+            const sickDays = ts.sick_days || 0;
+            const sickPct = ts.sick_pay_pct != null ? ts.sick_pay_pct : 60;
+            const unpaidDays = ts.unpaid_leave_days || 0;
+            const otHours = ts.overtime_hours || 0;
+            const holHours = ts.holiday_hours || 0;
+            const totalHours = (workedDays * 8) + (otHours * 1.5) + (holHours * 2.0);
+
             return `
               <tr style="border-bottom:1px solid var(--border);">
-                <td style="padding:8px;">
-                  <b>${e.code}</b> - ${e.name}
+                <td style="padding:8px 12px;">
+                  <div style="font-weight:600; color:var(--text-main);"><b>${e.code}</b> - ${e.name}</div>
+                  <div style="font-size:11px; color:var(--text-muted);">${e.position || 'Үндсэн ажилтан'}</div>
                   <input type="hidden" id="ts_emp_${idx}" value="${e.id}">
                 </td>
                 <td style="padding:4px; text-align:center;">
-                  <input type="number" id="ts_work_${idx}" class="input-field" style="height:28px; text-align:center; padding:0; font-size:12.5px;" value="${ts.worked_days}">
+                  <input type="number" step="0.5" id="ts_work_${idx}" class="input-field" style="height:30px; text-align:center; padding:0; font-size:12.5px; font-weight:600;" value="${workedDays}" oninput="calcTsRowTotal(${idx})">
                 </td>
                 <td style="padding:4px; text-align:center;">
-                  <input type="number" id="ts_vac_${idx}" class="input-field" style="height:28px; text-align:center; padding:0; font-size:12.5px;" value="${ts.vacation_days}">
+                  <input type="number" step="0.5" id="ts_sick_${idx}" class="input-field" style="height:30px; text-align:center; padding:0; font-size:12.5px;" value="${sickDays}">
                 </td>
                 <td style="padding:4px; text-align:center;">
-                  <input type="number" id="ts_sick_${idx}" class="input-field" style="height:28px; text-align:center; padding:0; font-size:12.5px;" value="${ts.sick_days}">
+                  <select id="ts_pct_${idx}" class="input-field" style="height:30px; text-align:center; padding:0 4px; font-size:12px;">
+                    <option value="60" ${sickPct == 60 ? 'selected' : ''}>60%</option>
+                    <option value="75" ${sickPct == 75 ? 'selected' : ''}>75%</option>
+                    <option value="100" ${sickPct == 100 ? 'selected' : ''}>100%</option>
+                  </select>
                 </td>
                 <td style="padding:4px; text-align:center;">
-                  <input type="number" id="ts_pct_${idx}" class="input-field" style="height:28px; text-align:center; padding:0; font-size:12.5px;" value="${ts.sick_pay_pct}">
+                  <input type="number" step="0.5" id="ts_vac_${idx}" class="input-field" style="height:30px; text-align:center; padding:0; font-size:12.5px;" value="${vacDays}">
+                </td>
+                <td style="padding:4px; text-align:center;">
+                  <input type="number" step="0.5" id="ts_unpaid_${idx}" class="input-field" style="height:30px; text-align:center; padding:0; font-size:12.5px;" value="${unpaidDays}">
+                </td>
+                <td style="padding:4px; text-align:center;">
+                  <input type="number" step="0.5" id="ts_ot_${idx}" class="input-field" style="height:30px; text-align:center; padding:0; font-size:12.5px;" value="${otHours}" oninput="calcTsRowTotal(${idx})">
+                </td>
+                <td style="padding:4px; text-align:center;">
+                  <input type="number" step="0.5" id="ts_hol_${idx}" class="input-field" style="height:30px; text-align:center; padding:0; font-size:12.5px;" value="${holHours}" oninput="calcTsRowTotal(${idx})">
+                </td>
+                <td style="padding:8px 12px; text-align:right; font-weight:700; color:var(--primary);" id="ts_total_hrs_${idx}">
+                  ${totalHours.toFixed(1)} цаг
                 </td>
               </tr>
             `;
-          }).join('') || '<tr><td colspan="5" class="muted" style="text-align:center; padding:16px;">Идэвхтэй ажилтан байхгүй байна.</td></tr>'}
+          }).join('') || '<tr><td colspan="9" class="muted" style="text-align:center; padding:24px;">Идэвхтэй ажилтан байхгүй байна.</td></tr>'}
         </tbody>
       </table>
     </div>
     
-    <div style="display:flex; justify-content:flex-end; gap:8px;">
-      <button class="btn secondary" onclick="hideModal()">Болих</button>
-      <button class="btn" onclick="saveTimesheetsList(${emps.length}, ${year}, ${month})">Бүртгэл хадгалах</button>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="font-size:11.5px; color:var(--text-muted);">
+        💡 *Табелаар бодогдсон цагууд Цалингийн цэс дэх сарын цалин бодолтод шууд тусгагдана.
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn secondary" onclick="hideModal()">Болих</button>
+        <button class="btn" onclick="saveTimesheetsList(${emps.length}, ${year}, ${month})"><i class="fa-solid fa-floppy-disk"></i> Бүртгэл хадгалах</button>
+      </div>
     </div>
   `;
   
   $('#modalCard').innerHTML = html;
   $('#modalOverlay').style.display = 'flex';
+}
+
+function openTimesheetImportModal(year, month) {
+  $('#modalCard').style.width = '520px';
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h2 style="margin:0; font-size:18px;"><i class="fa-solid fa-file-excel" style="color:#16a34a;"></i> Цагийн Бүртгэл Excel-ээс импортлох</h2>
+    </div>
+    <p class="muted" style="margin-bottom:16px; font-size:13px; line-height:1.5;">
+      Ажилтнуудын ажилласан өдөр, өвчтэй, чөлөөтэй, ээлжийн амралт болон илүү цагийн бүртгэлийг бэлтгэсэн Excel файлаас нэг дор зэрэг импортлон оруулна.
+    </p>
+    
+    <div style="background:var(--bg-subtle, #f8fafc); border:1px dashed var(--border); border-radius:8px; padding:18px; margin-bottom:18px; text-align:center;">
+      <div style="margin-bottom:14px;">
+        <button class="btn secondary btn-xs" onclick="downloadTimesheetTemplate(${year}, ${month})" style="font-size:12.5px; padding:7px 14px;">
+          <i class="fa-solid fa-download" style="color:#16a34a;"></i> Загвар Excel файл татах
+        </button>
+      </div>
+      <label style="display:block; font-size:12.5px; font-weight:600; color:var(--text-main); margin-bottom:8px;">Импортлох Excel файлаа сонгоно уу (.xlsx, .xls):</label>
+      <input type="file" id="ts_excel_file_input" accept=".xlsx,.xls" class="input-field" style="max-width:380px; margin:0 auto; display:block; padding:6px;">
+    </div>
+    
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn secondary" onclick="openTimesheetModal()">Буцах</button>
+      <button class="btn" onclick="uploadTimesheetExcelModal(${year}, ${month})"><i class="fa-solid fa-upload"></i> Импортлох</button>
+    </div>
+  `;
+}
+
+async function uploadTimesheetExcelModal(year, month) {
+  const input = $('#ts_excel_file_input');
+  if (!input || !input.files || input.files.length === 0) {
+    alert("Excel файлаа сонгоно уу.");
+    return;
+  }
+  const file = input.files[0];
+  const formData = new FormData();
+  formData.append('year', year);
+  formData.append('month', month);
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(`/api/companies/${companyId}/timesheets/import-excel`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token() },
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert("Excel импортлоход алдаа гарлаа: " + (data.detail || (data.errors && data.errors.join("\n")) || "үл мэдэгдэх алдаа"));
+      return;
+    }
+    let msg = `Амжилттай! Нийт ${data.imported_count} ажилтны цагийн бүртгэл хадгалагдлаа.`;
+    if (data.errors && data.errors.length > 0) {
+      msg += "\n\nСанамж:\n" + data.errors.join("\n");
+    }
+    alert(msg);
+    openTimesheetModal();
+  } catch (err) {
+    alert("Холболтын алдаа: " + err.message);
+  }
+}
+
+async function downloadTimesheetTemplate(year, month) {
+  try {
+    const res = await fetch(`/api/companies/${companyId}/timesheets/template?year=${year}&month=${month}`, {
+      headers: { Authorization: 'Bearer ' + token() }
+    });
+    if (!res.ok) throw new Error('Загвар файл татахад алдаа гарлаа');
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Timesheet_Template_${year}_${month}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (err) {
+    alert("Алдаа: " + err.message);
+  }
+}
+
+function calcTsRowTotal(idx) {
+  const w = parseFloat($(`#ts_work_${idx}`).value) || 0;
+  const ot = parseFloat($(`#ts_ot_${idx}`).value) || 0;
+  const hol = parseFloat($(`#ts_hol_${idx}`).value) || 0;
+  const total = (w * 8) + (ot * 1.5) + (hol * 2.0);
+  const el = $(`#ts_total_hrs_${idx}`);
+  if (el) el.innerText = total.toFixed(1) + ' цаг';
 }
 
 async function saveTimesheetsList(count, year, month) {
@@ -7582,6 +8019,9 @@ async function saveTimesheetsList(count, year, month) {
     const vacation_days = parseFloat($(`#ts_vac_${i}`).value) || 0;
     const sick_days = parseFloat($(`#ts_sick_${i}`).value) || 0;
     const sick_pay_pct = parseFloat($(`#ts_pct_${i}`).value) || 60;
+    const unpaid_leave_days = parseFloat($(`#ts_unpaid_${i}`).value) || 0;
+    const overtime_hours = parseFloat($(`#ts_ot_${i}`).value) || 0;
+    const holiday_hours = parseFloat($(`#ts_hol_${i}`).value) || 0;
     
     promises.push(
       post(`/companies/${companyId}/timesheets`, {
@@ -7591,14 +8031,17 @@ async function saveTimesheetsList(count, year, month) {
         worked_days,
         vacation_days,
         sick_days,
-        sick_pay_pct
+        sick_pay_pct,
+        unpaid_leave_days,
+        overtime_hours,
+        holiday_hours
       })
     );
   }
   
   const results = await Promise.all(promises);
   if (results) {
-    alert("Цагийн бүртгэлүүд амжилттай хадгалагдлаа.");
+    alert("Цагийн бүртгэлүүд (Табель) амжилттай хадгалагдлаа.");
     hideModal();
   }
 }
@@ -8797,6 +9240,133 @@ async function uploadEmployeeExcel() {
   } else {
     alert(res.detail || "Импортлоход алдаа гарлаа.");
   }
+}
+
+// ------------------------------------------------------------------ AI туслах
+
+async function renderAssistantTab() {
+  const [catalog, settings, hist] = await Promise.all([
+    api(`/companies/${companyId}/assistant/catalog`),
+    api(`/companies/${companyId}/assistant/settings`).catch(() => ({egress:'aggregate', ai_available:false})),
+    api(`/companies/${companyId}/assistant/history?limit=15`).catch(() => [])
+  ]);
+
+  const chips = catalog.slice(0, 8).map(m =>
+    `<button class="btn btn-xs secondary" style="font-size:12px"
+             onclick="assistantAsk('${esc(m.example)} хэд вэ')">${esc(m.title)}</button>`).join('');
+
+  const mode = settings.egress === 'off' ? 'Гадагш өгөгдөл явуулахгүй (дүрмийн горим)'
+             : settings.egress === 'full' ? 'Задаргаа хүртэл загварт очно'
+             : 'Зөвхөн нийт дүн загварт очно';
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <h2><i class="fa-solid fa-comments" style="color:var(--primary)"></i> AI туслах</h2>
+      <p class="muted" style="margin-bottom:6px;">
+        Тоо бүр ерөнхий дэвтрээс гарна — <b>AI тоо зохиохгүй</b>. Мэдэхгүй асуултад
+        таамаглахын оронд «мэдэхгүй» гэж хэлнэ. Асуулт бүр бүртгэлд үлдэнэ.
+      </p>
+      <p class="muted" style="font-size:12px; margin-bottom:14px;">
+        Загварын төлөв: ${settings.ai_available ? 'холбогдсон' : 'холбогдоогүй — дүрмийн горимоор ажиллана'} ·
+        Өгөгдлийн горим: ${esc(mode)}
+      </p>
+
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <input id="asstInput" class="input-field" style="flex:1"
+               placeholder="Жишээ: 2026 оны 7-р сарын борлуулалт хэд вэ?"
+               onkeydown="if(event.key==='Enter') assistantAsk()">
+        <button class="btn" id="asstBtn" onclick="assistantAsk()">
+          <i class="fa-solid fa-paper-plane"></i> Асуух
+        </button>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;">${chips}</div>
+
+      <div id="asstAnswer"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:16px;">Асуултын бүртгэл</h2>
+      <p class="muted" style="font-size:12px;">Хэн юу асуусан, ямар метрик дуудагдсан — бүгд хадгалагдана.</p>
+      <div id="asstHistory">${assistantHistoryHtml(hist)}</div>
+    </div>`;
+}
+
+function assistantHistoryHtml(rows) {
+  if (!rows.length) return '<p class="muted">Асуулт бүртгэгдээгүй байна.</p>';
+  const badge = (s) => s === 'answered' ? '<span style="color:var(--primary)">хариулсан</span>'
+    : s === 'denied' ? '<span style="color:#e5484d">эрх хүрээгүй</span>'
+    : '<span class="muted">мэдэхгүй</span>';
+  return `<table class="grid-table" style="font-size:12.5px">
+    <thead><tr><th>Хэзээ</th><th>Үүрэг</th><th>Асуулт</th><th>Метрик</th><th>Үр дүн</th></tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      <td class="muted">${(r.asked_at || '').replace('T', ' ').slice(0, 16)}</td>
+      <td>${esc(r.role)}</td>
+      <td>${esc(r.question)}</td>
+      <td>${esc(r.metric || '—')}</td>
+      <td>${badge(r.status)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+async function assistantAsk(preset) {
+  const input = $('#asstInput');
+  if (preset) input.value = preset;
+  const question = input.value.trim();
+  if (!question) return;
+
+  const btn = $('#asstBtn');
+  const box = $('#asstAnswer');
+  btn.disabled = true;
+  box.innerHTML = '<div class="muted"><i class="fa-solid fa-spinner fa-spin"></i> Дэвтрээс тоог гаргаж байна…</div>';
+
+  try {
+    const out = await post(`/companies/${companyId}/assistant/ask`, { question });
+    if (!out) return;
+    box.innerHTML = assistantAnswerHtml(out);
+    const hist = await api(`/companies/${companyId}/assistant/history?limit=15`).catch(() => []);
+    $('#asstHistory').innerHTML = assistantHistoryHtml(hist);
+  } catch (e) {
+    box.innerHTML = `<p style="color:#e5484d">${esc(e.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function assistantAnswerHtml(out) {
+  const tone = out.status === 'answered' ? 'var(--primary)'
+             : out.status === 'denied' ? '#e5484d' : 'var(--text-muted, #888)';
+  let html = `<div style="border-left:3px solid ${tone}; padding:10px 14px; margin-bottom:12px;">
+    <div style="white-space:pre-wrap; line-height:1.6">${esc(out.answer)}</div>
+  </div>`;
+
+  const d = out.data;
+  if (!d) return html;
+
+  html += `<table class="grid-table" style="font-size:12.5px; margin-bottom:8px">
+    <thead><tr><th>Үзүүлэлт</th><th>Хугацаа</th><th class="num">Дүн</th></tr></thead>
+    <tbody><tr>
+      <td><b>${esc(d.title)}</b></td>
+      <td>${esc(d.period)}</td>
+      <td class="num" style="font-weight:700">${d.unit === 'count' ? d.value_minor : fmt(d.value_minor)}</td>
+    </tr></tbody></table>`;
+
+  if (d.rows && d.rows.length) {
+    html += `<div style="max-height:220px; overflow:auto">
+      <table class="grid-table" style="font-size:12.5px">
+        <thead><tr><th>Данс</th><th>Нэр</th><th class="num">Дүн</th></tr></thead>
+        <tbody>${d.rows.map(r => `<tr>
+          <td>${esc(r.code || '')}</td><td>${esc(r.name || '')}</td>
+          <td class="num">${fmt(r.amount_minor || 0)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+  }
+  if (d.masked_rows) {
+    html += `<p class="muted" style="font-size:12px; margin-top:6px">
+      Эрхийн улмаас ${d.masked_rows} мөрийг нуулаа (цалингийн данс).</p>`;
+  }
+  html += `<p class="muted" style="font-size:12px; margin-top:6px">
+    Эх сурвалж: ${esc(d.source)}${d.accounts && d.accounts.length
+      ? ' · Данс: ' + d.accounts.map(esc).join(', ') : ''}</p>`;
+  return html;
 }
 
 // ----------------------------------------------------- ТТ-11-ээс цалин сэргээх

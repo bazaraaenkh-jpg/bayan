@@ -126,8 +126,7 @@ def process_file(
         raw = extract_xlsx(path, desc)
 
     # --- Шат 3: нормчлол
-    account_key = (bank_account.id if bank_account
-                   else raw.metadata.get("account_no", "unknown"))
+    account_key = raw.metadata.get("account_no") or (bank_account.account_no if bank_account else "unknown")
     txns = normalize(raw, desc, account_key=account_key)
     report.txn_count = len(txns)
 
@@ -187,8 +186,21 @@ def process_file(
     if not gate.ok and not is_single_dir_warning:
         return report   # gate даваагүй хуулгын гүйлгээ систем рүү орохгүй
 
+    existing_hashes = set(
+        session.scalars(
+            select(BankTxn.canonical_hash)
+            .where(
+                BankTxn.company_id == company_id,
+                BankTxn.bank_account_key == account_key,
+                BankTxn.canonical_hash.is_not(None)
+            )
+        ).all()
+    )
+
     saved: list[BankTxn] = []
     for t in txns:
+        if t.canonical_hash in existing_hashes:
+            continue
         saved.append(BankTxn(
             statement_id=stmt.id, company_id=company_id,
             bank_account_key=account_key, seq_no=t.seq_no,
@@ -202,8 +214,11 @@ def process_file(
             channel_ref=t.channel_ref, canonical_hash=t.canonical_hash,
             extraction_path=ExtractionPath.excel,
         ))
-    session.add_all(saved)
-    session.flush()
+        existing_hashes.add(t.canonical_hash)
+
+    if saved:
+        session.add_all(saved)
+        session.flush()
 
     # --- Шат 5: ангилалт (сонголтоор)
     if classify:
