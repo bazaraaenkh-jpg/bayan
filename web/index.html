@@ -1343,42 +1343,7 @@ async function renderOnboarding1() {
         </p>
       </div>
       
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px 24px; margin-bottom: 28px;">
-        <div class="form-group">
-          <label><i class="fa-solid fa-building" style="color:#10b981; margin-right:4px;"></i> Компанийн нэр</label>
-          <input type="text" id="ob_name" class="input-field" value="${c.name || ''}" placeholder="Компанийн албан ёсны нэр">
-        </div>
-        <div class="form-group">
-          <label><i class="fa-solid fa-id-card" style="color:#10b981; margin-right:4px;"></i> Регистрийн дугаар (РД)</label>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="ob_reg_no" class="input-field" style="flex:1;" value="${(c.reg_no && c.reg_no !== 'ХӨТЛӨӨГҮЙ') ? c.reg_no : ''}" placeholder="Регистрийн дугаагаа оруулна уу">
-            <button class="btn secondary" style="padding:0 14px; font-size:13px; height:46px; white-space:nowrap; border-radius:8px;" onclick="pullTaxInfoOnboarding()"><i class="fa-solid fa-cloud-arrow-down" style="color:#10b981;"></i> Татвараас татах</button>
-          </div>
-          <div id="ob_reg_no_err" style="color:#ef4444; font-size:12.5px; font-weight:600; margin-top:4px; display:none;"></div>
-        </div>
-        <div class="form-group">
-          <label><i class="fa-solid fa-user-tie" style="color:#10b981; margin-right:4px;"></i> Гүйцэтгэх захирал</label>
-          <input type="text" id="ob_director" class="input-field" value="${(c.director && c.director !== 'ХӨТЛӨӨГҮЙ') ? c.director : ''}" placeholder="Гүйцэтгэх захирлын нэр">
-        </div>
-        <div class="form-group">
-          <label><i class="fa-solid fa-location-dot" style="color:#10b981; margin-right:4px;"></i> Албан хаяг байршил</label>
-          <input type="text" id="ob_address" class="input-field" value="${(c.address && c.address !== 'ХӨТЛӨӨГҮЙ') ? c.address : ''}" placeholder="Дүүрэг, хороо, гудамж, байр">
-        </div>
-        <div class="form-group">
-          <label><i class="fa-solid fa-receipt" style="color:#10b981; margin-right:4px;"></i> НӨАТ төлөгч эсэх</label>
-          <select id="ob_vat" class="input-field">
-            <option value="false" ${!c.vat_payer ? 'selected' : ''}>НӨАТ Төлөгч биш</option>
-            <option value="true" ${c.vat_payer ? 'selected' : ''}>НӨАТ Төлөгч</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label><i class="fa-solid fa-calculator" style="color:#10b981; margin-right:4px;"></i> Барааны өртөг тооцох арга</label>
-          <select id="ob_inv_method" class="input-field">
-            <option value="avco" ${c.inventory_method === 'avco' ? 'selected' : ''}>Дундаж өртгийн арга (AVCO)</option>
-            <option value="fifo" ${c.inventory_method === 'fifo' ? 'selected' : ''}>Эхэлж авсныг эхэлж зарлагадах (FIFO)</option>
-          </select>
-        </div>
-      </div>
+      ${companyProfileFieldsHtml(c)}
       
       <div class="form-actions-bar" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f3f4f6; padding-top: 20px;">
         <button class="btn secondary" onclick="skipOnboarding()" style="padding: 10px 18px; font-size: 14px; font-weight: 600;">
@@ -1391,70 +1356,15 @@ async function renderOnboarding1() {
     </div>`;
 }
 
-async function pullTaxInfoOnboarding() {
-  const regNo = $('#ob_reg_no').value.trim();
-  const errEl = $('#ob_reg_no_err');
-  if (errEl) errEl.style.display = 'none';
-
-  if (!regNo) {
-    alert("Шалгах регистрийн дугаагаа оруулна уу.");
-    return;
-  }
-
-  const isEntity = /^\d{7,8}$/.test(regNo);
-  const isIndividual = /^[А-ЯӨҮА-ЯӨҮA-Z]{2}\d{8}$/i.test(regNo);
-  if (!isEntity && !isIndividual) {
-    if (errEl) {
-      errEl.textContent = "Регистрийн дугаарын формат буруу байна! (7-8 оронтой тоо эсвэл 2 үсэг + 8 тоо)";
-      errEl.style.display = 'block';
-    }
-    alert("Регистрийн дугаарын формат буруу байна! 7-8 оронтой тоо эсвэл 2 үсэг + 8 тоо оруулна уу.");
-    return;
-  }
-
-  try {
-    const taxData = await api(`/companies/${companyId}/tax-pull?reg_no=${regNo}`);
-    if (taxData) {
-      const currName = $('#ob_name').value.trim();
-      if (taxData.name && (!currName || currName.startsWith('ААН ('))) {
-        $('#ob_name').value = taxData.name;
-      }
-      if (taxData.vat_payer !== undefined) $('#ob_vat').value = taxData.vat_payer ? "true" : "false";
-      alert(`РД ${regNo} баталгаажлаа. (НӨАТ төлөгч: ${taxData.vat_payer ? 'Тийм' : 'Үгүй'})`);
-    }
-  } catch (err) {
-    alert("Татварын системээс мэдээлэл татахад алдаа гарлаа.");
-  }
-}
-
+// Онбордингоос хадгалахад Тохиргоо таб дээрхтэй ЯГ ижил талбарууд явна.
+// РД-ын шалгалт болон "Татвараас татах" нь дундын функцууд (pullTaxInfo,
+// validateRegNo) — өмнө нь энд давхардсан хувилбар байсныг хаслаа.
 async function saveOnboarding1() {
-  const name = $('#ob_name').value.trim();
-  const reg_no = $('#ob_reg_no').value.trim();
-  const director = $('#ob_director').value.trim();
-  const address = $('#ob_address').value.trim();
-  const vat_payer = $('#ob_vat').value === 'true';
-  const inventory_method = $('#ob_inv_method').value;
-  const errEl = $('#ob_reg_no_err');
-  if (errEl) errEl.style.display = 'none';
+  const profile = readCompanyProfileForm();
+  if (!profile.name) { alert('Компанийн нэр оруулна уу'); return; }
+  if (!validateRegNo()) return;
 
-  if (!name) { alert("Компанийн нэр оруулна уу"); return; }
-
-  if (reg_no) {
-    const isEntity = /^\d{7,8}$/.test(reg_no);
-    const isIndividual = /^[А-ЯӨҮА-ЯӨҮA-Z]{2}\d{8}$/i.test(reg_no);
-    if (!isEntity && !isIndividual) {
-      if (errEl) {
-        errEl.textContent = "Регистрийн дугаарын формат буруу байна!";
-        errEl.style.display = 'block';
-      }
-      alert("Регистрийн дугаарын формат буруу байна! (7-8 оронтой тоо эсвэл 2 үсэг + 8 оронтой тоо)");
-      return;
-    }
-  }
-
-  const res = await post(`/companies/${companyId}/profile`, {
-    name, reg_no, director, address, vat_payer, inventory_method
-  });
+  const res = await post(`/companies/${companyId}/profile`, profile);
   if (res && res.ok) gotoOnboarding(2);
 }
 
@@ -1558,78 +1468,7 @@ async function renderProfileTab() {
   $('#content').innerHTML = `
     <div class="card">
       <h2>Компанийн тохиргоо & Профайл</h2>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>Компанийн нэр</label>
-          <input id="pName" class="input-field" value="${c.name || ''}">
-        </div>
-        <div class="form-group">
-          <label>Регистрийн дугаар (РД)</label>
-          <div style="display:flex; gap:8px;">
-            <input id="pReg" class="input-field" style="flex:1;" value="${c.reg_no === 'ХӨТЛӨӨГҮЙ' ? '' : (c.reg_no || '')}">
-            <button class="btn" style="padding:0 12px; font-size:12px; height:36px;" onclick="pullTaxInfo()"><i class="fa-solid fa-cloud-arrow-down"></i> Татвараас татах</button>
-          </div>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>Татвар төлөгч № (ТТД)</label>
-          <input id="pTaxpayerNo" class="input-field" value="${c.taxpayer_no || ''}">
-        </div>
-        <div class="form-group">
-          <label>Албан ёсны хаяг</label>
-          <input id="pAddr" class="input-field" value="${c.address === 'ХӨТЛӨӨГҮЙ' ? '' : (c.address || '')}">
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>1-р гарын үсэг (Гүйцэтгэх захирал)</label>
-          <input id="pDirName" class="input-field" value="${c.director_name || c.director || ''}">
-        </div>
-        <div class="form-group">
-          <label>2-р гарын үсэг (Ерөнхий нягтлан бодогч)</label>
-          <input id="pAccName" class="input-field" value="${c.accountant_name || ''}">
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>Компанийн Лого (URL линк)</label>
-          <input id="pLogoUrl" class="input-field" value="${c.logo_url || ''}">
-        </div>
-        <div class="form-group">
-          <label>Компанийн Тамга (URL линк)</label>
-          <input id="pStampUrl" class="input-field" value="${c.stamp_url || ''}">
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>НӨАТ төлөгч эсэх</label>
-          <select id="pVat">
-            <option value="true" ${c.vat_payer ? 'selected' : ''}>Тийм</option>
-            <option value="false" ${!c.vat_payer ? 'selected' : ''}>Үгүй</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Өртөг тооцох аргачлал</label>
-          <select id="pInvMethod">
-            <option value="average" ${c.inventory_method === 'average' ? 'selected' : ''}>Дундаж өртөг (Weighted Average)</option>
-            <option value="fifo" ${c.inventory_method === 'fifo' ? 'selected' : ''}>FIFO</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>НХАТ төлөгч эсэх (Хотын албан татвар 1%)</label>
-          <select id="pCityTax">
-            <option value="true" ${c.city_tax_payer ? 'selected' : ''}>Тийм</option>
-            <option value="false" ${!c.city_tax_payer ? 'selected' : ''}>Үгүй</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>НХАТ өглөгийн данс</label>
-          <input id="pCityTaxAcc" class="input-field" value="${c.city_tax_account || '3106'}">
-        </div>
-      </div>
+      ${companyProfileFieldsHtml(c)}
       <div style="margin-top: 20px;">
         <button class="btn" onclick="saveProfileSettings()"><i class="fa-solid fa-save"></i> Тохиргоог хадгалах</button>
       </div>
@@ -1833,23 +1672,126 @@ async function pullTaxInfo() {
   }
 }
 
-async function saveProfileSettings() {
-  const profile = {
-    name: $('#pName').value.trim(),
-    reg_no: $('#pReg').value.trim() || 'ХӨТЛӨӨГҮЙ',
-    director: $('#pDirName').value.trim() || 'ХӨТЛӨӨГҮЙ',
-    address: $('#pAddr').value.trim() || 'ХӨТЛӨӨГҮЙ',
+// ============================================ Компанийн профайлын дундын форм
+// Онбордингийн 1-р алхам ба Тохиргоо таб ХОЁУЛАА үүнийг хэрэглэнэ. Өмнө нь
+// хоёр газар тусад нь бичигдсэн байсан тул талбарууд зөрж, онбордингоор
+// орсон компанид ТТД, гарын үсэг, лого, НХАТ зэрэг талбар үлддэггүй байв.
+function companyProfileFieldsHtml(c) {
+  const v = (x) => (x === 'ХӨТЛӨӨГҮЙ' ? '' : (x || ''));
+  const sel = (cond) => (cond ? 'selected' : '');
+  return `
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Компанийн нэр</label>
+        <input id="pName" class="input-field" value="${esc(c.name || '')}">
+      </div>
+      <div class="form-group">
+        <label>Регистрийн дугаар (РД)</label>
+        <div style="display:flex; gap:8px;">
+          <input id="pReg" class="input-field" style="flex:1;" value="${esc(v(c.reg_no))}">
+          <button class="btn secondary" style="padding:0 12px; font-size:12px; white-space:nowrap;"
+                  onclick="pullTaxInfo()"><i class="fa-solid fa-cloud-arrow-down"></i> Татвараас татах</button>
+        </div>
+        <div id="pRegErr" style="display:none; color:var(--danger); font-size:12px; margin-top:6px;"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Татвар төлөгч № (ТТД)</label>
+        <input id="pTaxpayerNo" class="input-field" value="${esc(c.taxpayer_no || '')}">
+      </div>
+      <div class="form-group">
+        <label>Албан ёсны хаяг</label>
+        <input id="pAddr" class="input-field" value="${esc(v(c.address))}">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>1-р гарын үсэг (Гүйцэтгэх захирал)</label>
+        <input id="pDirName" class="input-field" value="${esc(v(c.director_name || c.director))}">
+      </div>
+      <div class="form-group">
+        <label>2-р гарын үсэг (Ерөнхий нягтлан бодогч)</label>
+        <input id="pAccName" class="input-field" value="${esc(c.accountant_name || '')}">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Компанийн Лого (URL линк)</label>
+        <input id="pLogoUrl" class="input-field" value="${esc(c.logo_url || '')}">
+      </div>
+      <div class="form-group">
+        <label>Компанийн Тамга (URL линк)</label>
+        <input id="pStampUrl" class="input-field" value="${esc(c.stamp_url || '')}">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>НӨАТ төлөгч эсэх</label>
+        <select id="pVat" class="input-field">
+          <option value="true" ${sel(c.vat_payer)}>Тийм</option>
+          <option value="false" ${sel(!c.vat_payer)}>Үгүй</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Өртөг тооцох аргачлал</label>
+        <select id="pInvMethod" class="input-field">
+          <option value="average" ${sel(c.inventory_method !== 'fifo')}>Дундаж өртөг (Weighted Average)</option>
+          <option value="fifo" ${sel(c.inventory_method === 'fifo')}>FIFO</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>НХАТ төлөгч эсэх (Хотын албан татвар 1%)</label>
+        <select id="pCityTax" class="input-field">
+          <option value="true" ${sel(c.city_tax_payer)}>Тийм</option>
+          <option value="false" ${sel(!c.city_tax_payer)}>Үгүй</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>НХАТ өглөгийн данс</label>
+        <input id="pCityTaxAcc" class="input-field" value="${esc(c.city_tax_account || '3106')}">
+      </div>
+    </div>`;
+}
+
+function readCompanyProfileForm() {
+  const t = (id) => ($(id) ? $(id).value.trim() : '');
+  return {
+    name: t('#pName'),
+    reg_no: t('#pReg') || 'ХӨТЛӨӨГҮЙ',
+    director: t('#pDirName') || 'ХӨТЛӨӨГҮЙ',
+    address: t('#pAddr') || 'ХӨТЛӨӨГҮЙ',
     vat_payer: $('#pVat').value === 'true',
     inventory_method: $('#pInvMethod').value,
-    taxpayer_no: $('#pTaxpayerNo').value.trim(),
-    director_name: $('#pDirName').value.trim(),
-    accountant_name: $('#pAccName').value.trim(),
-    logo_url: $('#pLogoUrl').value.trim(),
-    stamp_url: $('#pStampUrl').value.trim(),
+    taxpayer_no: t('#pTaxpayerNo'),
+    director_name: t('#pDirName'),
+    accountant_name: t('#pAccName'),
+    logo_url: t('#pLogoUrl'),
+    stamp_url: t('#pStampUrl'),
     city_tax_payer: $('#pCityTax').value === 'true',
-    city_tax_account: $('#pCityTaxAcc').value.trim()
+    city_tax_account: t('#pCityTaxAcc'),
   };
-  const res = await post(`/companies/${companyId}/profile`, profile);
+}
+
+// РД: 7-8 оронтой тоо (ААН) эсвэл 2 үсэг + 8 оронтой тоо (хувь хүн)
+function validateRegNo() {
+  const el = $('#pReg'), err = $('#pRegErr');
+  if (err) err.style.display = 'none';
+  const reg = el ? el.value.trim() : '';
+  if (!reg) return true;
+  const ok = /^\d{7,8}$/.test(reg) || /^[А-ЯӨҮA-Z]{2}\d{8}$/i.test(reg);
+  if (!ok && err) {
+    err.textContent = 'Регистрийн дугаарын формат буруу байна (7-8 оронтой тоо, эсвэл 2 үсэг + 8 оронтой тоо).';
+    err.style.display = 'block';
+  }
+  return ok;
+}
+
+async function saveProfileSettings() {
+  if (!validateRegNo()) return;
+  const res = await post(`/companies/${companyId}/profile`, readCompanyProfileForm());
   if (res) {
     alert("Компанийн профайл шинэчлэгдлээ.");
     renderProfileTab();
