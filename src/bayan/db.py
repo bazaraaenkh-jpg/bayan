@@ -10,7 +10,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from . import assets, assistant, audit, auth, inventory, partners, salary, wip, models  # noqa: F401
+from . import assets, assistant, audit, auth, etax, inventory, partners, salary, wip, models  # noqa: F401
 from .models import Base
 
 _DEFAULT_URL = "sqlite:///bayan.db"

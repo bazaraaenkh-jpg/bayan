@@ -971,10 +971,12 @@ def export_single_excel(session, company_id: str, report_type: str, date_from_st
             t11 = reports.haoat_tt11_report(session, company_id, int(date_from_str.split('-')[0]) if date_from_str else 2026)
             ws.append([company_name, t11["form_name"]])
             ws.append([])
+            ws.append(["Ажилтны тоо", t11.get("employee_count", 0)])
             ws.append(["Олгосон нийт цалин", _minor_to_unit(t11["gross_salary_minor"])])
-            ws.append(["Суутгасан НДШ (11.5%)", _minor_to_unit(t11["ndsh_deduction_minor"])])
+            ws.append(["Суутгасан НДШ", _minor_to_unit(t11["ndsh_deduction_minor"])])
             ws.append(["Татвар ногдуулах орлого", _minor_to_unit(t11["taxable_income_minor"])])
-            ws.append(["Суутгасан ХХОАТ (10%)", _minor_to_unit(t11["haoat_tax_minor"])])
+            ws.append(["Суутгасан ХХОАТ", _minor_to_unit(t11["haoat_tax_minor"])])
+            ws.append(["Гарт олгосон", _minor_to_unit(t11.get("net_pay_minor", 0))])
 
     for col in ws.columns:
         max_len = max(len(str(cell.value or '')) for cell in col)

@@ -638,21 +638,12 @@ def aanoat_tt02_report(session: Session, company_id: str, year: int) -> dict:
 
 
 def haoat_tt11_report(session: Session, company_id: str, year: int) -> dict:
-    """ХХОАТ-ын тайлан Маягт ТТ-11 тооцоолол."""
-    tb = trial_balance(session, company_id, date(year, 1, 1), date(year, 12, 31))
-    
-    gross_salary = _sum_by_prefix(tb, ("7101", "3102", "3301"), side="debit")
-    ndsh_employee = int(gross_salary * 0.115)  # 11.5% НДШ
-    taxable_income = max(0, gross_salary - ndsh_employee)
-    haoat_tax = int(taxable_income * 0.10)       # 10% ХХОАТ
-    
-    return {
-        "form_code": "ТТ-11",
-        "form_name": "ХХОАТ-ын тайлан (Маягт ТТ-11)",
-        "gross_salary_minor": gross_salary,
-        "ndsh_deduction_minor": ndsh_employee,
-        "taxable_income_minor": taxable_income,
-        "haoat_tax_minor": haoat_tax,
-        "net_tax_payable_minor": haoat_tax
-    }
+    """ХХОАТ-ын тайлан Маягт ТТ-11.
+
+    Тоог `etax.build_tt11` гаргана — цалингийн бүртгэлээс, ажилтан тус бүрийн
+    шаталсан ХХОАТ ба НДШ-ийн таазыг тооцсон БОДИТ дүнгээр. Өмнө нь гүйлгээний
+    балансаас 11.5%/10% хавтгайруулж ойролцоо тооцдог байсан нь татварт
+    илгээх тоотой зөрдөг байв — нэг л эх сурвалж байх ёстой."""
+    from . import etax
+    return {"form_code": "ТТ-11", **etax.build_tt11(session, company_id, year).rows}
 
