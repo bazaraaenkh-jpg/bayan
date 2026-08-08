@@ -3,13 +3,32 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from sqlalchemy import event
 from sqlalchemy.orm import Session, attributes
 
 from .context import current_actor_id, current_company_id
 from .models import AuditLog
+
+
+_last_stamp: datetime | None = None
+
+
+def monotonic_utcnow() -> datetime:
+    """Хатуу өсөх хугацааны тэмдэг.
+
+    Windows дээр `datetime.utcnow()` нь 2000 дуудлагад ердөө хэдхэн ялгаатай
+    утга буцаадаг (цагийн нарийвчлал ~1-15мс). Тиймээс нэг зуурт бичигдсэн
+    хоёр бүртгэл ижил тэмдэгтэй болж, `ORDER BY ... DESC` нь тодорхойгүй
+    болдог — түүх буруу дарааллаар харагдана. Ижил утга давтагдвал 1 микро
+    секунд нэмж, дарааллыг баталгаажуулна."""
+    global _last_stamp
+    now = datetime.utcnow()
+    if _last_stamp is not None and now <= _last_stamp:
+        now = _last_stamp + timedelta(microseconds=1)
+    _last_stamp = now
+    return now
 
 
 def _serialize(val):

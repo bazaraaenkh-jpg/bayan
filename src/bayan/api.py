@@ -870,6 +870,22 @@ def download_statement_file(company_id: str, statement_id: str,
 def list_suggestions(company_id: str, status: str = "pending",
                      ctx: dict = Depends(company_guard("read")),
                      db: Session = Depends(get_db)):
+    # Шалгах: Ангилалгүй хоцорсон банкны гүйлгээ байвал автоматаар ангилна
+    subq = select(ClassificationSuggestion.bank_txn_id).where(ClassificationSuggestion.company_id == company_id)
+    unclassified_txns = db.scalars(
+        select(BankTxn).where(
+            BankTxn.company_id == company_id,
+            BankTxn.id.not_in(subq)
+        )
+    ).all()
+    if unclassified_txns:
+        own_gl = _gl_map(db, company_id)
+        from .internal_transfers import suggest_internal
+        res = suggest_internal(db, company_id, unclassified_txns, own_gl)
+        if res.external:
+            classify_batch(db, company_id, res.external)
+        db.commit()
+
     rows = []
     q = (select(ClassificationSuggestion, BankTxn)
          .join(BankTxn, BankTxn.id == ClassificationSuggestion.bank_txn_id)
@@ -1501,6 +1517,7 @@ class EmployeeIn(BaseModel):
     first_name: str
     position: str = ""
     base_salary_minor: int
+    work_condition: str = "normal"
 
 
 @app.post("/api/companies/{company_id}/employees")
@@ -1519,6 +1536,7 @@ def employee_list(company_id: str, ctx: dict = Depends(company_guard("read")),
     from . import salary as salary_mod
     return [{"id": e.id, "code": e.code, "name": f"{e.last_name} {e.first_name}",
              "position": e.position, "base_salary_minor": e.base_salary_minor,
+             "work_condition": getattr(e, "work_condition", "normal") or "normal",
              "active": e.active}
             for e in db.scalars(select(salary_mod.Employee).where(
                 salary_mod.Employee.company_id == company_id))]
@@ -1810,6 +1828,63 @@ def import_timesheet_excel(
 class PayrollIn(BaseModel):
     year: int
     month: int
+    overrides: dict[str, dict] | None = None
+
+
+@app.get("/api/companies/{company_id}/payroll/preview")
+def payroll_preview(company_id: str, year: int, month: int,
+                    ctx: dict = Depends(company_guard("read")),
+                    db: Session = Depends(get_db)):
+    from . import salary as salary_mod
+    employees = db.scalars(select(salary_mod.Employee).where(
+        salary_mod.Employee.company_id == company_id,
+        salary_mod.Employee.active == True)).all()  # noqa: E712
+    ts_list = db.scalars(select(salary_mod.TimeSheet).where(
+        salary_mod.TimeSheet.company_id == company_id,
+        salary_mod.TimeSheet.year == year,
+        salary_mod.TimeSheet.month == month
+    )).all()
+    ts_map = {ts.employee_id: ts for ts in ts_list}
+    cfg = salary_mod.SalaryConfig()
+
+    result = []
+    for e in employees:
+        ts = ts_map.get(e.id)
+        w_days = ts.worked_days if ts else 22.0
+        v_days = ts.vacation_days if ts else 0.0
+        s_days = ts.sick_days if ts else 0.0
+        s_pct = ts.sick_pay_pct if ts else 60.0
+        ot_hours = ts.overtime_hours if ts else 0.0
+        hol_hours = ts.holiday_hours if ts else 0.0
+
+        work_cond = getattr(e, "work_condition", "normal") or "normal"
+        c = salary_mod.calc_one(
+            base_salary_minor=e.base_salary_minor, worked_days=w_days,
+            vacation_days=v_days, sick_days=s_days, sick_pay_pct=s_pct, cfg=cfg,
+            overtime_hours=ot_hours, holiday_hours=hol_hours,
+            work_condition=work_cond
+        )
+        result.append({
+            "employee_id": e.id,
+            "code": e.code,
+            "last_name": e.last_name,
+            "first_name": e.first_name,
+            "position": e.position or "",
+            "base_salary_minor": e.base_salary_minor,
+            "allowance_minor": 0,
+            "work_condition": work_cond,
+            "is_manual": False,
+            "worked_days": w_days,
+            "gross_minor": c["gross"],
+            "ndsh_er_pct": c["ndsh_er_pct"],
+            "ndsh_employer_minor": c["ndsh_er"],
+            "ndsh_employee_minor": c["ndsh_emp"],
+            "hhoat_gross_minor": c["hhoat_gross"],
+            "hhoat_credit_minor": c["hhoat_credit"],
+            "hhoat_minor": c["hhoat"],
+            "net_minor": c["net"]
+        })
+    return result
 
 
 @app.get("/api/companies/{company_id}/salary-sheets")
@@ -1856,7 +1931,7 @@ def payroll_run(company_id: str, body: PayrollIn,
     from . import salary as salary_mod
     from .ledger import LedgerError
     try:
-        return salary_mod.run_payroll(db, company_id, body.year, body.month)
+        return salary_mod.run_payroll(db, company_id, body.year, body.month, overrides=body.overrides)
     except LedgerError as e:
         raise HTTPException(422, str(e))
 
@@ -3175,6 +3250,42 @@ def assistant_ask(company_id: str, body: AssistantAskIn,
                             actor_id=ctx["uid"])
     db.commit()
     return out
+
+
+@app.get("/api/companies/{company_id}/forecast/{kind}")
+def forecast_api(company_id: str, kind: str, as_of: str | None = None,
+                 ctx: dict = Depends(company_guard("read")),
+                 db: Session = Depends(get_db)):
+    """§5.2 Таамаглал. Нарийвчлал (MAPE) үргэлж хамт буцна."""
+    from . import forecast as fc
+
+    day = date.fromisoformat(as_of) if as_of else date.today()
+    try:
+        if kind == "revenue":
+            return fc.revenue_forecast(db, company_id, day).to_dict()
+        if kind == "expense":
+            return fc.expense_forecast(db, company_id, day).to_dict()
+        if kind == "cash":
+            return fc.cash_forecast(db, company_id, day).to_dict()
+    except fc.NotEnoughHistory as e:
+        raise HTTPException(422, str(e))
+    raise HTTPException(400, "kind нь revenue | expense | cash байна.")
+
+
+@app.get("/api/companies/{company_id}/anomalies")
+def anomalies_api(company_id: str, year: int | None = None,
+                  month: int | None = None,
+                  ctx: dict = Depends(company_guard("read")),
+                  db: Session = Depends(get_db)):
+    """§5.4 Гажилт илрүүлэлт — сарын багц шалгалт."""
+    from . import anomalies as an
+
+    today = date.today()
+    year = year or today.year
+    month = month or today.month
+    if not 1 <= month <= 12:
+        raise HTTPException(400, "Сар 1-12 хооронд байна.")
+    return an.scan(db, company_id, year, month, today)
 
 
 @app.get("/api/companies/{company_id}/assistant/catalog")

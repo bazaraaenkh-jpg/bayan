@@ -32,6 +32,7 @@ from datetime import date, datetime
 from sqlalchemy import DateTime, ForeignKey, String, Text, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from .audit import monotonic_utcnow
 from .models import Base
 
 FORMS = ("ТТ-02", "ТТ-03а", "ТТ-11")
@@ -93,7 +94,7 @@ class EtaxSubmission(Base):
     actor_id: Mapped[str | None] = mapped_column(String(36))
     form_code: Mapped[str] = mapped_column(String(16))
     period: Mapped[str] = mapped_column(String(16))
-    submitted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, default=monotonic_utcnow)
     status: Mapped[str] = mapped_column(String(16))     # blocked|mock|sent|failed
     payload_sha256: Mapped[str | None] = mapped_column(String(64))
     receipt_id: Mapped[str | None] = mapped_column(String(64))

@@ -31,7 +31,7 @@ def books(session, company):
         LineInput("1101", credit_minor=3_000_000_00, description="Түрээс"),
     ], source_type=SourceType.manual, memo="Түрээс")
     post_entry(session, company.id, date(2026, 7, 20), [
-        LineInput("7110", debit_minor=1_000_000_00, description="Шатахуун"),
+        LineInput("7104", debit_minor=1_000_000_00, description="Шатахуун"),
         LineInput("1101", credit_minor=1_000_000_00, description="Шатахуун"),
     ], source_type=SourceType.manual, memo="Шатахуун")
     session.flush()
@@ -142,7 +142,7 @@ def test_metric_carries_drilldown_accounts_and_source(session, books):
     p = metrics.parse_period("2026 оны 7-р сар", TODAY)
     result = metrics.compute(session, books.id, "expenses", p)
 
-    assert set(result.accounts) == {"7103", "7110"}
+    assert set(result.accounts) == {"7103", "7104"}
     assert "СТ-2" in result.source
 
 
@@ -175,7 +175,7 @@ def test_largest_part_is_actually_the_largest_row(session, books):
                         use_ai=False, today=TODAY)
 
     rows = out["data"]["rows"]
-    assert [r["code"] for r in rows] == ["7103", "7110"]      # кодын дараалал
+    assert [r["code"] for r in rows] == ["7103", "7104"]      # кодын дараалал
     biggest = max(rows, key=lambda r: r["amount_minor"])
     assert biggest["code"] == "7103"
     assert f"Хамгийн том хэсэг нь {biggest['name']}" in out["answer"]
@@ -191,7 +191,7 @@ def test_answer_includes_source_so_the_number_can_be_traced(session, books):
     out = assistant.ask(session, books.id, "owner", "2026 оны 7-р сарын зардал",
                         use_ai=False, today=TODAY)
     assert "Эх сурвалж" in out["answer"]
-    assert out["data"]["accounts"] == ["7103", "7110"]
+    assert out["data"]["accounts"] == ["7103", "7104"]
 
 
 def test_unknown_question_refuses_instead_of_guessing(session, company):
@@ -314,6 +314,114 @@ def test_catalog_hides_salary_metric_from_cashier():
     assert "payroll" in {m.name for m in metrics.catalog_for("owner")}
 
 
+# --------------------------------------------- таамаглал ба гажилт (L2/L4)
+
+@pytest.fixture
+def long_history(session, company):
+    """7 сарын тогтмол борлуулалт — таамаглахад хангалттай."""
+    for m in range(1, 8):
+        post_entry(session, company.id, date(2026, m, 15), [
+            LineInput("1101", debit_minor=10_000_000_00, description="Борлуулалт"),
+            LineInput("5101", credit_minor=10_000_000_00, description="Борлуулалт"),
+        ], source_type=SourceType.manual, memo="Борлуулалт")
+    session.flush()
+    return company
+
+
+@pytest.mark.parametrize("question, expected", [
+    ("борлуулалтын таамаг хэд вэ", "revenue_forecast"),
+    ("зардлын таамаг", "expense_forecast"),
+    ("мөнгө хүрэлцэх үү", "cash_forecast"),
+    ("13 долоо хоногийн мөнгөн урсгал", "cash_forecast"),
+    ("гажилт байна уу", "anomalies"),
+    ("давхар төлөлт байна уу", "anomalies"),
+])
+def test_router_reaches_the_new_metrics(question, expected):
+    assert assistant.route_by_rules(question) == expected
+
+
+def test_forecast_question_does_not_hijack_the_plain_revenue_question():
+    assert assistant.route_by_rules("борлуулалт хэд вэ") == "revenue"
+    assert assistant.route_by_rules("борлуулалтын таамаг хэд вэ") == "revenue_forecast"
+
+
+def test_forecast_answer_always_states_its_accuracy(session, long_history):
+    out = assistant.ask(session, long_history.id, "owner",
+                        "борлуулалтын таамаг", use_ai=False,
+                        today=date(2026, 8, 15))
+
+    assert out["status"] == "answered"
+    assert "Нарийвчлал" in out["answer"]
+    assert "дундаж алдаа" in out["answer"]
+    assert out["data"]["compare"]["backtest_points"] > 0
+
+
+def test_forecast_is_refused_when_history_is_too_short(session, books):
+    """books-д зөвхөн 7-р сарын өгөгдөл — таамаглахгүй, шалтгааныг хэлнэ."""
+    out = assistant.ask(session, books.id, "owner", "борлуулалтын таамаг",
+                        use_ai=False, today=date(2026, 8, 15))
+
+    assert out["status"] == "unavailable"
+    assert "түүх" in out["answer"].lower()
+    assert "data" not in out
+
+
+def test_refused_forecast_is_still_logged(session, books):
+    assistant.ask(session, books.id, "owner", "борлуулалтын таамаг",
+                  use_ai=False, today=date(2026, 8, 15))
+
+    row = session.scalar(select(assistant.AssistantQuery))
+    assert row.status == "unavailable" and row.metric == "revenue_forecast"
+    assert row.value_minor is None
+
+
+def test_anomaly_answer_lists_the_findings(session, books):
+    """books-д 7-р сард ижил дүнтэй хоёр төлөлт үүсгэж шалгана."""
+    for day in (10, 12):
+        post_entry(session, books.id, date(2026, 7, day), [
+            LineInput("7103", debit_minor=777_000_00, description="Түрээс"),
+            LineInput("1101", credit_minor=777_000_00, description="Түрээс"),
+        ], source_type=SourceType.manual, memo="Түрээс")
+    session.flush()
+
+    out = assistant.ask(session, books.id, "owner",
+                        "2026 оны 7-р сард гажилт байна уу", use_ai=False,
+                        today=TODAY)
+
+    assert out["status"] == "answered"
+    assert out["data"]["unit"] == "count"
+    assert out["data"]["value_minor"] >= 1
+    assert "Давхар төлөлтийн сэжиг" in " ".join(
+        r["name"] for r in out["data"]["rows"])
+
+
+def test_clean_books_answer_says_nothing_was_found(session, books):
+    out = assistant.ask(session, books.id, "owner",
+                        "2026 оны 7-р сард гажилт байна уу", use_ai=False,
+                        today=TODAY)
+    assert "илрээгүй" in out["answer"]
+
+
+def test_cash_forecast_warns_when_the_balance_goes_negative(session, long_history):
+    from bayan.partners import Counterparty, Invoice, InvoiceKind
+
+    cp = Counterparty(company_id=long_history.id, name="Нийлүүлэгч", reg_no="9")
+    session.add(cp)
+    session.flush()
+    session.add(Invoice(
+        company_id=long_history.id, counterparty_id=cp.id,
+        kind=InvoiceKind.purchase, number="B-1", issue_date=date(2026, 8, 1),
+        due_date=date(2026, 9, 10), net_minor=900_000_000_00, vat_minor=0,
+        paid_minor=0))
+    session.flush()
+
+    out = assistant.ask(session, long_history.id, "owner",
+                        "мөнгө хүрэлцэх үү", use_ai=False, today=date(2026, 8, 15))
+
+    assert "АНХААР" in out["answer"]
+    assert out["data"]["compare"]["goes_negative"] is True
+
+
 # ------------------------------------------------------------------ аудит
 
 def test_every_question_is_logged(session, books):
@@ -389,3 +497,24 @@ def test_falls_back_to_rules_when_the_model_call_fails(session, books, monkeypat
     assert out["status"] == "answered"
     assert out["data"]["value_minor"] == 12_000_000_00
     assert "12,000,000₮" in out["answer"]
+
+
+# ------------------------------------------- бүртгэлийн дарааллын тогтвортой байдал
+
+def test_timestamps_never_repeat_even_in_a_tight_loop():
+    """Windows-ийн цагийн нарийвчлал бүдүүн — тэмдэг хатуу өсөх ёстой."""
+    from bayan.audit import monotonic_utcnow
+
+    stamps = [monotonic_utcnow() for _ in range(500)]
+    assert len(set(stamps)) == 500
+    assert stamps == sorted(stamps)
+
+
+def test_history_order_holds_for_questions_asked_in_one_instant(session, books):
+    """Нэг зуурт асуусан ч түүх зөв дарааллаар гарна."""
+    for q in ["борлуулалт", "зардал", "мөнгө", "авлага", "нөат"]:
+        assistant.ask(session, books.id, "owner", q, use_ai=False, today=TODAY)
+
+    hist = assistant.history(session, books.id)
+    assert [h["question"] for h in hist] == ["нөат", "авлага", "мөнгө",
+                                             "зардал", "борлуулалт"]

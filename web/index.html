@@ -664,8 +664,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 20px 24px;
   }
-    gap: 20px;
-  }
   
   .grid-3 {
     display: grid;
@@ -783,6 +781,223 @@
     border-color: #2a365c !important;
     color: #f59e0b !important;
   }
+
+  /* ==================== BAYAN BEAUTIFUL POPUP MODAL ==================== */
+  @keyframes bayanPopIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.82) translateY(24px);
+    }
+    65% {
+      transform: scale(1.03) translateY(-4px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes bayanPopOut {
+    0% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.88) translateY(16px);
+    }
+  }
+
+  .bayan-popup-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 15, 30, 0.68);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    z-index: 999999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    transition: opacity 0.25s ease;
+    opacity: 0;
+  }
+
+  .bayan-popup-overlay.active {
+    display: flex;
+    opacity: 1;
+  }
+
+  .bayan-popup-card {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 26px;
+    padding: 34px 28px 28px;
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.65), 0 0 40px rgba(59, 130, 246, 0.12);
+    animation: bayanPopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    color: #f8fafc;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  [data-theme="light"] .bayan-popup-card {
+    background: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 30px 60px -12px rgba(15, 23, 42, 0.25), 0 0 30px rgba(59, 130, 246, 0.08);
+    color: #0f172a;
+  }
+
+  .bayan-popup-icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    margin-bottom: 20px;
+    font-size: 34px;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .bayan-popup-icon-wrapper.success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.12));
+    color: #10b981;
+    border: 2px solid rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 35px rgba(16, 185, 129, 0.4);
+  }
+
+  .bayan-popup-icon-wrapper.info {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(37, 99, 235, 0.12));
+    color: #3b82f6;
+    border: 2px solid rgba(59, 130, 246, 0.45);
+    box-shadow: 0 0 35px rgba(59, 130, 246, 0.4);
+  }
+
+  .bayan-popup-icon-wrapper.warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(217, 119, 6, 0.12));
+    color: #f59e0b;
+    border: 2px solid rgba(245, 158, 11, 0.45);
+    box-shadow: 0 0 35px rgba(245, 158, 11, 0.4);
+  }
+
+  .bayan-popup-icon-wrapper.error {
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.22), rgba(225, 29, 72, 0.12));
+    color: #f43f5e;
+    border: 2px solid rgba(244, 63, 94, 0.45);
+    box-shadow: 0 0 35px rgba(244, 63, 94, 0.4);
+  }
+
+  .bayan-popup-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    color: inherit;
+  }
+
+  .bayan-popup-message {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #94a3b8;
+    margin-bottom: 28px;
+    word-break: break-word;
+    white-space: pre-line;
+  }
+
+  [data-theme="light"] .bayan-popup-message {
+    color: #475569;
+  }
+
+  .bayan-popup-message strong.highlight {
+    color: #38bdf8;
+    font-weight: 700;
+    background: rgba(56, 189, 248, 0.12);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+
+  .bayan-popup-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .bayan-popup-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 24px;
+    border-radius: 14px;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+  }
+
+  .bayan-popup-btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: #ffffff;
+    box-shadow: 0 8px 22px -4px rgba(59, 130, 246, 0.55);
+  }
+
+  .bayan-popup-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -4px rgba(59, 130, 246, 0.65);
+    background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  }
+
+  .bayan-popup-btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .bayan-popup-btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  [data-theme="light"] .bayan-popup-btn-secondary {
+    background: #e2e8f0;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+  }
+
+  .bayan-popup-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+  }
+
+  .bayan-popup-close-x {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .bayan-popup-close-x:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    transform: rotate(90deg);
+  }
 </style>
 </head>
 <body>
@@ -808,7 +1023,6 @@
     <button data-tab="wip"><i class="fa-solid fa-gears"></i>Үйлдвэрлэл</button>
     
     <div class="sidebar-title">ТАЙЛАН</div>
-    <button data-tab="assistant"><i class="fa-solid fa-comments"></i>AI туслах</button>
     <button data-tab="tb"><i class="fa-solid fa-scale-balanced"></i>Гүйлгээний баланс</button>
     <button data-tab="financial_statements"><i class="fa-solid fa-file-lines"></i>Санхүүгийн тайлан</button>
     <button data-tab="tax_reports"><i class="fa-solid fa-file-invoice-dollar"></i>Татвар & НДШ тайлан</button>
@@ -915,6 +1129,26 @@
   </div>
 </div>
 
+<!-- Custom Bayan Alert / Confirm Popup Modal -->
+<div id="bayanAlertModalOverlay" class="bayan-popup-overlay">
+  <div class="bayan-popup-card">
+    <button class="bayan-popup-close-x" id="bayanAlertCloseX" title="Хаах"><i class="fa-solid fa-xmark"></i></button>
+    <div id="bayanAlertIconWrapper" class="bayan-popup-icon-wrapper success">
+      <i id="bayanAlertIconTag" class="fa-solid fa-circle-check"></i>
+    </div>
+    <div id="bayanAlertTitle" class="bayan-popup-title">Мэдээлэл</div>
+    <div id="bayanAlertMessage" class="bayan-popup-message"></div>
+    <div class="bayan-popup-actions">
+      <button id="bayanAlertCancelBtn" class="bayan-popup-btn bayan-popup-btn-secondary" style="display:none;">
+        <i class="fa-solid fa-xmark"></i> Цуцлах
+      </button>
+      <button id="bayanAlertOkBtn" class="bayan-popup-btn bayan-popup-btn-primary">
+        <i class="fa-solid fa-check"></i> Ок, Зөвшөөрөх
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Overlay -->
 <div id="modalOverlay" style="display:none; position:fixed; inset:0;
      background:rgba(15,23,42,0.3); backdrop-filter: blur(4px); z-index:110; align-items:center; justify-content:center;">
@@ -922,6 +1156,90 @@
 </div>
 
 <script>
+// Universal Custom Alert Modal System
+window.showAlert = function(msg, title = null, iconType = null) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('bayanAlertModalOverlay');
+    const titleEl = document.getElementById('bayanAlertTitle');
+    const msgEl = document.getElementById('bayanAlertMessage');
+    const iconEl = document.getElementById('bayanAlertIconWrapper');
+    const iconTag = document.getElementById('bayanAlertIconTag');
+    const okBtn = document.getElementById('bayanAlertOkBtn');
+    const cancelBtn = document.getElementById('bayanAlertCancelBtn');
+    const closeX = document.getElementById('bayanAlertCloseX');
+
+    if (!overlay) {
+      console.log('Alert:', msg);
+      return resolve(true);
+    }
+
+    cancelBtn.style.display = 'none';
+
+    const strMsg = String(msg || '');
+    let type = iconType || 'info';
+    let defaultTitle = 'Системийн мэдээлэл';
+
+    if (strMsg.toLowerCase().includes('алдаа') || strMsg.includes('буруу') || strMsg.includes('олдсонгүй') || strMsg.includes('чадсангүй')) {
+      type = iconType || 'error';
+      defaultTitle = 'Алдаа гарлаа';
+    } else if (strMsg.includes('амжилттай') || strMsg.includes('баталгаажлаа') || strMsg.includes('нэмэгдлээ') || strMsg.includes('хадгалагдлаа') || strMsg.includes('үүслээ') || strMsg.includes('нийт') || strMsg.includes('гүйлгээ таарч')) {
+      type = iconType || 'success';
+      defaultTitle = 'Амжилттай баталгаажлаа!';
+    } else if (strMsg.toLowerCase().includes('анхаар') || strMsg.includes('устгах') || strMsg.includes('итгэлтэй')) {
+      type = iconType || 'warning';
+      defaultTitle = 'Анхааруулга';
+    }
+
+    titleEl.textContent = title || defaultTitle;
+
+    const escapedMsg = String(msg ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const formattedMsg = escapedMsg.replace(/(\d+)/g, '<strong class="highlight">$1</strong>');
+    msgEl.innerHTML = formattedMsg;
+
+    iconEl.className = 'bayan-popup-icon-wrapper ' + type;
+    if (type === 'success') {
+      iconTag.className = 'fa-solid fa-circle-check';
+    } else if (type === 'error') {
+      iconTag.className = 'fa-solid fa-triangle-exclamation';
+    } else if (type === 'warning') {
+      iconTag.className = 'fa-solid fa-circle-exclamation';
+    } else {
+      iconTag.className = 'fa-solid fa-circle-info';
+    }
+
+    overlay.classList.add('active');
+
+    const handleClose = () => {
+      overlay.classList.remove('active');
+      okBtn.removeEventListener('click', handleClose);
+      closeX.removeEventListener('click', handleClose);
+      overlay.removeEventListener('click', backdropClick);
+      document.removeEventListener('keydown', keyListener);
+      resolve(true);
+    };
+
+    const backdropClick = (e) => {
+      if (e.target === overlay) handleClose();
+    };
+
+    const keyListener = (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        handleClose();
+      }
+    };
+
+    okBtn.addEventListener('click', handleClose);
+    closeX.addEventListener('click', handleClose);
+    overlay.addEventListener('click', backdropClick);
+    document.addEventListener('keydown', keyListener);
+  });
+};
+
+// Override native window.alert globally!
+window.alert = function(msg) {
+  window.showAlert(msg);
+};
+
 const $ = s => document.querySelector(s);
 let companyId = null, tab = 'dash', isOnboarding = false, onboardingStep = 1;
 document.addEventListener('DOMContentLoaded', () => {
@@ -1252,6 +1570,9 @@ async function render() {
   // Cache accounts list
   window._accounts = await api(`/companies/${companyId}/accounts`).catch(() => []);
 
+  // AI туслах чатбот — бүх дэлгэц дээр хамт явна (нэг удаа суулгана)
+  mountAssistantChat();
+
   // Update header breadcrumb depending on tab selection
   const tabTitles = {
     dash: 'Хяналтын самбар',
@@ -1263,7 +1584,6 @@ async function render() {
     partners: 'Харилцагч (Авлага / Өглөг)',
     pos: 'POS Борлуулалт',
     wip: 'Үйлдвэрлэл (WIP)',
-    assistant: 'AI туслах',
     tb: 'Гүйлгээний баланс',
     financial_statements: 'Санхүүгийн тайлан',
     ndsh_reports: 'Татвар & НДШ тайлан',
@@ -1302,7 +1622,6 @@ async function render() {
       partners: partnersTab,
       pos: posTab,
       wip: wipTab,
-      assistant: renderAssistantTab,
       tb: renderTrialBalanceTab,
       financial_statements: renderFinancialStatementsTab,
       ndsh_reports: () => { window._taxTab = 'ndsh'; return renderTaxReportsTab(); },
@@ -6576,89 +6895,272 @@ function assetDepreciate() {
 }
 
 // ---------------------------------------------------- Salary Tab
+// ---------------------------------------------------- Salary Tab (Erkhet Style Grid & Work Conditions)
 async function salaryTab() {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  
-  const [emps, payroll] = await Promise.all([
+  if (!window._salaryYear) window._salaryYear = now.getFullYear();
+  if (!window._salaryMonth) window._salaryMonth = now.getMonth() + 1;
+
+  const year = window._salaryYear;
+  const month = window._salaryMonth;
+
+  const [emps, preview, postedPayroll] = await Promise.all([
     api(`/companies/${companyId}/employees`),
+    api(`/companies/${companyId}/payroll/preview?year=${year}&month=${month}`).catch(() => []),
     api(`/companies/${companyId}/payroll?year=${year}&month=${month}`).catch(() => [])
   ]);
-  
+
+  window._salaryData = preview;
+
+  const workCondLabels = {
+    normal: 'Хэвийн (АО 12.5%)',
+    heavy: 'Хүнд (АО 13.5%)',
+    harmful: 'Хөнөөлтэй (АО 14.5%)',
+    underground: 'Гүний уурхай (АО 15.5%)'
+  };
+
+  const renderRow = (p, idx) => {
+    const isMan = p.is_manual || false;
+    return `
+      <tr data-emp-id="${p.employee_id}" style="background-color: ${isMan ? 'rgba(245,158,11,0.06)' : 'transparent'}; transition: background-color 0.2s;">
+        <td style="padding:8px 10px; font-weight:600;">${esc(p.last_name)}</td>
+        <td style="padding:8px 10px; font-weight:600;">${esc(p.first_name)}</td>
+        <td style="padding:6px;">
+          <select class="input-field work-cond-select" data-idx="${idx}" onchange="updateSalaryRow(${idx}, 'work_condition', this.value)" style="padding:4px 8px; font-size:12px; height:32px; min-width:145px;">
+            <option value="normal" ${p.work_condition === 'normal' ? 'selected' : ''}>Хэвийн (12.5%)</option>
+            <option value="heavy" ${p.work_condition === 'heavy' ? 'selected' : ''}>Хүнд (13.5%)</option>
+            <option value="harmful" ${p.work_condition === 'harmful' ? 'selected' : ''}>Хөнөөлтэй (14.5%)</option>
+            <option value="underground" ${p.work_condition === 'underground' ? 'selected' : ''}>Гүний уурхай (15.5%)</option>
+          </select>
+        </td>
+        <td style="text-align:center; padding:6px;">
+          <input type="checkbox" ${isMan ? 'checked' : ''} onchange="updateSalaryRow(${idx}, 'is_manual', this.checked)" style="width:16px; height:16px; cursor:pointer;" title="Гараас дүн оруулах">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.base_salary_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'base_salary', +this.value * 100)">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.allowance_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#10b981;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'allowance', +this.value * 100)">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.gross_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; font-weight:700;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'gross', +this.value * 100)">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.ndsh_employer_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#2563eb;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'ndsh_er', +this.value * 100)">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.ndsh_employee_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#d97706;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'ndsh_emp', +this.value * 100)">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.hhoat_gross_minor || p.hhoat_minor || 0) / 100).toFixed(0)}" readonly style="background:transparent; border:none; opacity:0.85;">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.hhoat_credit_minor || 2000000) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#6366f1;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'hhoat_credit', +this.value * 100)">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.hhoat_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'hhoat', +this.value * 100)">
+        </td>
+        <td class="num" style="padding:6px;">
+          <input type="number" class="input-field num" value="${((p.net_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; font-weight:700; color:#10b981;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'net', +this.value * 100)">
+        </td>
+      </tr>
+    `;
+  };
+
+  const totBase = preview.reduce((sum, p) => sum + (p.base_salary_minor || 0), 0);
+  const totAllow = preview.reduce((sum, p) => sum + (p.allowance_minor || 0), 0);
+  const totGross = preview.reduce((sum, p) => sum + (p.gross_minor || 0), 0);
+  const totNdshEr = preview.reduce((sum, p) => sum + (p.ndsh_employer_minor || 0), 0);
+  const totNdshEmp = preview.reduce((sum, p) => sum + (p.ndsh_employee_minor || 0), 0);
+  const totHhoatGross = preview.reduce((sum, p) => sum + (p.hhoat_gross_minor || p.hhoat_minor || 0), 0);
+  const totHhoatCredit = preview.reduce((sum, p) => sum + (p.hhoat_credit_minor || 2000000), 0);
+  const totHhoat = preview.reduce((sum, p) => sum + (p.hhoat_minor || 0), 0);
+  const totNet = preview.reduce((sum, p) => sum + (p.net_minor || 0), 0);
+
   $('#content').innerHTML = `
-    <div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:16px;">
-      <!-- Card 1: Employees List -->
-      <div class="card" style="margin:0;">
-        <h2>Ажилтнууд</h2>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px">
-          <button class="btn" onclick="empNew()"><i class="fa-solid fa-user-plus"></i> Ажилтан нэмэх</button>
-          <button class="btn secondary" onclick="openEmployeeImportModal()"><i class="fa-solid fa-file-excel"></i> Excel-ээс импортлох</button>
-          <button class="btn secondary" onclick="showTimesheetsModal()"><i class="fa-solid fa-calendar-days"></i> Цагийн бүртгэл (Табель)</button>
-          <button class="btn secondary" onclick="openEmployeeAdvanceModal()"><i class="fa-solid fa-money-bill-transfer"></i> Ажилтны урьдчилгаа (1401)</button>
-        </div>
-        <table class="grid-table" style="font-size:13px;">
-          <thead>
-            <tr><th>Код</th><th>Нэр</th><th>Албан тушаал</th><th class="num">Үндсэн цалин</th></tr>
-          </thead>
-          <tbody>
-            ${emps.map(e=>`<tr><td><b>${e.code}</b></td><td>${e.name}</td><td>${e.position||''}</td>
-            <td class="num">${fmt(e.base_salary_minor)}</td></tr>`).join('')
-            || '<tr><td colspan="4" class="muted" style="text-align:center">Ажилтан бүртгэгдээгүй байна.</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-      
-      <!-- Card 2: Payroll Sheet -->
-      <div class="card" style="margin:0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px">
-          <h2 style="margin:0;">Цалингийн тооцоо (${year} оны ${month}-р сар)</h2>
-          <div style="display:flex; gap:6px;">
-            <button class="btn secondary" onclick="payrollRun()"><i class="fa-solid fa-calculator"></i> Цалин бодох</button>
-            <button class="btn secondary" onclick="openTt11ImportModal(${year}, ${month})" title="Татварт тушаасан ТТ-11 маягтаас цалингийн бүртгэл сэргээх"><i class="fa-solid fa-file-import"></i> ТТ-11-ээс оруулах</button>
-            <button class="btn secondary" onclick="sendPayrollEmailSlips(${year}, ${month})"><i class="fa-solid fa-envelope"></i> И-мэйлдэх</button>
+    <!-- Top Action Bar -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <h2 style="margin:0;"><i class="fa-solid fa-calculator" style="color:var(--primary)"></i> Цалингийн тооцоожуулагч</h2>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input type="number" class="input-field" id="salYear" value="${year}" style="width:80px; height:36px; padding:4px 8px;" onchange="changeSalaryPeriod()">
+            <span>он</span>
+            <input type="number" class="input-field" id="salMonth" value="${month}" min="1" max="12" style="width:60px; height:36px; padding:4px 8px;" onchange="changeSalaryPeriod()">
+            <span>сар</span>
           </div>
         </div>
-        <table class="grid-table" style="font-size:12.5px;">
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn secondary" onclick="empNew()"><i class="fa-solid fa-user-plus"></i> Ажилтан нэмэх</button>
+          <button class="btn secondary" onclick="showTimesheetsModal()"><i class="fa-solid fa-calendar-days"></i> Цагийн бүртгэл (Табель)</button>
+          <button class="btn secondary" onclick="resetSalaryRowCalculations()"><i class="fa-solid fa-rotate-right"></i> Тохиргоо шинэчлэх</button>
+          <button class="btn" onclick="saveAndPostPayroll(${year}, ${month})" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);"><i class="fa-solid fa-check-double"></i> Баталж Журналд бичих</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Spreadsheet Table -->
+    <div class="card" style="padding:0; overflow:hidden;">
+      <div style="overflow-x:auto;">
+        <table class="grid-table" style="width:100%; border-collapse:collapse; font-size:12px;">
           <thead>
-            <tr>
-              <th>Ажилтан</th>
-              <th class="num">Бохир</th>
-              <th class="num">НДШ (Ажилтан)</th>
-              <th class="num">ХХОАТ</th>
-              <th class="num">Цэвэр цалин</th>
-              <th style="width:80px; text-align:center;">Бодолт</th>
+            <tr style="background:var(--border); border-bottom:2px solid var(--border-dark);">
+              <th style="padding:10px; text-align:left;">Овог</th>
+              <th style="padding:10px; text-align:left;">Нэр</th>
+              <th style="padding:10px; text-align:left; min-width:145px;">Хөдөлмөрийн нөхцөл (АО %)</th>
+              <th style="padding:10px; text-align:center; width:55px;">Гараас</th>
+              <th style="padding:10px; text-align:right;">Үндсэн цалин (₮)</th>
+              <th style="padding:10px; text-align:right;">Нэмэгдэл / Урамшуулал (₮)</th>
+              <th style="padding:10px; text-align:right;">Олгосон (Бохир) (₮)</th>
+              <th style="padding:10px; text-align:right;">ЭМД/НДШ (АО)</th>
+              <th style="padding:10px; text-align:right;">ЭМД/НДШ (Даатгуулагч)</th>
+              <th style="padding:10px; text-align:right;">Бодогдсон ХХОАТ</th>
+              <th style="padding:10px; text-align:right;">Хөнгөлөлт (₮)</th>
+              <th style="padding:10px; text-align:right;">Ногдох татвар (₮)</th>
+              <th style="padding:10px; text-align:right;">Гарт олгох (₮)</th>
             </tr>
           </thead>
-          <tbody>
-            ${payroll.map(p=>`<tr>
-              <td><b>${p.employee_name}</b></td>
-              <td class="num">${fmt(p.gross_minor)}</td>
-              <td class="num">${fmt(p.ndsh_employee_minor)}</td>
-              <td class="num">${fmt(p.hhoat_minor)}</td>
-              <td class="num" style="font-weight:600; color:var(--primary);">${fmt(p.net_minor)}</td>
-              <td style="text-align:center;">
-                <button class="btn btn-xs secondary" style="padding:4px 8px; font-size:11px;" onclick="viewEmployeePayslip('${p.employee_id}', ${year}, ${month})"><i class="fa-solid fa-search"></i> Харах</button>
-              </td>
-            </tr>`).join('')
-            || `<tr><td colspan="6" class="muted" style="text-align:center; padding:16px;">
-              💡 Энэ сарын цалин бодогдоогүй байна. Цагийн бүртгэл хөтөлсний дараа "Сарын цалин бодох" товчийг дарна уу.
-            </td></tr>`}
+          <tbody id="salaryTableBody">
+            ${preview.map((p, i) => renderRow(p, i)).join('')
+            || '<tr><td colspan="13" class="muted" style="text-align:center; padding:24px;">Ажилтан бүртгэгдээгүй байна. Ажилтан нэмэх товчийг дарна уу.</td></tr>'}
           </tbody>
+          <tfoot>
+            <tr style="background:rgba(16,185,129,0.08); font-weight:700; border-top:2px solid var(--border);">
+              <td colspan="4" style="padding:12px 10px;">НИЙТ ДҮН:</td>
+              <td class="num" style="padding:12px 10px;">${fmt(totBase)}</td>
+              <td class="num" style="padding:12px 10px; color:#10b981;">${fmt(totAllow)}</td>
+              <td class="num" style="padding:12px 10px;">${fmt(totGross)}</td>
+              <td class="num" style="padding:12px 10px; color:#2563eb;">${fmt(totNdshEr)}</td>
+              <td class="num" style="padding:12px 10px; color:#d97706;">${fmt(totNdshEmp)}</td>
+              <td class="num" style="padding:12px 10px; opacity:0.85;">${fmt(totHhoatGross)}</td>
+              <td class="num" style="padding:12px 10px; color:#6366f1;">${fmt(totHhoatCredit)}</td>
+              <td class="num" style="padding:12px 10px;">${fmt(totHhoat)}</td>
+              <td class="num" style="padding:12px 10px; color:#10b981; font-size:13.5px;">${fmt(totNet)}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
   `;
 }
 
+function changeSalaryPeriod() {
+  window._salaryYear = +$('#salYear').value;
+  window._salaryMonth = +$('#salMonth').value;
+  salaryTab();
+}
+
+function updateSalaryRow(idx, field, value) {
+  if (!window._salaryData || !window._salaryData[idx]) return;
+  const p = window._salaryData[idx];
+
+  if (field === 'work_condition') {
+    p.work_condition = value;
+    const condMap = { normal: 12.5, heavy: 13.5, harmful: 14.5, underground: 15.5 };
+    p.ndsh_er_pct = condMap[value] || 12.5;
+    if (!p.is_manual) {
+      p.ndsh_employer_minor = Math.round(p.gross_minor * p.ndsh_er_pct / 100);
+    }
+  } else if (field === 'is_manual') {
+    p.is_manual = value;
+  } else if (field === 'base_salary') {
+    p.base_salary_minor = value;
+    if (!p.is_manual) {
+      p.gross_minor = p.base_salary_minor + (p.allowance_minor || 0);
+      recalcSalaryRow(p);
+    }
+  } else if (field === 'allowance') {
+    p.allowance_minor = value;
+    if (!p.is_manual) {
+      p.gross_minor = (p.base_salary_minor || 0) + p.allowance_minor;
+      recalcSalaryRow(p);
+    }
+  } else if (field === 'hhoat_credit') {
+    p.hhoat_credit_minor = value;
+    if (!p.is_manual) {
+      p.hhoat_minor = Math.max((p.hhoat_gross_minor || 0) - p.hhoat_credit_minor, 0);
+      p.net_minor = p.gross_minor - p.ndsh_employee_minor - p.hhoat_minor;
+    }
+  } else if (field === 'gross') {
+    p.gross_minor = value;
+    if (!p.is_manual) {
+      recalcSalaryRow(p);
+    }
+  } else if (field === 'ndsh_er') {
+    p.ndsh_employer_minor = value;
+  } else if (field === 'ndsh_emp') {
+    p.ndsh_employee_minor = value;
+  } else if (field === 'hhoat') {
+    p.hhoat_minor = value;
+  } else if (field === 'net') {
+    p.net_minor = value;
+  }
+
+  salaryTab();
+}
+
+function recalcSalaryRow(p) {
+  p.ndsh_employer_minor = Math.round(p.gross_minor * (p.ndsh_er_pct || 12.5) / 100);
+  p.ndsh_employee_minor = Math.round(p.gross_minor * 11.5 / 100);
+  const taxable = p.gross_minor - p.ndsh_employee_minor;
+  p.hhoat_gross_minor = Math.round(taxable * 0.10);
+  const credit = p.hhoat_credit_minor !== undefined ? p.hhoat_credit_minor : 2000000;
+  p.hhoat_minor = Math.max(p.hhoat_gross_minor - credit, 0);
+  p.net_minor = p.gross_minor - p.ndsh_employee_minor - p.hhoat_minor;
+}
+
+function resetSalaryRowCalculations() {
+  if (!window._salaryData) return;
+  window._salaryData.forEach(p => {
+    p.is_manual = false;
+    p.allowance_minor = 0;
+    const condMap = { normal: 12.5, heavy: 13.5, harmful: 14.5, underground: 15.5 };
+    p.ndsh_er_pct = condMap[p.work_condition] || 12.5;
+    p.gross_minor = p.base_salary_minor || 0;
+    recalcSalaryRow(p);
+  });
+  salaryTab();
+}
+
+async function saveAndPostPayroll(year, month) {
+  if (!window._salaryData || !window._salaryData.length) return alert("Бодох ажилтан байхгүй байна.");
+  
+  const overrides = {};
+  window._salaryData.forEach(p => {
+    overrides[p.employee_id] = {
+      work_condition: p.work_condition,
+      is_manual: p.is_manual,
+      gross: p.gross_minor,
+      ndsh_er: p.ndsh_employer_minor,
+      ndsh_emp: p.ndsh_employee_minor,
+      hhoat: p.hhoat_minor,
+      net: p.net_minor
+    };
+  });
+
+  const res = await post(`/companies/${companyId}/payroll/run`, { year, month, overrides });
+  if (res) {
+    alert(`Амжилттай! ${year} оны ${month}-р сарын цалин бодогдож Журналд бичигдэв.`);
+    salaryTab();
+  }
+}
+
 function empNew() {
   showForm('Ажилтан нэмэх', [
     {k:'code', label:'Код (ж: E01)'}, {k:'last', label:'Овог'},
     {k:'first', label:'Нэр'}, {k:'pos', label:'Албан тушаал'},
+    {k:'work_condition', label:'Хөдөлмөрийн нөхцөл (НДШ %)', type:'select', options:[
+      {value:'normal', label:'Хэвийн нөхцөл (АО 12.5%)'},
+      {value:'heavy', label:'Хүнд нөхцөл (АО 13.5%)'},
+      {value:'harmful', label:'Хөнөөлтэй / Онцгой хүнд нөхцөл (АО 14.5%)'},
+      {value:'underground', label:'Гүний уурхай / Онцгой аюултай (АО 15.5%)'}
+    ]},
     {k:'salary', label:'Үндсэн цалин (₮)', type:'number'},
   ], async v => {
     if (await post(`/companies/${companyId}/employees`,
       {code:v.code, last_name:v.last, first_name:v.first, position:v.pos,
+       work_condition:v.work_condition || 'normal',
        base_salary_minor:Math.round(+v.salary*100)})) salaryTab();
   });
 }
@@ -9243,130 +9745,232 @@ async function uploadEmployeeExcel() {
 }
 
 // ------------------------------------------------------------------ AI туслах
+//
+// Тусдаа цэс биш — бүх дэлгэц дээр хамт явдаг чатбот. Нябо ажлаа хийж
+// байгаад л асууна, өөр таб руу шилжих шаардлагагүй.
 
-async function renderAssistantTab() {
-  const [catalog, settings, hist] = await Promise.all([
-    api(`/companies/${companyId}/assistant/catalog`),
-    api(`/companies/${companyId}/assistant/settings`).catch(() => ({egress:'aggregate', ai_available:false})),
-    api(`/companies/${companyId}/assistant/history?limit=15`).catch(() => [])
-  ]);
+let asstMounted = false;
+let asstOpen = false;
+let asstBusy = false;
+let asstCatalog = [];
+let asstTurns = [];        // {role: 'user'|'bot', text, data, status}
 
-  const chips = catalog.slice(0, 8).map(m =>
-    `<button class="btn btn-xs secondary" style="font-size:12px"
-             onclick="assistantAsk('${esc(m.example)} хэд вэ')">${esc(m.title)}</button>`).join('');
+function mountAssistantChat() {
+  if (asstMounted || !companyId) return;
+  asstMounted = true;
 
-  const mode = settings.egress === 'off' ? 'Гадагш өгөгдөл явуулахгүй (дүрмийн горим)'
-             : settings.egress === 'full' ? 'Задаргаа хүртэл загварт очно'
-             : 'Зөвхөн нийт дүн загварт очно';
+  const style = document.createElement('style');
+  style.textContent = `
+    #asstFab { position:fixed; right:24px; bottom:24px; z-index:900;
+      width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
+      background:var(--primary,#12b886); color:#fff; font-size:20px;
+      box-shadow:0 6px 20px rgba(0,0,0,.28); transition:transform .15s; }
+    #asstFab:hover { transform:scale(1.06); }
+    #asstBadge { position:absolute; top:-4px; right:-4px; min-width:20px;
+      height:20px; border-radius:10px; background:#e5484d; color:#fff;
+      font-size:11px; line-height:20px; padding:0 5px; font-weight:700; }
+    #asstPanel { position:fixed; right:24px; bottom:92px; z-index:900;
+      width:400px; max-width:calc(100vw - 32px); height:min(620px, 76vh);
+      display:none; flex-direction:column; border-radius:14px; overflow:hidden;
+      background:var(--card-bg,#fff); color:var(--text,#1a1a1a);
+      border:1px solid var(--border,#e3e6ea);
+      box-shadow:0 18px 50px rgba(0,0,0,.28); }
+    #asstPanel.open { display:flex; }
+    #asstHead { padding:12px 14px; background:var(--primary,#12b886); color:#fff;
+      display:flex; align-items:center; justify-content:space-between; }
+    #asstBody { flex:1; overflow-y:auto; padding:14px; display:flex;
+      flex-direction:column; gap:10px; background:var(--bg,#f6f8fa); }
+    #asstFoot { padding:10px; border-top:1px solid var(--border,#e3e6ea);
+      background:var(--card-bg,#fff); }
+    .asst-msg { max-width:88%; padding:9px 12px; border-radius:12px;
+      font-size:13.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+    .asst-user { align-self:flex-end; background:var(--primary,#12b886); color:#fff;
+      border-bottom-right-radius:4px; }
+    .asst-bot { align-self:flex-start; background:var(--card-bg,#fff);
+      border:1px solid var(--border,#e3e6ea); border-bottom-left-radius:4px; }
+    .asst-bot.denied { border-color:#e5484d; }
+    .asst-bot.muted-turn { opacity:.85; }
+    .asst-chips { display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 10px;
+      background:var(--bg,#f6f8fa); }
+    .asst-chip { font-size:12px; padding:5px 10px; border-radius:14px;
+      border:1px solid var(--border,#d6dae0); background:var(--card-bg,#fff);
+      cursor:pointer; color:inherit; }
+    .asst-chip:hover { border-color:var(--primary,#12b886); }
+    .asst-detail { margin-top:8px; border-top:1px dashed var(--border,#e3e6ea);
+      padding-top:7px; font-size:12px; }
+    .asst-detail table { width:100%; border-collapse:collapse; }
+    .asst-detail td { padding:2px 0; }
+    .asst-detail td.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .asst-src { color:var(--text-muted,#7b8794); font-size:11.5px; margin-top:6px; }
+    @media (max-width:520px) {
+      #asstPanel { right:8px; left:8px; width:auto; bottom:84px; }
+    }`;
+  document.head.appendChild(style);
 
-  $('#content').innerHTML = `
-    <div class="card">
-      <h2><i class="fa-solid fa-comments" style="color:var(--primary)"></i> AI туслах</h2>
-      <p class="muted" style="margin-bottom:6px;">
-        Тоо бүр ерөнхий дэвтрээс гарна — <b>AI тоо зохиохгүй</b>. Мэдэхгүй асуултад
-        таамаглахын оронд «мэдэхгүй» гэж хэлнэ. Асуулт бүр бүртгэлд үлдэнэ.
-      </p>
-      <p class="muted" style="font-size:12px; margin-bottom:14px;">
-        Загварын төлөв: ${settings.ai_available ? 'холбогдсон' : 'холбогдоогүй — дүрмийн горимоор ажиллана'} ·
-        Өгөгдлийн горим: ${esc(mode)}
-      </p>
+  const fab = document.createElement('button');
+  fab.id = 'asstFab';
+  fab.title = 'AI туслах';
+  fab.innerHTML = '<i class="fa-solid fa-comments"></i>';
+  fab.onclick = toggleAssistant;
+  document.body.appendChild(fab);
 
-      <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <input id="asstInput" class="input-field" style="flex:1"
-               placeholder="Жишээ: 2026 оны 7-р сарын борлуулалт хэд вэ?"
-               onkeydown="if(event.key==='Enter') assistantAsk()">
-        <button class="btn" id="asstBtn" onclick="assistantAsk()">
-          <i class="fa-solid fa-paper-plane"></i> Асуух
-        </button>
+  const panel = document.createElement('div');
+  panel.id = 'asstPanel';
+  panel.innerHTML = `
+    <div id="asstHead">
+      <div>
+        <div style="font-weight:700; font-size:14px;">AI туслах</div>
+        <div style="font-size:11px; opacity:.9;">Тоо бүр ерөнхий дэвтрээс — зохиохгүй</div>
       </div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;">${chips}</div>
-
-      <div id="asstAnswer"></div>
+      <button onclick="toggleAssistant()" title="Хаах"
+        style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">
+        <i class="fa-solid fa-xmark"></i></button>
     </div>
-
-    <div class="card">
-      <h2 style="font-size:16px;">Асуултын бүртгэл</h2>
-      <p class="muted" style="font-size:12px;">Хэн юу асуусан, ямар метрик дуудагдсан — бүгд хадгалагдана.</p>
-      <div id="asstHistory">${assistantHistoryHtml(hist)}</div>
+    <div id="asstBody"></div>
+    <div class="asst-chips" id="asstChips"></div>
+    <div id="asstFoot">
+      <div style="display:flex; gap:8px;">
+        <input id="asstInput" class="input-field" style="flex:1; font-size:13px;"
+               placeholder="Асуултаа бичнэ үү…"
+               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();assistantSend();}">
+        <button class="btn" id="asstSend" onclick="assistantSend()"
+                style="padding:8px 12px;"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
     </div>`;
+  document.body.appendChild(panel);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && asstOpen) toggleAssistant();
+  });
+
+  asstGreet();
+  loadAssistantCatalog();
+  refreshAssistantBadge();
 }
 
-function assistantHistoryHtml(rows) {
-  if (!rows.length) return '<p class="muted">Асуулт бүртгэгдээгүй байна.</p>';
-  const badge = (s) => s === 'answered' ? '<span style="color:var(--primary)">хариулсан</span>'
-    : s === 'denied' ? '<span style="color:#e5484d">эрх хүрээгүй</span>'
-    : '<span class="muted">мэдэхгүй</span>';
-  return `<table class="grid-table" style="font-size:12.5px">
-    <thead><tr><th>Хэзээ</th><th>Үүрэг</th><th>Асуулт</th><th>Метрик</th><th>Үр дүн</th></tr></thead>
-    <tbody>${rows.map(r => `<tr>
-      <td class="muted">${(r.asked_at || '').replace('T', ' ').slice(0, 16)}</td>
-      <td>${esc(r.role)}</td>
-      <td>${esc(r.question)}</td>
-      <td>${esc(r.metric || '—')}</td>
-      <td>${badge(r.status)}</td>
-    </tr>`).join('')}</tbody></table>`;
+async function loadAssistantCatalog() {
+  asstCatalog = await api(`/companies/${companyId}/assistant/catalog`).catch(() => []);
+  renderAssistantChips();
 }
 
-async function assistantAsk(preset) {
-  const input = $('#asstInput');
-  if (preset) input.value = preset;
-  const question = input.value.trim();
-  if (!question) return;
-
-  const btn = $('#asstBtn');
-  const box = $('#asstAnswer');
-  btn.disabled = true;
-  box.innerHTML = '<div class="muted"><i class="fa-solid fa-spinner fa-spin"></i> Дэвтрээс тоог гаргаж байна…</div>';
-
-  try {
-    const out = await post(`/companies/${companyId}/assistant/ask`, { question });
-    if (!out) return;
-    box.innerHTML = assistantAnswerHtml(out);
-    const hist = await api(`/companies/${companyId}/assistant/history?limit=15`).catch(() => []);
-    $('#asstHistory').innerHTML = assistantHistoryHtml(hist);
-  } catch (e) {
-    box.innerHTML = `<p style="color:#e5484d">${esc(e.message)}</p>`;
-  } finally {
-    btn.disabled = false;
+async function refreshAssistantBadge() {
+  const res = await api(`/companies/${companyId}/anomalies`).catch(() => null);
+  const high = res && res.by_severity ? res.by_severity.high : 0;
+  const fab = $('#asstFab');
+  if (!fab) return;
+  const old = fab.querySelector('#asstBadge');
+  if (old) old.remove();
+  if (high > 0) {
+    const b = document.createElement('span');
+    b.id = 'asstBadge';
+    b.textContent = high > 9 ? '9+' : String(high);
+    b.title = `${high} ноцтой гажилт`;
+    fab.appendChild(b);
   }
 }
 
-function assistantAnswerHtml(out) {
-  const tone = out.status === 'answered' ? 'var(--primary)'
-             : out.status === 'denied' ? '#e5484d' : 'var(--text-muted, #888)';
-  let html = `<div style="border-left:3px solid ${tone}; padding:10px 14px; margin-bottom:12px;">
-    <div style="white-space:pre-wrap; line-height:1.6">${esc(out.answer)}</div>
-  </div>`;
+function toggleAssistant() {
+  const panel = $('#asstPanel');
+  if (!panel) return;
+  asstOpen = !asstOpen;
+  panel.classList.toggle('open', asstOpen);
+  if (asstOpen) setTimeout(() => $('#asstInput') && $('#asstInput').focus(), 60);
+}
 
-  const d = out.data;
-  if (!d) return html;
+function asstGreet() {
+  asstTurns = [{
+    role: 'bot', status: 'answered',
+    text: 'Сайн байна уу. Дэвтэрт байгаа тоог асуугаарай — борлуулалт, '
+        + 'зардал, мөнгө, авлага, таамаг, гажилт. Мэдэхгүй зүйлээ '
+        + 'таамаглахгүй, шууд хэлнэ.'
+  }];
+  renderAssistantTurns();
+}
 
-  html += `<table class="grid-table" style="font-size:12.5px; margin-bottom:8px">
-    <thead><tr><th>Үзүүлэлт</th><th>Хугацаа</th><th class="num">Дүн</th></tr></thead>
-    <tbody><tr>
-      <td><b>${esc(d.title)}</b></td>
-      <td>${esc(d.period)}</td>
-      <td class="num" style="font-weight:700">${d.unit === 'count' ? d.value_minor : fmt(d.value_minor)}</td>
-    </tr></tbody></table>`;
+function renderAssistantChips() {
+  const box = $('#asstChips');
+  if (!box) return;
+  // Яриа эхэлсэн бол саналыг нуухгүй, гэхдээ цөөхөн үлдээнэ
+  const picks = asstCatalog.slice(0, asstTurns.length > 1 ? 4 : 6);
+  box.innerHTML = picks.map(m =>
+    `<button class="asst-chip" onclick="assistantSend('${esc(m.example)} хэд вэ')">${esc(m.title)}</button>`
+  ).join('');
+}
+
+function renderAssistantTurns() {
+  const body = $('#asstBody');
+  if (!body) return;
+  body.innerHTML = asstTurns.map(t => t.role === 'user'
+    ? `<div class="asst-msg asst-user">${esc(t.text)}</div>`
+    : `<div class="asst-msg asst-bot ${t.status === 'denied' ? 'denied' : ''}
+         ${['unknown','unavailable'].includes(t.status) ? 'muted-turn' : ''}">
+         ${esc(t.text)}${assistantDetailHtml(t.data)}</div>`
+  ).join('');
+  body.scrollTop = body.scrollHeight;
+  renderAssistantChips();
+}
+
+function assistantDetailHtml(d) {
+  if (!d) return '';
+  const val = d.unit === 'count' ? d.value_minor : fmt(d.value_minor);
+  let html = `<div class="asst-detail">
+    <table><tr>
+      <td><b>${esc(d.title)}</b><br><span style="opacity:.7">${esc(d.period)}</span></td>
+      <td class="num" style="font-weight:700; font-size:13px;">${val}</td>
+    </tr></table>`;
+
+  const cmp = d.compare || {};
+  if (cmp.mape_pct !== undefined && cmp.mape_pct !== null) {
+    html += `<div style="margin-top:5px">Хүрээ: ${cmp.low_minor != null
+      ? fmt(cmp.low_minor) + ' – ' + fmt(cmp.high_minor) : '—'}
+      · алдаа ${cmp.mape_pct}% (${cmp.backtest_points} үе)</div>`;
+  }
 
   if (d.rows && d.rows.length) {
-    html += `<div style="max-height:220px; overflow:auto">
-      <table class="grid-table" style="font-size:12.5px">
-        <thead><tr><th>Данс</th><th>Нэр</th><th class="num">Дүн</th></tr></thead>
-        <tbody>${d.rows.map(r => `<tr>
-          <td>${esc(r.code || '')}</td><td>${esc(r.name || '')}</td>
-          <td class="num">${fmt(r.amount_minor || 0)}</td>
-        </tr>`).join('')}</tbody>
-      </table></div>`;
+    html += `<div style="max-height:150px; overflow:auto; margin-top:6px;">
+      <table>${d.rows.slice(0, 12).map(r => `<tr>
+        <td>${esc(r.code || '')} ${esc(r.name || '')}</td>
+        <td class="num">${d.unit === 'count' ? '' : fmt(r.amount_minor || 0)}</td>
+      </tr>`).join('')}</table></div>`;
   }
   if (d.masked_rows) {
-    html += `<p class="muted" style="font-size:12px; margin-top:6px">
-      Эрхийн улмаас ${d.masked_rows} мөрийг нуулаа (цалингийн данс).</p>`;
+    html += `<div style="margin-top:4px; opacity:.75">Эрхийн улмаас ${d.masked_rows} мөр нуугдсан.</div>`;
   }
-  html += `<p class="muted" style="font-size:12px; margin-top:6px">
-    Эх сурвалж: ${esc(d.source)}${d.accounts && d.accounts.length
-      ? ' · Данс: ' + d.accounts.map(esc).join(', ') : ''}</p>`;
-  return html;
+  html += `<div class="asst-src">${esc(d.source || '')}${
+    d.accounts && d.accounts.length ? ' · Данс: ' + d.accounts.map(esc).join(', ') : ''}</div>`;
+  return html + '</div>';
+}
+
+async function assistantSend(preset) {
+  if (asstBusy) return;
+  const input = $('#asstInput');
+  const question = (preset || (input ? input.value : '')).trim();
+  if (!question) return;
+  if (input) input.value = '';
+
+  asstTurns.push({ role: 'user', text: question });
+  asstTurns.push({ role: 'bot', status: 'pending', text: 'Дэвтрээс тоог гаргаж байна…' });
+  renderAssistantTurns();
+
+  asstBusy = true;
+  $('#asstSend').disabled = true;
+  try {
+    const out = await post(`/companies/${companyId}/assistant/ask`, { question });
+    asstTurns.pop();
+    if (out) {
+      asstTurns.push({ role: 'bot', text: out.answer, data: out.data, status: out.status });
+    } else {
+      asstTurns.push({ role: 'bot', status: 'unknown', text: 'Хариу авч чадсангүй.' });
+    }
+  } catch (e) {
+    asstTurns.pop();
+    asstTurns.push({ role: 'bot', status: 'unknown', text: e.message });
+  } finally {
+    asstBusy = false;
+    const btn = $('#asstSend');
+    if (btn) btn.disabled = false;
+    renderAssistantTurns();
+  }
 }
 
 // ----------------------------------------------------- ТТ-11-ээс цалин сэргээх

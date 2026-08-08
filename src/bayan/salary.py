@@ -31,6 +31,14 @@ class SalaryConfig:
     hhoat_credit_minor: int = 20_000_00 # сарын татварын хөнгөлөлт (жишээ нь 20,000₮)
 
 
+WORK_CONDITIONS_NDSH_MAP = {
+    "normal": 12.5,        # Хөдөлмөрийн хэвийн нөхцөл (АО 12.5%)
+    "heavy": 13.5,         # Хөдөлмөрийн хүнд нөхцөл (АО 13.5%)
+    "harmful": 14.5,       # Хөдөлмөрийн хөнөөлтэй / онцгой хүнд нөхцөл (АО 14.5%)
+    "underground": 15.5,   # Гүний уурхай / онцгой аюултай нөхцөл (АО 15.5%)
+}
+
+
 class Employee(Base):
     __tablename__ = "employee"
 
@@ -41,6 +49,7 @@ class Employee(Base):
     first_name: Mapped[str] = mapped_column(String(100))
     position: Mapped[str | None] = mapped_column(String(100))
     base_salary_minor: Mapped[int] = mapped_column(BigInteger)
+    work_condition: Mapped[str | None] = mapped_column(String(30), default="normal", nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -75,6 +84,7 @@ class PayrollLine(Base):
     ndsh_employer_minor: Mapped[int] = mapped_column(BigInteger)
     hhoat_minor: Mapped[int] = mapped_column(BigInteger)
     net_minor: Mapped[int] = mapped_column(BigInteger)
+    is_manual: Mapped[bool | None] = mapped_column(Boolean, default=False, nullable=True)
     journal_entry_id: Mapped[str | None] = mapped_column(String(36))
 
 
@@ -104,8 +114,17 @@ def calc_progressive_pit(taxable_minor: int) -> int:
 def calc_one(base_salary_minor: int, worked_days: float, vacation_days: float,
              sick_days: float, sick_pay_pct: float, cfg: SalaryConfig,
              overtime_hours: float = 0.0, holiday_hours: float = 0.0,
-             vacation_daily_rate: float | None = None) -> dict:
-    """Нэг ажилтны цалинг цагийн бүртгэл ба татварын шатлалаар бодно."""
+             vacation_daily_rate: float | None = None,
+             work_condition: str = "normal",
+             allowance_minor: int = 0,
+             hhoat_credit_minor: int | None = None,
+             is_manual: bool = False,
+             manual_ndsh_emp_minor: int | None = None,
+             manual_ndsh_er_minor: int | None = None,
+             manual_hhoat_minor: int | None = None,
+             manual_net_minor: int | None = None,
+             manual_gross_minor: int | None = None) -> dict:
+    """Нэг ажилтны цалинг цагийн бүртгэл, нэмэгдэл, хөнгөлөлт, хөдөлмөрийн нөхцөлөөр бодно."""
     total_working_days = 22.0  # Сарын стандарт ажлын өдөр
     daily_rate = base_salary_minor / total_working_days
     hourly_rate = daily_rate / 8.0
@@ -118,29 +137,48 @@ def calc_one(base_salary_minor: int, worked_days: float, vacation_days: float,
     overtime_pay = hourly_rate * overtime_hours * 1.5
     holiday_pay = hourly_rate * holiday_hours * 2.0
     
-    gross_minor = int(round(worked_pay + vacation_pay + sick_pay + overtime_pay + holiday_pay))
+    calc_gross = int(round(worked_pay + vacation_pay + sick_pay + overtime_pay + holiday_pay + allowance_minor))
+    gross_minor = manual_gross_minor if (is_manual and manual_gross_minor is not None) else calc_gross
     
     # НДШ бодох суурь
     ndsh_base = gross_minor
     if cfg.ndsh_ceiling_minor:
         ndsh_base = min(ndsh_base, cfg.ndsh_ceiling_minor)
         
-    ndsh_emp = int(round(ndsh_base * cfg.ndsh_employee_pct / 100))
-    ndsh_er = int(round(ndsh_base * cfg.ndsh_employer_pct / 100))
+    ndsh_er_pct = WORK_CONDITIONS_NDSH_MAP.get(work_condition or "normal", cfg.ndsh_employer_pct)
     
-    # Татвар ногдох орлого = Бохир цалин - Ажилтны НДШ
-    taxable = gross_minor - ndsh_emp
+    calc_ndsh_emp = int(round(ndsh_base * cfg.ndsh_employee_pct / 100))
+    calc_ndsh_er = int(round(ndsh_base * ndsh_er_pct / 100))
     
-    # Шаталсан ХХОАТ
-    hhoat = max(calc_progressive_pit(taxable) - cfg.hhoat_credit_minor, 0)
-    
-    net = gross_minor - ndsh_emp - hhoat
+    taxable = gross_minor - calc_ndsh_emp
+    calc_hhoat_gross = calc_progressive_pit(taxable)
+    credit = hhoat_credit_minor if hhoat_credit_minor is not None else cfg.hhoat_credit_minor
+    calc_hhoat_net = max(calc_hhoat_gross - credit, 0)
+    calc_net = gross_minor - calc_ndsh_emp - calc_hhoat_net
+
+    if is_manual:
+        ndsh_emp = manual_ndsh_emp_minor if manual_ndsh_emp_minor is not None else calc_ndsh_emp
+        ndsh_er = manual_ndsh_er_minor if manual_ndsh_er_minor is not None else calc_ndsh_er
+        hhoat = manual_hhoat_minor if manual_hhoat_minor is not None else calc_hhoat_net
+        net = manual_net_minor if manual_net_minor is not None else (gross_minor - ndsh_emp - hhoat)
+    else:
+        ndsh_emp = calc_ndsh_emp
+        ndsh_er = calc_ndsh_er
+        hhoat = calc_hhoat_net
+        net = calc_net
+
     return {
+        "base_salary": base_salary_minor,
+        "allowance": allowance_minor,
         "gross": gross_minor,
         "ndsh_emp": ndsh_emp,
         "ndsh_er": ndsh_er,
+        "ndsh_er_pct": ndsh_er_pct,
+        "hhoat_gross": calc_hhoat_gross,
+        "hhoat_credit": credit,
         "hhoat": hhoat,
         "net": net,
+        "is_manual": is_manual,
         "worked_pay": int(worked_pay),
         "vacation_pay": int(vacation_pay),
         "sick_pay": int(sick_pay),
@@ -151,11 +189,13 @@ def calc_one(base_salary_minor: int, worked_days: float, vacation_days: float,
 
 def run_payroll(session: Session, company_id: str, year: int, month: int,
                 cfg: SalaryConfig | None = None,
-                entry_date: date | None = None) -> dict:
-    """Сарын цалингийн тооцоолуур. Цагийн бүртгэлийг баазаас уншина."""
+                entry_date: date | None = None,
+                overrides: dict[str, dict] | None = None) -> dict:
+    """Сарын цалингийн тооцоолуур. Цагийн бүртгэл ба гараас өөрчилсөн утгуудыг тооцож Журналд бичнэ."""
     from .ledger import LedgerError
     cfg = cfg or SalaryConfig()
     entry_date = entry_date or date(year, month, 25)
+    overrides = overrides or {}
     
     employees = session.scalars(select(Employee).where(
         Employee.company_id == company_id, Employee.active == True)).all()  # noqa: E712
@@ -174,7 +214,6 @@ def run_payroll(session: Session, company_id: str, year: int, month: int,
     plines = []
     
     for e in employees:
-        # Цагийн бүртгэл заавал байх ёстой (Табель тулгалт)
         ts = ts_map.get(e.id)
         if not ts:
             raise LedgerError(f"Цагийн бүртгэл (timesheet) дутуу байна: {e.last_name} {e.first_name}-ийн цагийг оруулна уу.")
@@ -186,7 +225,6 @@ def run_payroll(session: Session, company_id: str, year: int, month: int,
         ot_hours = ts.overtime_hours
         hol_hours = ts.holiday_hours
         
-        # Сүүлийн 12 сарын дундаж цалингаар ээлжийн амралтын олговрын суурь бодох
         hist = session.scalars(
             select(PayrollLine)
             .where(PayrollLine.employee_id == e.id)
@@ -199,9 +237,26 @@ def run_payroll(session: Session, company_id: str, year: int, month: int,
             avg_gross = sum(h.gross_minor for h in hist) / len(hist)
             vacation_rate = avg_gross / 22.0
             
-        c = calc_one(e.base_salary_minor, w_days, v_days, s_days, s_pct, cfg,
-                     overtime_hours=ot_hours, holiday_hours=hol_hours,
-                     vacation_daily_rate=vacation_rate)
+        ov = overrides.get(e.id) or {}
+        work_cond = ov.get("work_condition") or getattr(e, "work_condition", "normal") or "normal"
+        if "work_condition" in ov:
+            e.work_condition = work_cond
+
+        is_man = bool(ov.get("is_manual", False))
+
+        c = calc_one(
+            base_salary_minor=e.base_salary_minor, worked_days=w_days,
+            vacation_days=v_days, sick_days=s_days, sick_pay_pct=s_pct, cfg=cfg,
+            overtime_hours=ot_hours, holiday_hours=hol_hours,
+            vacation_daily_rate=vacation_rate,
+            work_condition=work_cond,
+            is_manual=is_man,
+            manual_ndsh_emp_minor=ov.get("ndsh_emp"),
+            manual_ndsh_er_minor=ov.get("ndsh_er"),
+            manual_hhoat_minor=ov.get("hhoat"),
+            manual_net_minor=ov.get("net"),
+            manual_gross_minor=ov.get("gross")
+        )
         
         for k in totals:
             totals[k] += c[k]
@@ -210,7 +265,7 @@ def run_payroll(session: Session, company_id: str, year: int, month: int,
             company_id=company_id, employee_id=e.id, year=year, month=month,
             gross_minor=c["gross"], ndsh_employee_minor=c["ndsh_emp"],
             ndsh_employer_minor=c["ndsh_er"], hhoat_minor=c["hhoat"],
-            net_minor=c["net"]))
+            net_minor=c["net"], is_manual=c["is_manual"]))
 
     entry = ledger.post_entry(session, company_id, entry_date, [
         ledger.LineInput("7101", debit_minor=totals["gross"],

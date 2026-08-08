@@ -253,6 +253,71 @@ def _vat(session, company_id: str, p: Period) -> MetricResult:
         compare={"payable_minor": payable, "claimable_minor": claimable})
 
 
+# -------------------------------------------------- таамаглал ба гажилт (L2/L4)
+
+def _forecast_result(f, metric: str) -> MetricResult:
+    """Таамаглалыг метрикийн хэлбэрт буулгана.
+
+    Нарийвчлалыг `compare`-д ЗААВАЛ хийнэ — assistant үүнийг хариулт бүрд
+    хавсаргана. «Тоо ганцаараа гарахгүй» гэсэн дүрэм ингэж хэрэгждэг."""
+    return MetricResult(
+        metric=metric, title=f.title, period_label=f.period_label,
+        period_phrase=f.period_label, value_minor=f.value_minor,
+        rows=[{"code": h["label"], "name": "бодит гүйцэтгэл",
+               "amount_minor": h["value_minor"]} for h in f.history[-6:]],
+        source=f"{f.method} — {f.note}",
+        compare={"mape_pct": f.mape_pct, "backtest_points": f.backtest_points,
+                 "low_minor": f.low_minor, "high_minor": f.high_minor,
+                 "trustworthy": f.trustworthy, "method": f.method})
+
+
+def _revenue_forecast(session, company_id: str, p: Period) -> MetricResult:
+    from . import forecast as fc
+    return _forecast_result(
+        fc.revenue_forecast(session, company_id, p.date_to), "revenue_forecast")
+
+
+def _expense_forecast(session, company_id: str, p: Period) -> MetricResult:
+    from . import forecast as fc
+    return _forecast_result(
+        fc.expense_forecast(session, company_id, p.date_to), "expense_forecast")
+
+
+def _cash_forecast(session, company_id: str, p: Period) -> MetricResult:
+    from . import forecast as fc
+
+    cf = fc.cash_forecast(session, company_id, p.date_to)
+    low = cf.lowest_minor if cf.lowest_minor is not None else 0
+    return MetricResult(
+        metric="cash_forecast", title="13 долоо хоногийн мөнгөн урсгал",
+        period_label=f"{p.date_to:%Y-%m-%d}-наас хойш 13 долоо хоног",
+        period_phrase=f"{p.date_to:%Y-%m-%d}-наас хойших 13 долоо хоногт",
+        value_minor=low,
+        rows=[{"code": f"{w.week}-р 7 хоног", "name": w.starts_on.isoformat(),
+               "amount_minor": w.closing_minor} for w in cf.weeks],
+        source="; ".join(cf.assumptions),
+        compare={"opening_minor": cf.opening_minor,
+                 "lowest_week": cf.lowest_week,
+                 "goes_negative": low < 0,
+                 "mape_pct": cf.mape_pct,
+                 "backtest_points": cf.backtest_points})
+
+
+def _anomalies(session, company_id: str, p: Period) -> MetricResult:
+    from . import anomalies as an
+
+    res = an.scan(session, company_id, p.date_to.year, p.date_to.month, p.date_to)
+    return MetricResult(
+        metric="anomalies", title="Илэрсэн гажилт", period_label=p.label,
+        period_phrase=p.locative, value_minor=res["total"], unit="count",
+        rows=[{"code": a["severity"], "name": a["title"],
+               "amount_minor": a["amount_minor"]} for a in res["anomalies"][:20]],
+        source="Давхар төлөлт, дансны буруу хослол, цалингийн гажилт, "
+               "НӨАТ-ын зөрүү, ирээдүйн огноо",
+        compare={"by_severity": res["by_severity"],
+                 "details": [a["detail"] for a in res["anomalies"][:5]]})
+
+
 # ------------------------------------------------------------------ каталог
 
 @dataclass(frozen=True)
@@ -340,6 +405,26 @@ _register("payroll", "Цалингийн зардал",
           # «цалингийн зардал» нь «зардал»-аас урт тул зардлын метрикийг дийлнэ
           ("цалингийн зардал", "цалингийн сан", "цалин", "salary", "payroll",
            "ажилтны цалин", "хөлс"), _payroll)
+
+_register("revenue_forecast", "Борлуулалтын таамаг",
+          "Дараагийн сарын борлуулалтын таамаг, нарийвчлалынхаа хамт", "read",
+          # «борлуулалтын таамаг» нь «борлуулалт»-аас урт тул түүнийг дийлнэ
+          ("борлуулалтын таамаг", "борлуулалт хэд болох", "орлогын таамаг",
+           "таамаг", "прогноз", "хэд болох бол"), _revenue_forecast)
+
+_register("expense_forecast", "Зардлын таамаг",
+          "Дараагийн сарын зардлын таамаг", "read",
+          ("зардлын таамаг", "зардал хэд болох"), _expense_forecast)
+
+_register("cash_forecast", "Мөнгөн урсгалын таамаг",
+          "13 долоо хоногийн мөнгөн урсгал, хамгийн доод цэг", "read",
+          ("мөнгөн урсгалын таамаг", "13 долоо хоног", "мөнгө хүрэлцэх",
+           "мөнгө дуусах", "мөнгөн урсгал"), _cash_forecast)
+
+_register("anomalies", "Илэрсэн гажилт",
+          "Давхар төлөлт, дансны буруу хослол, цалингийн гажилт", "read",
+          ("гажилт", "сэжигтэй", "алдаа байна уу", "давхар төлөлт",
+           "шалгах зүйл"), _anomalies)
 
 _register("unclassified", "Батлагдаагүй ангилал",
           "Нябо-гийн хянах шаардлагатай ангиллын саналын тоо", "read",

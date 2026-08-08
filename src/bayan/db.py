@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from . import assets, assistant, audit, auth, etax, inventory, partners, salary, wip, models  # noqa: F401
@@ -16,16 +16,30 @@ from .models import Base
 _DEFAULT_URL = "sqlite:///bayan.db"
 
 
+def _run_migrations(engine):
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE employee ADD COLUMN work_condition VARCHAR(30) DEFAULT 'normal'"))
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE payroll_line ADD COLUMN is_manual BOOLEAN DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            pass
+
+
 def make_engine(url: str = _DEFAULT_URL):
     kwargs = {}
     if url.startswith("sqlite"):
-        # Вэб сервер олон thread-ээс ханддаг; :memory: бол нэг connection хуваалцана
         kwargs["connect_args"] = {"check_same_thread": False}
         if ":memory:" in url:
             from sqlalchemy.pool import StaticPool
             kwargs["poolclass"] = StaticPool
     engine = create_engine(url, future=True, **kwargs)
     Base.metadata.create_all(engine)
+    _run_migrations(engine)
     return engine
 
 

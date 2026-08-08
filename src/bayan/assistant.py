@@ -29,6 +29,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from . import metrics
+from .audit import monotonic_utcnow
 from .models import Base
 
 ROUTER_MODEL = "claude-haiku-4-5-20251001"
@@ -52,7 +53,7 @@ class AssistantQuery(Base):
     company_id: Mapped[str] = mapped_column(ForeignKey("company.id"))
     actor_id: Mapped[str | None] = mapped_column(String(36))
     role: Mapped[str] = mapped_column(String(24))
-    asked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    asked_at: Mapped[datetime] = mapped_column(DateTime, default=monotonic_utcnow)
     question: Mapped[str] = mapped_column(Text)
     metric: Mapped[str | None] = mapped_column(String(32))
     period_label: Mapped[str | None] = mapped_column(String(64))
@@ -163,8 +164,51 @@ def fmt_mnt(minor: int) -> str:
     return f"{minor / 100:,.0f}₮"
 
 
+def _accuracy_sentence(cmp_: dict) -> str:
+    """§5.2-ийн заавал биелэх дүрэм: таамаг нарийвчлалгүйгээр гарахгүй."""
+    mape = cmp_.get("mape_pct")
+    n = cmp_.get("backtest_points") or 0
+    if mape is None or not n:
+        return (" Энэ таамгийн нарийвчлалыг хэмжих хангалттай түүх алга — "
+                "болгоомжтой хандана уу.")
+    verdict = "шийдвэрт ашиглаж болно" if mape < 30 else "зөвхөн чиг хандлага харах зорилгоор"
+    return (f" Нарийвчлал: сүүлийн {n} үеэр шалгахад дундаж алдаа "
+            f"{mape}% — {verdict}.")
+
+
 def _template_answer(result: metrics.MetricResult) -> str:
     """LLM-гүй үеийн хариулт — тоо нь адилхан, зөвхөн үг нь энгийн."""
+    cmp_all = result.compare or {}
+
+    # Таамаглал — дүн + нарийвчлал + арга
+    if "mape_pct" in cmp_all and result.metric != "cash_forecast":
+        text = (f"{result.period_phrase} {result.title.lower()} "
+                f"{fmt_mnt(result.value_minor)}.")
+        if cmp_all.get("low_minor") is not None:
+            text += (f" Магадлалт хүрээ {fmt_mnt(cmp_all['low_minor'])} – "
+                     f"{fmt_mnt(cmp_all['high_minor'])}.")
+        return text + _accuracy_sentence(cmp_all) + f" Арга: {result.source}."
+
+    if result.metric == "cash_forecast":
+        text = (f"{result.period_phrase} мөнгөн үлдэгдлийн хамгийн доод цэг "
+                f"{fmt_mnt(result.value_minor)} "
+                f"({cmp_all.get('lowest_week')}-р долоо хоногт).")
+        if cmp_all.get("goes_negative"):
+            text += " АНХААР: үлдэгдэл сөрөг рүү орж байна."
+        return text + _accuracy_sentence(cmp_all) + f" Таамаглалын үндэслэл: {result.source}."
+
+    if result.metric == "anomalies":
+        by = cmp_all.get("by_severity", {})
+        if not result.value_minor:
+            return (f"{result.period_phrase} шалгах шаардлагатай гажилт "
+                    "илрээгүй. Шалгасан зүйлс: " + result.source + ".")
+        text = (f"{result.period_phrase} {result.value_minor} гажилт илэрлээ "
+                f"(ноцтой {by.get('high', 0)}, дунд {by.get('medium', 0)}, "
+                f"сул {by.get('low', 0)}).")
+        for d in cmp_all.get("details", [])[:3]:
+            text += f"\n• {d}"
+        return text
+
     if result.unit == "count":
         return (f"{result.period_phrase} {result.title.lower()} "
                 f"{result.value_minor} байна. Эх сурвалж: {result.source}.")
@@ -290,7 +334,12 @@ def ask(session: Session, company_id: str, role: str, question: str,
                     "эрх хүсээрэй.", name, None)
 
     # 3. Тоог ledger-ээс гаргана (задаргаа нь эрхээр шүүгдэнэ)
-    result = metrics.compute(session, company_id, name, period, role)
+    from .forecast import NotEnoughHistory
+    try:
+        result = metrics.compute(session, company_id, name, period, role)
+    except NotEnoughHistory as e:
+        # Түүх хангалтгүй бол ТААМАГЛАХГҮЙ — шалтгааныг нь хэлнэ
+        return _log("unavailable", str(e), name, None)
 
     # 4. LLM зөвхөн ҮГЭЭР тайлбарлана
     if use_ai:
