@@ -351,3 +351,104 @@ def trial_balance(
                      "debit_minor": int(dr), "credit_minor": int(cr),
                      "balance_minor": int(balance)})
     return rows
+
+
+# ============================================================ ТЭНЦЛИЙН ШАЛГУУР
+
+#: Мөнгөн нэгжийн 1/100-аар илэрхийлсэн хүлээцтэй зөрүү. Давхар бичилтэд
+#: бөөрөнхийлөлт байх ёсгүй тул тэг — 1 мөнгө ч зөрвөл алдаа.
+BALANCE_TOLERANCE_MINOR = 0
+
+
+def _check(code: str, title: str, ok: bool, detail: str) -> dict:
+    return {"code": code, "title": title, "ok": ok, "detail": detail}
+
+
+def check_balance(session: Session, company_id: str,
+                  date_from: date | None = None,
+                  date_to: date | None = None) -> dict:
+    """Давхар бичилтийн тэнцлийг бүрэн шалгаж «тэнцлээ / тэнцэхгүй» гэж хэлнэ.
+
+    Гурван түвшинд шалгана:
+
+      G1  Бичилт бүр дотроо тэнцэх (Σдебит = Σкредит)
+      Σ   Бүх бичилтийн нийлбэр тэнцэх
+      СТ-1 Хөрөнгө = Өр төлбөр + Эздийн өмч
+
+    Эхний хоёр нь `post_entry`-д аль хэдийн албадагддаг ч, шалгуур нь
+    гадны хөндлөнгийн бичилт, миграц, өгөгдлийн эвдрэлийг барих зорилготой:
+    инвариант байна гэж ИТГЭХ биш, ХЭМЖИХ нь чухал.
+
+    Зөрүү гарвал аль бичилт буруу болохыг нэрлэж өгнө — «тэнцэхгүй байна»
+    гэж хэлээд орхивол нябо хаанаас хайхаа мэдэхгүй.
+    """
+    entry_q = (
+        select(JournalEntry.id, JournalEntry.entry_no, JournalEntry.entry_date,
+               JournalEntry.memo,
+               func.coalesce(func.sum(JournalLine.debit_minor), 0),
+               func.coalesce(func.sum(JournalLine.credit_minor), 0))
+        .join(JournalLine, JournalLine.entry_id == JournalEntry.id)
+        .where(JournalEntry.company_id == company_id,
+               JournalEntry.status != EntryStatus.draft)
+        .group_by(JournalEntry.id, JournalEntry.entry_no,
+                  JournalEntry.entry_date, JournalEntry.memo)
+        .order_by(JournalEntry.entry_date)
+    )
+    if date_from:
+        entry_q = entry_q.where(JournalEntry.entry_date >= date_from)
+    if date_to:
+        entry_q = entry_q.where(JournalEntry.entry_date <= date_to)
+
+    total_debit = total_credit = 0
+    unbalanced: list[dict] = []
+    entry_count = 0
+
+    for eid, no, edate, memo, dr, cr in session.execute(entry_q):
+        entry_count += 1
+        total_debit += int(dr)
+        total_credit += int(cr)
+        diff = int(dr) - int(cr)
+        if abs(diff) > BALANCE_TOLERANCE_MINOR:
+            unbalanced.append({
+                "entry_id": eid, "entry_no": no,
+                "entry_date": edate.isoformat() if edate else None,
+                "memo": (memo or "")[:120],
+                "debit_minor": int(dr), "credit_minor": int(cr),
+                "difference_minor": diff,
+            })
+
+    difference = total_debit - total_credit
+    checks = [
+        _check("G1_ENTRIES", "Бичилт бүр дотроо тэнцэх",
+               not unbalanced,
+               f"{entry_count} бичилт шалгав, бүгд тэнцсэн" if not unbalanced
+               else f"{len(unbalanced)} бичилт тэнцэхгүй байна"),
+        _check("SUM_TOTALS", "Нийт дебит = Нийт кредит",
+               abs(difference) <= BALANCE_TOLERANCE_MINOR,
+               f"Дебит {total_debit / 100:,.2f}₮ = Кредит {total_credit / 100:,.2f}₮"
+               if abs(difference) <= BALANCE_TOLERANCE_MINOR else
+               f"Зөрүү {difference / 100:+,.2f}₮ "
+               f"(дебит {total_debit / 100:,.2f}₮, кредит {total_credit / 100:,.2f}₮)"),
+    ]
+
+    # СТ-1-ийн тэнцэл — тайлангийн давхарга дээрх шалгуур
+    from . import reports
+    bs = reports.balance_sheet(session, company_id, date_to or date.today())
+    eq_diff = bs["total_assets_minor"] - bs["total_liab_equity_minor"]
+    checks.append(_check(
+        "BS_EQUATION", "Хөрөнгө = Өр төлбөр + Эздийн өмч",
+        bool(bs.get("balanced")),
+        f"Хөрөнгө {bs['total_assets_minor'] / 100:,.2f}₮ = "
+        f"Өр төлбөр + өмч {bs['total_liab_equity_minor'] / 100:,.2f}₮"
+        if bs.get("balanced") else f"Зөрүү {eq_diff / 100:+,.2f}₮"))
+
+    return {
+        "balanced": all(c["ok"] for c in checks),
+        "entry_count": entry_count,
+        "total_debit_minor": total_debit,
+        "total_credit_minor": total_credit,
+        "difference_minor": difference,
+        "unbalanced_entries": unbalanced[:50],
+        "unbalanced_count": len(unbalanced),
+        "checks": checks,
+    }

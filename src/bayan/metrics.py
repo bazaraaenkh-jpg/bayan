@@ -303,6 +303,27 @@ def _cash_forecast(session, company_id: str, p: Period) -> MetricResult:
                  "backtest_points": cf.backtest_points})
 
 
+def _balance_check(session, company_id: str, p: Period) -> MetricResult:
+    from .ledger import check_balance
+
+    res = check_balance(session, company_id, None, p.date_to)
+    return MetricResult(
+        metric="balance_check", title="Дебит/кредитийн тэнцэл",
+        period_label=f"{p.date_to:%Y-%m-%d}-ны байдлаар",
+        period_phrase=f"{p.date_to:%Y-%m-%d}-ны байдлаар",
+        value_minor=res["difference_minor"],
+        rows=[{"code": e["entry_date"] or "", "name": e["memo"] or "—",
+               "amount_minor": e["difference_minor"]}
+              for e in res["unbalanced_entries"][:10]],
+        accounts=[], source="Ерөнхий журналын бүх батлагдсан бичилт",
+        compare={"balanced": res["balanced"],
+                 "entry_count": res["entry_count"],
+                 "total_debit_minor": res["total_debit_minor"],
+                 "total_credit_minor": res["total_credit_minor"],
+                 "unbalanced_count": res["unbalanced_count"],
+                 "checks": res["checks"]})
+
+
 def _anomalies(session, company_id: str, p: Period) -> MetricResult:
     from . import anomalies as an
 
@@ -420,6 +441,11 @@ _register("cash_forecast", "Мөнгөн урсгалын таамаг",
           "13 долоо хоногийн мөнгөн урсгал, хамгийн доод цэг", "read",
           ("мөнгөн урсгалын таамаг", "13 долоо хоног", "мөнгө хүрэлцэх",
            "мөнгө дуусах", "мөнгөн урсгал"), _cash_forecast)
+
+_register("balance_check", "Дебит/кредитийн тэнцэл",
+          "Дэвтэр тэнцэж байгаа эсэх, тэнцэхгүй бол аль бичилт вэ", "read",
+          ("тэнцэл", "тэнцэж байна уу", "тэнцсэн үү", "дебит кредит",
+           "дебет кредит", "баланс тэнцэх", "тэнцэхгүй"), _balance_check)
 
 _register("anomalies", "Илэрсэн гажилт",
           "Давхар төлөлт, дансны буруу хослол, цалингийн гажилт", "read",

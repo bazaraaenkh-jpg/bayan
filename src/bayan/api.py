@@ -20,7 +20,8 @@ from datetime import date
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile, File, Form
+from fastapi import (Depends, FastAPI, File, Form, HTTPException, Query,
+                     Request, UploadFile)
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
@@ -1833,9 +1834,17 @@ class PayrollIn(BaseModel):
 
 @app.get("/api/companies/{company_id}/payroll/preview")
 def payroll_preview(company_id: str, year: int, month: int,
+                    norm_days: float | None = Query(None),
                     ctx: dict = Depends(company_guard("read")),
                     db: Session = Depends(get_db)):
+    import calendar
     from . import salary as salary_mod
+
+    cal = calendar.monthcalendar(year, month)
+    auto_norm_days = float(sum(1 for week in cal for day in week[0:5] if day != 0))
+    eff_norm_days = norm_days if (norm_days and norm_days > 0) else (auto_norm_days or 22.0)
+    eff_norm_hours = eff_norm_days * 8.0
+
     employees = db.scalars(select(salary_mod.Employee).where(
         salary_mod.Employee.company_id == company_id,
         salary_mod.Employee.active == True)).all()  # noqa: E712
@@ -1850,7 +1859,7 @@ def payroll_preview(company_id: str, year: int, month: int,
     result = []
     for e in employees:
         ts = ts_map.get(e.id)
-        w_days = ts.worked_days if ts else 22.0
+        w_days = ts.worked_days if ts else eff_norm_days
         v_days = ts.vacation_days if ts else 0.0
         s_days = ts.sick_days if ts else 0.0
         s_pct = ts.sick_pay_pct if ts else 60.0
@@ -1862,28 +1871,35 @@ def payroll_preview(company_id: str, year: int, month: int,
             base_salary_minor=e.base_salary_minor, worked_days=w_days,
             vacation_days=v_days, sick_days=s_days, sick_pay_pct=s_pct, cfg=cfg,
             overtime_hours=ot_hours, holiday_hours=hol_hours,
-            work_condition=work_cond
+            work_condition=work_cond, norm_days=eff_norm_days
         )
-        result.append({
+        worked_hours = w_days * 8.0
+
+        res_item = {
             "employee_id": e.id,
             "code": e.code,
             "last_name": e.last_name,
             "first_name": e.first_name,
-            "position": e.position or "",
-            "base_salary_minor": e.base_salary_minor,
-            "allowance_minor": 0,
-            "work_condition": work_cond,
-            "is_manual": False,
+            "position": e.position,
+            "norm_days": eff_norm_days,
+            "norm_hours": eff_norm_hours,
             "worked_days": w_days,
-            "gross_minor": c["gross"],
+            "worked_hours": worked_hours,
+            "base_salary_minor": e.base_salary_minor,
+            "allowance_minor": c["allowance_minor"],
+            "gross_minor": c["gross_minor"],
+            "ndsh_employer_minor": c["ndsh_employer_minor"],
+            "ndsh_employee_minor": c["ndsh_employee_minor"],
+            "hhoat_gross_minor": c["hhoat_gross_minor"],
+            "hhoat_credit_minor": c["hhoat_credit_minor"],
+            "hhoat_minor": c["hhoat_minor"],
+            "net_minor": c["net_minor"],
+            "work_condition": work_cond,
             "ndsh_er_pct": c["ndsh_er_pct"],
-            "ndsh_employer_minor": c["ndsh_er"],
-            "ndsh_employee_minor": c["ndsh_emp"],
-            "hhoat_gross_minor": c["hhoat_gross"],
-            "hhoat_credit_minor": c["hhoat_credit"],
-            "hhoat_minor": c["hhoat"],
-            "net_minor": c["net"]
-        })
+            "is_manual": False
+        }
+        result.append(res_item)
+
     return result
 
 
@@ -3341,6 +3357,18 @@ def trial_balance(company_id: str, date_from: str | None = None,
     d_from = date.fromisoformat(date_from) if date_from else None
     d_to = date.fromisoformat(date_to) if date_to else None
     return ledger.trial_balance(db, company_id, d_from, d_to)
+
+
+@app.get("/api/companies/{company_id}/balance-check")
+def balance_check_api(company_id: str, date_from: str | None = None,
+                      date_to: str | None = None,
+                      ctx: dict = Depends(company_guard("read")),
+                      db: Session = Depends(get_db)):
+    """Дебит/кредитийн тэнцлийн шалгуур — «тэнцлээ» эсвэл зөрүү нь хаана вэ."""
+    d_from = date.fromisoformat(date_from) if date_from else None
+    d_to = date.fromisoformat(date_to) if date_to else None
+    return ledger.check_balance(db, company_id, d_from, d_to)
+
 
 @app.get("/api/companies/{company_id}/trial-balance-detailed")
 def trial_balance_detailed(company_id: str, date_from: str | None = None,

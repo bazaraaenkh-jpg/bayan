@@ -123,9 +123,10 @@ def calc_one(base_salary_minor: int, worked_days: float, vacation_days: float,
              manual_ndsh_er_minor: int | None = None,
              manual_hhoat_minor: int | None = None,
              manual_net_minor: int | None = None,
-             manual_gross_minor: int | None = None) -> dict:
+             manual_gross_minor: int | None = None,
+             norm_days: float = 22.0) -> dict:
     """Нэг ажилтны цалинг цагийн бүртгэл, нэмэгдэл, хөнгөлөлт, хөдөлмөрийн нөхцөлөөр бодно."""
-    total_working_days = 22.0  # Сарын стандарт ажлын өдөр
+    total_working_days = norm_days if norm_days > 0 else 22.0  # Сарын ажлын өдрийн нормативын дагуу
     daily_rate = base_salary_minor / total_working_days
     hourly_rate = daily_rate / 8.0
     

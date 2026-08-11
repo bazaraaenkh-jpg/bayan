@@ -50,6 +50,246 @@
     --info-light: rgba(59, 130, 246, 0.15);
   }
 
+  /* ==================================================================
+     НАТИВЕ ЭЛЕМЕНТҮҮДИЙН ЗАСВАР
+     Хөтчийн өгөгдмөл харагдац (скролл, select, огноо сонгогч, чагт,
+     файл сонгох товч, autofill) нь үлдсэн загвартай огт нийцдэггүй —
+     ялангуяа Windows дээр 1990-ээд оны харагдацтай гардаг. Энд бүгдийг
+     нэг мөр загварын хувьсагчид уяв.
+     ================================================================== */
+
+  /* Хөтчийн өөрийн зурдаг зүйлс (popup, scrollbar, огнооны хуанли)
+     сэдвийг дагана. Үүнгүйгээр харанхуй сэдэвт цагаан popup гарна. */
+  :root { color-scheme: light; }
+  [data-theme="dark"] { color-scheme: dark; }
+
+  /* Чагт, радио, слайдер, прогресс — бүгд брэндийн өнгөөр */
+  :root, [data-theme="dark"] { accent-color: var(--primary); }
+
+  /* ------------------------------------------------------- скроллбар */
+  * { scrollbar-width: thin; scrollbar-color: var(--border-dark) transparent; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-dark);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: content-box; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  /* Дээш/доош сумтай хуучин товчнуудыг арилгана */
+  ::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+
+  /* Хажуугийн хар цэс дээр гэрэл өнгийн бариул */
+  #sidebar { scrollbar-color: rgba(255,255,255,.18) transparent; }
+  #sidebar ::-webkit-scrollbar-thumb,
+  #sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); background-clip: content-box; }
+  #sidebar ::-webkit-scrollbar-thumb:hover,
+  #sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.32); background-clip: content-box; }
+
+  /* --------------------------------------------------- сонголт, фокус */
+  ::selection { background: var(--primary); color: #fff; }
+
+  /* Хулганаар дарахад тойрог гарахгүй, зөвхөн гараас удирдахад гарна */
+  :focus { outline: none; }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* ------------------------------------------------------ select
+     Хаалттай байдлыг бүрэн загварчилна. Задарсан жагсаалтыг хөтөч
+     өөрөө зурдаг тул JS-ийн enhanceSelects() түүнийг сольдог —
+     энэ нь сайжруулагч ажиллахаас өмнөх болон fallback харагдац. */
+  select, select.input-field {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748b' d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 34px;
+    cursor: pointer;
+  }
+  select:disabled { cursor: not-allowed; opacity: .6; }
+  /* Дэмждэг хөтөч дээр жагсаалтын өнгө ч тааруулна */
+  select option { background: var(--card-bg); color: var(--text-main); }
+
+  /* --------------------------------------------------- тоо, огноо, цаг */
+  /* Тоон талбарын дээш/доош сум — санхүүгийн дүнд хэрэггүй, зайг иддэг */
+  input[type="number"] { -moz-appearance: textfield; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* Хуанлийн дүрсийг брэндийн өнгөнд оруулна */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px;
+    opacity: .55;
+    transition: opacity .15s, background-color .15s;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  input[type="month"]::-webkit-calendar-picker-indicator:hover,
+  input[type="time"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    background-color: var(--primary-light);
+  }
+  [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+  [data-theme="dark"] input[type="month"]::-webkit-calendar-picker-indicator,
+  [data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+  /* -------------------------------------------------------- файл сонгох */
+  input[type="file"] {
+    padding: 7px 10px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  input[type="file"]::file-selector-button {
+    margin-right: 12px;
+    padding: 7px 14px;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color .15s, border-color .15s;
+  }
+  input[type="file"]::file-selector-button:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  /* ------------------------------------------------- чагт, радио, textarea */
+  input[type="checkbox"], input[type="radio"] {
+    width: 16px; height: 16px;
+    cursor: pointer;
+    vertical-align: -2px;
+  }
+  textarea { resize: vertical; min-height: 72px; font-family: inherit; }
+
+  /* ------------------------------------------------------------ autofill
+     Хөтөч нууц үг сануулахад талбарыг цайвар шараар будчихдаг —
+     харанхуй сэдэвт бүр эвгүй. Дотоод сүүдрээр дарж бичнэ. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-main);
+    -webkit-box-shadow: 0 0 0 1000px var(--card-bg) inset;
+    caret-color: var(--text-main);
+    transition: background-color 9999s ease-in-out 0s;
+  }
+  [data-theme="dark"] input:-webkit-autofill,
+  [data-theme="dark"] input:-webkit-autofill:hover,
+  [data-theme="dark"] input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px #0b132b inset;
+  }
+
+  ::placeholder { color: var(--text-muted); opacity: .75; }
+
+  /* ------------------------------------------- өөрийн select (сайжруулагч) */
+  .sel { position: relative; display: inline-block; }
+  .sel > select { position: absolute; opacity: 0; pointer-events: none;
+                  width: 100%; height: 100%; left: 0; top: 0; }
+  .sel-btn {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; min-height: 38px; padding: 8px 12px;
+    border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
+    background: var(--card-bg); color: var(--text-main);
+    font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .sel-btn:hover { border-color: var(--primary); }
+  .sel.open .sel-btn { border-color: var(--primary);
+                       box-shadow: 0 0 0 3px var(--primary-light); }
+  .sel-btn .sel-caret { color: var(--text-muted); font-size: 11px; flex: none;
+                        transition: transform .18s; }
+  .sel.open .sel-btn .sel-caret { transform: rotate(180deg); }
+  .sel-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .sel-list {
+    position: absolute; z-index: 1200; left: 0; top: calc(100% + 6px);
+    min-width: 100%; max-height: 280px; overflow-y: auto;
+    padding: 6px; margin: 0; list-style: none;
+    background: var(--card-bg); color: var(--text-main);
+    border: 1px solid var(--border-dark); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg); display: none;
+  }
+  .sel.open .sel-list { display: block; }
+  .sel.drop-up .sel-list { top: auto; bottom: calc(100% + 6px); }
+  .sel-opt {
+    padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13.5px;
+    white-space: nowrap; display: flex; align-items: center; gap: 8px;
+  }
+  .sel-opt:hover, .sel-opt.active { background: var(--primary-light); }
+  /* Сонгогдсоныг үйлдлийн системийн хөх биш, брэндийн өнгөөр тэмдэглэнэ */
+  .sel-opt[aria-selected="true"] { color: var(--primary); font-weight: 600; }
+  .sel-opt[aria-selected="true"]::after {
+    content: "\f00c"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+    margin-left: auto; font-size: 11px;
+  }
+  .sel-opt[data-disabled="1"] { opacity: .45; cursor: not-allowed; }
+
+  /* ------------------------------------------------------------- toast
+     Хөтчийн alert() нь домэйны нэр бүхий саарал хайрцаг гаргадаг —
+     аппликейшны дотор байгаа юм шиг харагддаггүй. */
+  #toastWrap {
+    position: fixed; right: 20px; top: 20px; z-index: 3000;
+    display: flex; flex-direction: column; gap: 10px;
+    max-width: min(420px, calc(100vw - 40px));
+  }
+  .toast {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px; border-radius: var(--radius-sm);
+    background: var(--card-bg); color: var(--text-main);
+    border: 1px solid var(--border-dark); border-left: 4px solid var(--primary);
+    box-shadow: var(--shadow-lg); font-size: 13.5px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+    animation: toastIn .18s ease-out;
+  }
+  .toast.error { border-left-color: var(--danger); }
+  .toast.warn { border-left-color: var(--warning); }
+  .toast .toast-x {
+    margin-left: auto; background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: 14px; padding: 0 2px; flex: none;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(16px); } }
+  .toast.leaving { opacity: 0; transform: translateX(16px); transition: .18s; }
+
+  /* --------------------------------------------------------- жижиг засвар */
+  .sidebar-footer { justify-content: space-between; }
+  .sidebar-footer i { opacity: .5; }
+
+  /* ------------------------------------------ дебит/кредитийн тэнцлийн баннер */
+  .bal-banner {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; margin-bottom: 16px;
+    border-radius: var(--radius-sm); border: 1px solid;
+    font-size: 13.5px; line-height: 1.5;
+  }
+  .bal-banner > i { font-size: 18px; margin-top: 1px; flex: none; }
+  .bal-banner.ok { background: var(--primary-light); border-color: var(--primary);
+                   color: var(--text-main); }
+  .bal-banner.ok > i { color: var(--primary); }
+  .bal-banner.bad { background: var(--danger-light); border-color: var(--danger);
+                    color: var(--text-main); }
+  .bal-banner.bad > i { color: var(--danger); }
+  .bal-sub { color: var(--text-muted); font-size: 12.5px; margin-top: 3px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important;
+                             transition-duration: .01ms !important; }
+  }
+
   [data-theme="dark"] tr.coa-group-row,
   [data-theme="dark"] tr[style*="background-color:#fafafa"],
   [data-theme="dark"] tr[style*="background-color: #fafafa"],
@@ -1254,6 +1494,217 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
 // ---------------------------------------------------- Хүснэгтийн нэгдсэн хэрэгсэл
 // Хайлт, багана сонгогч, мөрийн тоог хүснэгт болгонд гар аргаар бичихийн оронд
 // нэг удаа бичээд <table data-tools> гэж тэмдэглэхэд л залгагдана.
+
+// ==================================================================
+// НАТИВЕ ЭЛЕМЕНТҮҮДИЙН САЙЖРУУЛАГЧ
+//
+// <select>-ийн ЗАДАРСАН жагсаалтыг хөтөч өөрөө зурдаг тул CSS-ээр
+// загварчлах боломжгүй — Windows дээр үйлдлийн системийн хөх сонголт
+// гарч, аппын харагдацтай огт нийцдэггүй. Тиймээс жинхэнэ <select>-ийг
+// нуулгүй үлдээж (утга, onchange нь хэвээр ажиллана) дээрээс нь
+// загварчилсан жагсаалт зурна.
+// ==================================================================
+
+function selLabelOf(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  return opt ? opt.textContent.trim() : '';
+}
+
+function syncSelLabel(sel) {
+  const wrap = sel.closest('.sel');
+  if (!wrap) return;
+  const label = wrap.querySelector('.sel-label');
+  if (label) label.textContent = selLabelOf(sel) || '—';
+}
+
+function closeAllSels(except) {
+  document.querySelectorAll('.sel.open').forEach(w => {
+    if (w !== except) w.classList.remove('open');
+  });
+}
+
+function buildSelList(sel, wrap) {
+  const list = wrap.querySelector('.sel-list');
+  list.innerHTML = [...sel.options].map((o, i) => `
+    <li class="sel-opt" role="option" data-i="${i}"
+        aria-selected="${i === sel.selectedIndex}"
+        ${o.disabled ? 'data-disabled="1"' : ''}>${esc(o.textContent.trim())}</li>`
+  ).join('');
+
+  list.querySelectorAll('.sel-opt').forEach(li => {
+    li.onclick = () => {
+      if (li.dataset.disabled) return;
+      sel.selectedIndex = +li.dataset.i;
+      syncSelLabel(sel);
+      wrap.classList.remove('open');
+      // Инлайн onchange болон addEventListener хоёуланд хүрнэ
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+  });
+}
+
+function openSel(sel, wrap) {
+  buildSelList(sel, wrap);
+  closeAllSels(wrap);
+  wrap.classList.add('open');
+
+  // Доод ирмэгт ойрхон бол дээшээ нээнэ
+  const list = wrap.querySelector('.sel-list');
+  const room = window.innerHeight - wrap.getBoundingClientRect().bottom;
+  wrap.classList.toggle('drop-up', room < Math.min(list.scrollHeight + 20, 300));
+
+  const active = list.querySelector('[aria-selected="true"]');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+function enhanceSelects(root) {
+  (root || document).querySelectorAll('select:not([data-sel-ready])').forEach(sel => {
+    if (sel.multiple || sel.size > 1) return;
+    sel.setAttribute('data-sel-ready', '1');
+
+    const wrap = document.createElement('div');
+    wrap.className = 'sel';
+    // Байрлалын өргөнийг хадгална (олон select инлайн өргөнтэй)
+    const w = sel.style.width || (sel.className.includes('input-field') ? '100%' : '');
+    if (w) wrap.style.width = w;
+
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sel-btn';
+    btn.setAttribute('aria-haspopup', 'listbox');
+    btn.innerHTML = `<span class="sel-label"></span>
+                     <i class="fa-solid fa-chevron-down sel-caret"></i>`;
+    if (sel.disabled) btn.disabled = true;
+
+    const list = document.createElement('ul');
+    list.className = 'sel-list';
+    list.setAttribute('role', 'listbox');
+
+    wrap.appendChild(btn);
+    wrap.appendChild(list);
+    syncSelLabel(sel);
+
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if (wrap.classList.contains('open')) wrap.classList.remove('open');
+      else openSel(sel, wrap);
+    };
+
+    btn.onkeydown = (e) => {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) {
+        e.preventDefault();
+        if (!wrap.classList.contains('open')) return openSel(sel, wrap);
+        const opts = [...list.querySelectorAll('.sel-opt:not([data-disabled])')];
+        const cur = opts.findIndex(o => o.classList.contains('active'));
+        if (e.key === 'Enter' || e.key === ' ') {
+          (opts[cur] || list.querySelector('[aria-selected="true"]') || opts[0]).click();
+          return;
+        }
+        const next = e.key === 'ArrowDown'
+          ? Math.min((cur < 0 ? sel.selectedIndex : cur) + 1, opts.length - 1)
+          : Math.max((cur < 0 ? sel.selectedIndex : cur) - 1, 0);
+        opts.forEach(o => o.classList.remove('active'));
+        if (opts[next]) { opts[next].classList.add('active');
+                          opts[next].scrollIntoView({ block: 'nearest' }); }
+      } else if (e.key === 'Escape') {
+        wrap.classList.remove('open');
+      }
+    };
+
+    // Програмаас утга/сонголт солигдвол шошгыг дагуулна
+    sel.addEventListener('change', () => syncSelLabel(sel));
+    new MutationObserver(() => syncSelLabel(sel))
+      .observe(sel, { childList: true, subtree: true, attributes: true });
+  });
+}
+
+document.addEventListener('click', () => closeAllSels());
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllSels(); });
+
+// ------------------------------------------------------------------ toast
+//
+// alert() нь хөтчийн саарал хайрцгийг домэйны нэртэй хамт гаргадаг.
+// Дуудлагын газруудыг өөрчлөхгүйгээр аппын дотоод мэдэгдэл болгов.
+
+function toast(message, kind = 'info', ms = 5200) {
+  let wrap = $('#toastWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toastWrap';
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind === 'info' ? '' : ' ' + kind);
+  el.innerHTML = `<div>${esc(message)}</div>
+    <button class="toast-x" title="Хаах"><i class="fa-solid fa-xmark"></i></button>`;
+  const kill = () => {
+    el.classList.add('leaving');
+    setTimeout(() => el.remove(), 200);
+  };
+  el.querySelector('.toast-x').onclick = kill;
+  wrap.appendChild(el);
+  // Урт мессежийг уншихад хугацаа нэмнэ
+  setTimeout(kill, ms + Math.min(String(message).length * 25, 6000));
+  return el;
+}
+
+window.toast = toast;
+window.alert = (msg) => {
+  const text = String(msg == null ? '' : msg);
+  const kind = /алдаа|error|болсонгүй|чадсангүй|буруу/i.test(text) ? 'error' : 'info';
+  toast(text, kind);
+};
+
+// ------------------------------------------------- дебит/кредитийн тэнцэл
+//
+// Нябо-гийн хамгийн эхний асуулт нь «тэнцэж байна уу» — түүнд нэг харцаар
+// хариулна. Тэнцэхгүй бол зөрүүг НУУХГҮЙ, аль бичилт болохыг нь заана.
+
+function balanceBannerHtml(bal) {
+  if (!bal) return '';
+
+  if (bal.balanced) {
+    return `<div class="bal-banner ok">
+      <i class="fa-solid fa-circle-check"></i>
+      <div>
+        <b>Дебит ба кредит тэнцлээ</b>
+        <div class="bal-sub">${bal.entry_count} бичилт · дебит ${fmt(bal.total_debit_minor)}
+          = кредит ${fmt(bal.total_credit_minor)}</div>
+      </div>
+    </div>`;
+  }
+
+  const failed = (bal.checks || []).filter(c => !c.ok);
+  const rows = (bal.unbalanced_entries || []).slice(0, 8).map(e => `<tr>
+      <td>${esc(e.entry_date || '')}</td>
+      <td>№${e.entry_no ?? ''} ${esc(e.memo || '')}</td>
+      <td class="num">${fmt(e.debit_minor)}</td>
+      <td class="num">${fmt(e.credit_minor)}</td>
+      <td class="num" style="font-weight:700">${fmt(e.difference_minor)}</td>
+    </tr>`).join('');
+
+  return `<div class="bal-banner bad">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <div style="flex:1">
+      <b>Дебит ба кредит ТЭНЦЭХГҮЙ байна — зөрүү ${fmt(bal.difference_minor)}</b>
+      <div class="bal-sub">${failed.map(c => esc(c.title + ': ' + c.detail)).join(' · ')}</div>
+      ${rows ? `<div style="overflow-x:auto; margin-top:10px;">
+        <table class="grid-table" style="font-size:12.5px; margin:0;">
+          <thead><tr><th>Огноо</th><th>Бичилт</th><th class="num">Дебит</th>
+            <th class="num">Кредит</th><th class="num">Зөрүү</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${bal.unbalanced_count > 8
+          ? `<p class="muted" style="font-size:12px; margin:6px 0 0">
+               … бусад ${bal.unbalanced_count - 8} бичилт</p>` : ''}
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
 function enhanceTables(root) {
   (root || document).querySelectorAll('table[data-tools]:not([data-tools-ready])')
     .forEach(table => {
@@ -1325,7 +1776,10 @@ let _tableWatcher = null;
 function watchContentForTables() {
   const content = $('#content');
   if (!content || _tableWatcher) return;
-  _tableWatcher = new MutationObserver(() => enhanceTables(content));
+  _tableWatcher = new MutationObserver(() => {
+    enhanceTables(content);
+    enhanceSelects(content);
+  });
   _tableWatcher.observe(content, { childList: true, subtree: true });
 }
 
@@ -1387,6 +1841,7 @@ function showForm(title, fields, onsubmit) {
       <button class="btn" id="mfOk">Хадгалах</button>
     </div>`;
   $('#modalOverlay').style.display = 'flex';
+  enhanceSelects($('#modalCard'));
   $('#mfOk').onclick = async () => {
     const vals = {};
     fields.forEach(f => vals[f.k] = $('#mf_' + f.k).value);
@@ -1394,7 +1849,8 @@ function showForm(title, fields, onsubmit) {
     hideModal();
   };
 }
-function showModal() { $('#modalOverlay').style.display = 'flex'; }
+function showModal() { $('#modalOverlay').style.display = 'flex';
+  enhanceSelects($('#modalCard')); }
 function hideModal() { $('#modalOverlay').style.display = 'none'; }
 
 async function post(path, body) {
@@ -1482,6 +1938,8 @@ async function loadCompanies(selectedId = null) {
     companyId = sel.value = me.companies[0].id;
   }
   sel.onchange = () => { companyId = sel.value; render(); };
+  enhanceSelects(sel.parentNode);   // толгойн компани сонгогч
+  syncSelLabel(sel);                // жагсаалт шинэчлэгдсэн тул шошгыг дагуулна
   return true;
 }
 
@@ -1572,6 +2030,7 @@ async function render() {
 
   // AI туслах чатбот — бүх дэлгэц дээр хамт явна (нэг удаа суулгана)
   mountAssistantChat();
+  enhanceSelects(document);   // толгой, хажуу цэс дэх select-үүд
 
   // Update header breadcrumb depending on tab selection
   const tabTitles = {
@@ -1636,6 +2095,7 @@ async function render() {
     $('#content').innerHTML = '<div class="muted"><i class="fa-solid fa-spinner fa-spin"></i> Ачаалж байна…</div>';
     await fns[tab]();
     enhanceTables($('#content'));
+    enhanceSelects($('#content'));
     watchContentForTables();
   }
 }
@@ -2609,9 +3069,11 @@ async function renderTrialBalanceTab() {
   if (!window._tbGroup) window._tbGroup = "all";
   if (window._tbShowEmpty === undefined) window._tbShowEmpty = false;
 
-  const [tb, locks] = await Promise.all([
+  const [tb, locks, bal] = await Promise.all([
     api(`/companies/${companyId}/trial-balance-detailed?date_from=${window._tbFrom}&date_to=${window._tbTo}`),
-    api(`/companies/${companyId}/period-locks`)
+    api(`/companies/${companyId}/period-locks`),
+    api(`/companies/${companyId}/balance-check?date_from=${window._tbFrom}&date_to=${window._tbTo}`)
+      .catch(() => null)
   ]);
 
   const isMonthLocked = (m) => locks.some(l => l.year === currentYear && l.month === m);
@@ -2782,6 +3244,8 @@ async function renderTrialBalanceTab() {
         align-items: flex-end;
       }
     </style>
+
+    ${balanceBannerHtml(bal)}
 
     <!-- Top Action bar exactly matching screenshot -->
     <div class="tb-header-actions">
@@ -6896,6 +7360,19 @@ function assetDepreciate() {
 
 // ---------------------------------------------------- Salary Tab
 // ---------------------------------------------------- Salary Tab (Erkhet Style Grid & Work Conditions)
+function getMonthWorkDays(year, month) {
+  let count = 0;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayOfWeek = new Date(year, month - 1, d).getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count++;
+    }
+  }
+  return count > 0 ? count : 22;
+}
+
+// ---------------------------------------------------- Salary Tab (Erkhet Style Grid & Work Conditions)
 async function salaryTab() {
   const now = new Date();
   if (!window._salaryYear) window._salaryYear = now.getFullYear();
@@ -6903,65 +7380,95 @@ async function salaryTab() {
 
   const year = window._salaryYear;
   const month = window._salaryMonth;
+  const autoNormDays = getMonthWorkDays(year, month);
+  if (!window._salaryNormDays) window._salaryNormDays = autoNormDays;
+  const globalNorm = window._salaryNormDays;
 
   const [emps, preview, postedPayroll] = await Promise.all([
     api(`/companies/${companyId}/employees`),
-    api(`/companies/${companyId}/payroll/preview?year=${year}&month=${month}`).catch(() => []),
+    api(`/companies/${companyId}/payroll/preview?year=${year}&month=${month}&norm_days=${globalNorm}`).catch(() => []),
     api(`/companies/${companyId}/payroll?year=${year}&month=${month}`).catch(() => [])
   ]);
 
   window._salaryData = preview;
 
-  const workCondLabels = {
-    normal: 'Хэвийн (АО 12.5%)',
-    heavy: 'Хүнд (АО 13.5%)',
-    harmful: 'Хөнөөлтэй (АО 14.5%)',
-    underground: 'Гүний уурхай (АО 15.5%)'
+  const fmtInt = m => Math.round((m || 0) / 100).toLocaleString('en-US');
+  const fmtVal = m => Math.round((m || 0) / 100).toLocaleString('en-US');
+  const parseVal = str => {
+    if (typeof str === 'number') return Math.round(str * 100);
+    const clean = String(str).replace(/,/g, '').trim();
+    return Math.round((parseFloat(clean) || 0) * 100);
   };
 
   const renderRow = (p, idx) => {
     const isMan = p.is_manual || false;
+    const rowNormDays = p.norm_days || globalNorm || 22;
+    const rowNormHours = rowNormDays * 8;
+    const wHours = p.worked_hours !== undefined ? p.worked_hours : (p.worked_days ? p.worked_days * 8 : rowNormHours);
+
     return `
       <tr data-emp-id="${p.employee_id}" style="background-color: ${isMan ? 'rgba(245,158,11,0.06)' : 'transparent'}; transition: background-color 0.2s;">
-        <td style="padding:8px 10px; font-weight:600;">${esc(p.last_name)}</td>
-        <td style="padding:8px 10px; font-weight:600;">${esc(p.first_name)}</td>
-        <td style="padding:6px;">
-          <select class="input-field work-cond-select" data-idx="${idx}" onchange="updateSalaryRow(${idx}, 'work_condition', this.value)" style="padding:4px 8px; font-size:12px; height:32px; min-width:145px;">
+        <!-- Single Rock Solid Sticky Left Column: Name & Position -->
+        <td style="position:sticky; left:0; z-index:10; background:var(--bg-card, #ffffff); padding:8px 12px; font-weight:600; font-size:12.5px; border-right:2px solid var(--border-dark); white-space:nowrap; min-width:160px; max-width:180px; box-shadow:3px 0 6px rgba(0,0,0,0.06);">
+          <div style="font-weight:600; color:var(--text-main);">${esc(p.last_name)} ${esc(p.first_name)}</div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:normal;">${esc(p.position || 'Үндсэн ажилтан')}</div>
+        </td>
+
+        <!-- Work Conditions & Manual Switch -->
+        <td style="padding:6px; border-right:1px solid var(--border);">
+          <select class="input-field work-cond-select" data-idx="${idx}" onchange="updateSalaryRow(${idx}, 'work_condition', this.value)" style="padding:4px 8px; font-size:12.5px; height:32px; min-width:145px; font-family:inherit;">
             <option value="normal" ${p.work_condition === 'normal' ? 'selected' : ''}>Хэвийн (12.5%)</option>
             <option value="heavy" ${p.work_condition === 'heavy' ? 'selected' : ''}>Хүнд (13.5%)</option>
             <option value="harmful" ${p.work_condition === 'harmful' ? 'selected' : ''}>Хөнөөлтэй (14.5%)</option>
             <option value="underground" ${p.work_condition === 'underground' ? 'selected' : ''}>Гүний уурхай (15.5%)</option>
           </select>
         </td>
-        <td style="text-align:center; padding:6px;">
+        <td style="text-align:center; padding:6px; border-right:1px solid var(--border);">
           <input type="checkbox" ${isMan ? 'checked' : ''} onchange="updateSalaryRow(${idx}, 'is_manual', this.checked)" style="width:16px; height:16px; cursor:pointer;" title="Гараас дүн оруулах">
         </td>
+
+        <!-- Interactive Work Norm Selector per Row -->
+        <td style="padding:4px; text-align:center; border-right:1px solid var(--border); white-space:nowrap;">
+          <select class="input-field" style="height:32px; padding:0 4px; font-size:12px; text-align:center; font-family:inherit; font-weight:600;" onchange="updateSalaryRow(${idx}, 'norm_days', +this.value)">
+            <option value="22" ${rowNormDays == 22 ? 'selected' : ''}>22өдөр / 176цаг</option>
+            <option value="21" ${rowNormDays == 21 ? 'selected' : ''}>21өдөр / 168цаг</option>
+            <option value="20" ${rowNormDays == 20 ? 'selected' : ''}>20өдөр / 160цаг</option>
+            <option value="23" ${rowNormDays == 23 ? 'selected' : ''}>23өдөр / 184цаг</option>
+            <option value="19" ${rowNormDays == 19 ? 'selected' : ''}>19өдөр / 152цаг</option>
+            <option value="18" ${rowNormDays == 18 ? 'selected' : ''}>18өдөр / 144цаг</option>
+          </select>
+        </td>
+        <td class="num" style="padding:6px; border-right:1px solid var(--border);">
+          <input type="number" class="input-field num" value="${wHours}" style="padding:4px 8px; font-size:12.5px; height:32px; width:75px; text-align:center; font-family:inherit;" onchange="updateSalaryRow(${idx}, 'worked_hours', +this.value)" title="Ажилласан цаг">
+        </td>
+
+        <!-- Financial Columns (All values formatted with commas) -->
         <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.base_salary_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'base_salary', +this.value * 100)">
+          <input type="text" class="input-field num" value="${fmtVal(p.base_salary_minor)}" ${!isMan ? 'readonly style="background:transparent; border:none; font-size:12.5px; font-family:inherit;"' : 'style="padding:4px 8px; font-size:12.5px; height:32px; font-family:inherit;"'} onfocus="this.select()" onblur="this.value = fmtVal(p.base_salary_minor)" onchange="updateSalaryRow(${idx}, 'base_salary', parseVal(this.value))">
         </td>
         <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.allowance_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#10b981;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'allowance', +this.value * 100)">
+          <input type="text" class="input-field num" value="${fmtVal(p.allowance_minor)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#10b981; font-size:12.5px; font-family:inherit;"' : 'style="padding:4px 8px; font-size:12.5px; height:32px; font-family:inherit;"'} onfocus="this.select()" onblur="this.value = fmtVal(p.allowance_minor)" onchange="updateSalaryRow(${idx}, 'allowance', parseVal(this.value))">
         </td>
         <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.gross_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; font-weight:700;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'gross', +this.value * 100)">
+          <input type="text" class="input-field num" value="${fmtVal(p.gross_minor)}" ${!isMan ? 'readonly style="background:transparent; border:none; font-weight:700; font-size:12.5px; font-family:inherit;"' : 'style="padding:4px 8px; font-size:12.5px; height:32px; font-family:inherit;"'} onfocus="this.select()" onblur="this.value = fmtVal(p.gross_minor)" onchange="updateSalaryRow(${idx}, 'gross', parseVal(this.value))">
         </td>
         <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.ndsh_employer_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#2563eb;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'ndsh_er', +this.value * 100)">
+          <input type="text" class="input-field num" value="${fmtVal(p.ndsh_employer_minor)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#2563eb; font-size:12.5px; font-family:inherit;"' : 'style="padding:4px 8px; font-size:12.5px; height:32px; font-family:inherit;"'} onfocus="this.select()" onblur="this.value = fmtVal(p.ndsh_employer_minor)" onchange="updateSalaryRow(${idx}, 'ndsh_er', parseVal(this.value))">
         </td>
         <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.ndsh_employee_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#d97706;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'ndsh_emp', +this.value * 100)">
+          <input type="text" class="input-field num" value="${fmtVal(p.ndsh_employee_minor)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#d97706; font-size:12.5px; font-family:inherit;"' : 'style="padding:4px 8px; font-size:12.5px; height:32px; font-family:inherit;"'} onfocus="this.select()" onblur="this.value = fmtVal(p.ndsh_employee_minor)" onchange="updateSalaryRow(${idx}, 'ndsh_emp', parseVal(this.value))">
+        </td>
+        <td class="num" style="padding:8px 10px; opacity:0.85; font-size:12.5px;">
+          ${fmtInt(p.hhoat_gross_minor || p.hhoat_minor)} ₮
         </td>
         <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.hhoat_gross_minor || p.hhoat_minor || 0) / 100).toFixed(0)}" readonly style="background:transparent; border:none; opacity:0.85;">
+          <input type="text" class="input-field num" value="${fmtVal(p.hhoat_credit_minor || 2000000)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#6366f1; font-size:12.5px; font-family:inherit;"' : 'style="padding:4px 8px; font-size:12.5px; height:32px; font-family:inherit;"'} onfocus="this.select()" onblur="this.value = fmtVal(p.hhoat_credit_minor || 2000000)" onchange="updateSalaryRow(${idx}, 'hhoat_credit', parseVal(this.value))">
         </td>
         <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.hhoat_credit_minor || 2000000) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; color:#6366f1;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'hhoat_credit', +this.value * 100)">
+          <input type="text" class="input-field num" value="${fmtVal(p.hhoat_minor)}" ${!isMan ? 'readonly style="background:transparent; border:none; font-size:12.5px; font-family:inherit;"' : 'style="padding:4px 8px; font-size:12.5px; height:32px; font-family:inherit;"'} onfocus="this.select()" onblur="this.value = fmtVal(p.hhoat_minor)" onchange="updateSalaryRow(${idx}, 'hhoat', parseVal(this.value))">
         </td>
         <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.hhoat_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'hhoat', +this.value * 100)">
-        </td>
-        <td class="num" style="padding:6px;">
-          <input type="number" class="input-field num" value="${((p.net_minor || 0) / 100).toFixed(0)}" ${!isMan ? 'readonly style="background:transparent; border:none; font-weight:700; color:#10b981;"' : 'style="padding:4px 8px; font-size:12px; height:32px;"'} onchange="updateSalaryRow(${idx}, 'net', +this.value * 100)">
+          <input type="text" class="input-field num" value="${fmtVal(p.net_minor)}" ${!isMan ? 'readonly style="background:transparent; border:none; font-weight:700; color:#10b981; font-size:12.5px; font-family:inherit;"' : 'style="padding:4px 8px; font-size:12.5px; height:32px; font-family:inherit;"'} onfocus="this.select()" onblur="this.value = fmtVal(p.net_minor)" onchange="updateSalaryRow(${idx}, 'net', parseVal(this.value))">
         </td>
       </tr>
     `;
@@ -6981,62 +7488,75 @@ async function salaryTab() {
     <!-- Top Action Bar -->
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <h2 style="margin:0;"><i class="fa-solid fa-calculator" style="color:var(--primary)"></i> Цалингийн тооцоожуулагч</h2>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <h2 style="margin:0; font-size:18px;"><i class="fa-solid fa-calculator" style="color:var(--primary)"></i> Цалингийн тооцоолол</h2>
           <div style="display:flex; align-items:center; gap:6px;">
-            <input type="number" class="input-field" id="salYear" value="${year}" style="width:80px; height:36px; padding:4px 8px;" onchange="changeSalaryPeriod()">
-            <span>он</span>
-            <input type="number" class="input-field" id="salMonth" value="${month}" min="1" max="12" style="width:60px; height:36px; padding:4px 8px;" onchange="changeSalaryPeriod()">
-            <span>сар</span>
+            <input type="number" class="input-field" id="salYear" value="${year}" style="width:75px; height:34px; padding:4px 8px; font-size:12.5px;" onchange="changeSalaryPeriod()">
+            <span style="font-size:12.5px;">он</span>
+            <input type="number" class="input-field" id="salMonth" value="${month}" min="1" max="12" style="width:55px; height:34px; padding:4px 8px; font-size:12.5px;" onchange="changeSalaryPeriod()">
+            <span style="font-size:12.5px;">сар</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; background:var(--bg-subtle, #f8fafc); padding:4px 10px; border-radius:6px; border:1px solid var(--border);">
+            <span style="font-size:12px; font-weight:600; color:var(--text-muted);">Сарын норматив:</span>
+            <select class="input-field" id="salNormDays" style="height:30px; font-size:12px; font-weight:600; padding:2px 6px;" onchange="changeSalaryNormDays(+this.value)">
+              <option value="22" ${globalNorm == 22 ? 'selected' : ''}>22 өдөр / 176 цаг</option>
+              <option value="21" ${globalNorm == 21 ? 'selected' : ''}>21 өдөр / 168 цаг</option>
+              <option value="20" ${globalNorm == 20 ? 'selected' : ''}>20 өдөр / 160 цаг</option>
+              <option value="23" ${globalNorm == 23 ? 'selected' : ''}>23 өдөр / 184 цаг</option>
+              <option value="19" ${globalNorm == 19 ? 'selected' : ''}>19 өдөр / 152 цаг</option>
+              <option value="18" ${globalNorm == 18 ? 'selected' : ''}>18 өдөр / 144 цаг</option>
+            </select>
           </div>
         </div>
 
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn secondary" onclick="empNew()"><i class="fa-solid fa-user-plus"></i> Ажилтан нэмэх</button>
-          <button class="btn secondary" onclick="showTimesheetsModal()"><i class="fa-solid fa-calendar-days"></i> Цагийн бүртгэл (Табель)</button>
-          <button class="btn secondary" onclick="resetSalaryRowCalculations()"><i class="fa-solid fa-rotate-right"></i> Тохиргоо шинэчлэх</button>
-          <button class="btn" onclick="saveAndPostPayroll(${year}, ${month})" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);"><i class="fa-solid fa-check-double"></i> Баталж Журналд бичих</button>
+          <button class="btn secondary" style="font-size:12.5px;" onclick="empNew()"><i class="fa-solid fa-user-plus"></i> Ажилтан нэмэх</button>
+          <button class="btn secondary" style="font-size:12.5px;" onclick="showTimesheetsModal()"><i class="fa-solid fa-calendar-days"></i> Цагийн бүртгэлийн хүснэгт</button>
+          <button class="btn secondary" style="font-size:12.5px;" onclick="resetSalaryRowCalculations()"><i class="fa-solid fa-rotate-right"></i> Тохиргоо шинэчлэх</button>
+          <button class="btn" onclick="saveAndPostPayroll(${year}, ${month})" style="font-size:12.5px; background:linear-gradient(135deg, #10b981 0%, #059669 100%);"><i class="fa-solid fa-check-double"></i> Баталж Журналд бичих</button>
         </div>
       </div>
     </div>
 
-    <!-- Main Spreadsheet Table -->
+    <!-- Main Horizontal Scroll Spreadsheet Table -->
     <div class="card" style="padding:0; overflow:hidden;">
-      <div style="overflow-x:auto;">
-        <table class="grid-table" style="width:100%; border-collapse:collapse; font-size:12px;">
+      <div style="overflow-x:auto; max-width:100%;">
+        <table class="grid-table" style="width:100%; min-width:1300px; border-collapse:collapse; font-size:12.5px; font-family:inherit;">
           <thead>
-            <tr style="background:var(--border); border-bottom:2px solid var(--border-dark);">
-              <th style="padding:10px; text-align:left;">Овог</th>
-              <th style="padding:10px; text-align:left;">Нэр</th>
-              <th style="padding:10px; text-align:left; min-width:145px;">Хөдөлмөрийн нөхцөл (АО %)</th>
+            <tr style="background:var(--border); border-bottom:2px solid var(--border-dark); font-size:12.5px;">
+              <th style="position:sticky; left:0; z-index:11; background:var(--border); padding:10px 12px; text-align:left; min-width:160px; max-width:180px; border-right:2px solid var(--border-dark);">Овог Нэр / Албан тушаал</th>
+              <th style="padding:10px; text-align:left; min-width:150px;">Хөдөлмөрийн нөхцөл (АО %)</th>
               <th style="padding:10px; text-align:center; width:55px;">Гараас</th>
-              <th style="padding:10px; text-align:right;">Үндсэн цалин (₮)</th>
-              <th style="padding:10px; text-align:right;">Нэмэгдэл / Урамшуулал (₮)</th>
-              <th style="padding:10px; text-align:right;">Олгосон (Бохир) (₮)</th>
-              <th style="padding:10px; text-align:right;">ЭМД/НДШ (АО)</th>
-              <th style="padding:10px; text-align:right;">ЭМД/НДШ (Даатгуулагч)</th>
-              <th style="padding:10px; text-align:right;">Бодогдсон ХХОАТ</th>
-              <th style="padding:10px; text-align:right;">Хөнгөлөлт (₮)</th>
-              <th style="padding:10px; text-align:right;">Ногдох татвар (₮)</th>
-              <th style="padding:10px; text-align:right;">Гарт олгох (₮)</th>
+              <th style="padding:10px; text-align:center; min-width:130px;">Ажиллавал зохих</th>
+              <th style="padding:10px; text-align:center; min-width:85px;">Ажилласан (цаг)</th>
+              <th style="padding:10px; text-align:right; min-width:110px;">Үндсэн цалин (₮)</th>
+              <th style="padding:10px; text-align:right; min-width:120px;">Нэмэгдэл / Урамшуулал</th>
+              <th style="padding:10px; text-align:right; min-width:120px;">Олгох цалин</th>
+              <th style="padding:10px; text-align:right; min-width:100px;">ЭМД/НДШ (АО)</th>
+              <th style="padding:10px; text-align:right; min-width:115px;">ЭМД/НДШ (Даатгуулагч)</th>
+              <th style="padding:10px; text-align:right; min-width:105px;">Бодогдсон ХХОАТ</th>
+              <th style="padding:10px; text-align:right; min-width:100px;">Хөнгөлөлт (₮)</th>
+              <th style="padding:10px; text-align:right; min-width:100px;">Ногдох татвар</th>
+              <th style="padding:10px; text-align:right; min-width:110px;">Гарт олгох (₮)</th>
             </tr>
           </thead>
           <tbody id="salaryTableBody">
             ${preview.map((p, i) => renderRow(p, i)).join('')
-            || '<tr><td colspan="13" class="muted" style="text-align:center; padding:24px;">Ажилтан бүртгэгдээгүй байна. Ажилтан нэмэх товчийг дарна уу.</td></tr>'}
+            || '<tr><td colspan="14" class="muted" style="text-align:center; padding:24px;">Ажилтан бүртгэгдээгүй байна. Ажилтан нэмэх товчийг дарна уу.</td></tr>'}
           </tbody>
           <tfoot>
-            <tr style="background:rgba(16,185,129,0.08); font-weight:700; border-top:2px solid var(--border);">
-              <td colspan="4" style="padding:12px 10px;">НИЙТ ДҮН:</td>
-              <td class="num" style="padding:12px 10px;">${fmt(totBase)}</td>
-              <td class="num" style="padding:12px 10px; color:#10b981;">${fmt(totAllow)}</td>
-              <td class="num" style="padding:12px 10px;">${fmt(totGross)}</td>
-              <td class="num" style="padding:12px 10px; color:#2563eb;">${fmt(totNdshEr)}</td>
-              <td class="num" style="padding:12px 10px; color:#d97706;">${fmt(totNdshEmp)}</td>
-              <td class="num" style="padding:12px 10px; opacity:0.85;">${fmt(totHhoatGross)}</td>
-              <td class="num" style="padding:12px 10px; color:#6366f1;">${fmt(totHhoatCredit)}</td>
-              <td class="num" style="padding:12px 10px;">${fmt(totHhoat)}</td>
-              <td class="num" style="padding:12px 10px; color:#10b981; font-size:13.5px;">${fmt(totNet)}</td>
+            <tr style="background:rgba(16,185,129,0.08); font-weight:700; border-top:2px solid var(--border); font-size:12.5px;">
+              <td style="position:sticky; left:0; z-index:10; background:rgba(16,185,129,0.12); padding:12px 10px; border-right:2px solid var(--border-dark); min-width:160px; max-width:180px;">НИЙТ ДҮН:</td>
+              <td colspan="4"></td>
+              <td class="num" style="padding:12px 10px;">${fmtInt(totBase)} ₮</td>
+              <td class="num" style="padding:12px 10px; color:#10b981;">${fmtInt(totAllow)} ₮</td>
+              <td class="num" style="padding:12px 10px;">${fmtInt(totGross)} ₮</td>
+              <td class="num" style="padding:12px 10px; color:#2563eb;">${fmtInt(totNdshEr)} ₮</td>
+              <td class="num" style="padding:12px 10px; color:#d97706;">${fmtInt(totNdshEmp)} ₮</td>
+              <td class="num" style="padding:12px 10px; opacity:0.85;">${fmtInt(totHhoatGross)} ₮</td>
+              <td class="num" style="padding:12px 10px; color:#6366f1;">${fmtInt(totHhoatCredit)} ₮</td>
+              <td class="num" style="padding:12px 10px;">${fmtInt(totHhoat)} ₮</td>
+              <td class="num" style="padding:12px 10px; color:#10b981;">${fmtInt(totNet)} ₮</td>
             </tr>
           </tfoot>
         </table>
@@ -7048,39 +7568,85 @@ async function salaryTab() {
 function changeSalaryPeriod() {
   window._salaryYear = +$('#salYear').value;
   window._salaryMonth = +$('#salMonth').value;
+  window._salaryNormDays = getMonthWorkDays(window._salaryYear, window._salaryMonth);
+  salaryTab();
+}
+
+function changeSalaryNormDays(days) {
+  window._salaryNormDays = days;
+  if (window._salaryData) {
+    window._salaryData.forEach(p => {
+      p.norm_days = days;
+      p.norm_hours = days * 8;
+      if (!p.is_manual) {
+        const wDays = p.worked_days || days;
+        const dailyRate = (p.base_salary_minor || 0) / days;
+        const workedPay = Math.round(dailyRate * wDays);
+        p.gross_minor = workedPay + (p.allowance_minor || 0);
+        recalcSalaryRow(p);
+      }
+    });
+  }
   salaryTab();
 }
 
 function updateSalaryRow(idx, field, value) {
   if (!window._salaryData || !window._salaryData[idx]) return;
   const p = window._salaryData[idx];
+  const normDays = p.norm_days || window._salaryNormDays || 22.0;
 
   if (field === 'work_condition') {
     p.work_condition = value;
     const condMap = { normal: 12.5, heavy: 13.5, harmful: 14.5, underground: 15.5 };
     p.ndsh_er_pct = condMap[value] || 12.5;
     if (!p.is_manual) {
-      p.ndsh_employer_minor = Math.round(p.gross_minor * p.ndsh_er_pct / 100);
+      recalcSalaryRow(p);
     }
   } else if (field === 'is_manual') {
     p.is_manual = value;
+    if (!value) {
+      const wDays = p.worked_days || normDays;
+      const dailyRate = (p.base_salary_minor || 0) / normDays;
+      const workedPay = Math.round(dailyRate * wDays);
+      p.gross_minor = workedPay + (p.allowance_minor || 0);
+      recalcSalaryRow(p);
+    }
+  } else if (field === 'norm_days') {
+    p.norm_days = value;
+    p.norm_hours = value * 8.0;
+    if (!p.is_manual) {
+      const wDays = p.worked_days || value;
+      const dailyRate = (p.base_salary_minor || 0) / value;
+      const workedPay = Math.round(dailyRate * wDays);
+      p.gross_minor = workedPay + (p.allowance_minor || 0);
+      recalcSalaryRow(p);
+    }
+  } else if (field === 'worked_hours') {
+    p.worked_hours = value;
+    p.worked_days = value / 8.0;
+    if (!p.is_manual) {
+      const dailyRate = (p.base_salary_minor || 0) / normDays;
+      const workedPay = Math.round(dailyRate * p.worked_days);
+      p.gross_minor = workedPay + (p.allowance_minor || 0);
+      recalcSalaryRow(p);
+    }
   } else if (field === 'base_salary') {
     p.base_salary_minor = value;
     if (!p.is_manual) {
-      p.gross_minor = p.base_salary_minor + (p.allowance_minor || 0);
+      const wDays = p.worked_days || normDays;
+      const dailyRate = p.base_salary_minor / normDays;
+      const workedPay = Math.round(dailyRate * wDays);
+      p.gross_minor = workedPay + (p.allowance_minor || 0);
       recalcSalaryRow(p);
     }
   } else if (field === 'allowance') {
     p.allowance_minor = value;
     if (!p.is_manual) {
-      p.gross_minor = (p.base_salary_minor || 0) + p.allowance_minor;
+      const wDays = p.worked_days || normDays;
+      const dailyRate = (p.base_salary_minor || 0) / normDays;
+      const workedPay = Math.round(dailyRate * wDays);
+      p.gross_minor = workedPay + p.allowance_minor;
       recalcSalaryRow(p);
-    }
-  } else if (field === 'hhoat_credit') {
-    p.hhoat_credit_minor = value;
-    if (!p.is_manual) {
-      p.hhoat_minor = Math.max((p.hhoat_gross_minor || 0) - p.hhoat_credit_minor, 0);
-      p.net_minor = p.gross_minor - p.ndsh_employee_minor - p.hhoat_minor;
     }
   } else if (field === 'gross') {
     p.gross_minor = value;
@@ -7091,6 +7657,12 @@ function updateSalaryRow(idx, field, value) {
     p.ndsh_employer_minor = value;
   } else if (field === 'ndsh_emp') {
     p.ndsh_employee_minor = value;
+  } else if (field === 'hhoat_credit') {
+    p.hhoat_credit_minor = value;
+    if (!p.is_manual) {
+      p.hhoat_minor = Math.max((p.hhoat_gross_minor || 0) - p.hhoat_credit_minor, 0);
+      p.net_minor = p.gross_minor - p.ndsh_employee_minor - p.hhoat_minor;
+    }
   } else if (field === 'hhoat') {
     p.hhoat_minor = value;
   } else if (field === 'net') {
@@ -8314,7 +8886,7 @@ async function showTimesheetsModal() {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
   
-  $('#modalCard').style.width = '1050px';
+  $('#modalCard').style.width = '1000px';
   
   const [emps, tsList] = await Promise.all([
     api(`/companies/${companyId}/employees`),
@@ -8327,8 +8899,8 @@ async function showTimesheetsModal() {
   let html = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
       <div>
-        <h2 style="margin:0; font-size:18px; color:var(--text-main);"><i class="fa-solid fa-calendar-days" style="color:var(--primary)"></i> Ажилтны Цагийн Бүртгэл (Табель) - ${year} оны ${month}-р сар</h2>
-        <p class="muted" style="margin:4px 0 0 0; font-size:12.5px;">Монгол Улсын хөдөлмөрийн стандартын дагуу ажилласан хоног/цаг, чөлөө, өвчтэй, ээлжийн амралт болон илүү цагийн тооцоо.</p>
+        <h2 style="margin:0; font-size:18px; color:var(--text-main);"><i class="fa-solid fa-calendar-days" style="color:var(--primary)"></i> Ажилтны Цагийн Бүртгэлийн Хүснэгт - ${year} оны ${month}-р сар</h2>
+        <p class="muted" style="margin:4px 0 0 0; font-size:12.5px;">Монгол Улсын хөдөлмөрийн стандартын дагуу ажилласан хоног/цаг, чөлөө, өвчтэй, ээлжийн амралт болон илүү цагийн бүртгэл.</p>
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
         <button class="btn secondary" style="font-size:12px; padding:6px 10px;" onclick="downloadTimesheetTemplate(${year}, ${month})">
@@ -8345,23 +8917,21 @@ async function showTimesheetsModal() {
         <thead>
           <tr style="border-bottom:2px solid var(--border); background-color:var(--bg-subtle, #f1f5f9); color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.3px;">
             <th style="padding:10px 12px; text-align:left; min-width:160px;">Ажилтан</th>
-            <th style="padding:10px 8px; text-align:center; width:95px;" title="Ажлын өдөрт ажилласан хоног">Ажилласан (өдөр)</th>
-            <th style="padding:10px 8px; text-align:center; width:95px;" title="Эмнэлгийн хуудсаар чөлөө авсан өдөр">Өвчтэй (өдөр)</th>
-            <th style="padding:10px 8px; text-align:center; width:80px;" title="Өвчний олгох цалингийн хувь (60%, 75%, 100%)">Өвчний %</th>
-            <th style="padding:10px 8px; text-align:center; width:95px;" title="Ээлжийн амралттай байсан өдөр">Амарсан (өдөр)</th>
-            <th style="padding:10px 8px; text-align:center; width:95px;" title="Цалингүй чөлөөтэй өдөр">Чөлөөтэй (өдөр)</th>
-            <th style="padding:10px 8px; text-align:center; width:95px;" title="Ажлын өдрийн илүү цаг (1.5x нэмэгдэл)">Илүү цаг 1.5x</th>
-            <th style="padding:10px 8px; text-align:center; width:95px;" title="Баяр, амралтын өдрийн илүү цаг (2.0x нэмэгдэл)">Баяр/Амралт 2.0x</th>
+            <th style="padding:10px 8px; text-align:center; width:100px;" title="Ажлын өдөрт ажилласан хоног">Ажилласан (өдөр)</th>
+            <th style="padding:10px 8px; text-align:center; width:100px;" title="Эмнэлгийн хуудсаар чөлөө авсан өдөр">Өвчтэй (өдөр)</th>
+            <th style="padding:10px 8px; text-align:center; width:100px;" title="Ээлжийн амралттай байсан өдөр">Амарсан (өдөр)</th>
+            <th style="padding:10px 8px; text-align:center; width:100px;" title="Цалингүй чөлөөтэй өдөр">Чөлөөтэй (өдөр)</th>
+            <th style="padding:10px 8px; text-align:center; width:105px;" title="Ажлын өдрийн илүү цаг (1.5x нэмэгдэл)">Илүү цаг 1.5x</th>
+            <th style="padding:10px 8px; text-align:center; width:105px;" title="Баяр, амралтын өдрийн илүү цаг (2.0x нэмэгдэл)">Баяр/Амралт 2.0x</th>
             <th style="padding:10px 12px; text-align:right; width:110px;" title="Нийт цалин бодогдох цаг (Worked*8 + OT*1.5 + Hol*2.0)">Нийт цаг</th>
           </tr>
         </thead>
         <tbody>
           ${emps.map((e, idx) => {
-            const ts = tsMap[e.id] || { worked_days: 22, vacation_days: 0, sick_days: 0, sick_pay_pct: 60, unpaid_leave_days: 0, overtime_hours: 0, holiday_hours: 0 };
+            const ts = tsMap[e.id] || { worked_days: 22, vacation_days: 0, sick_days: 0, unpaid_leave_days: 0, overtime_hours: 0, holiday_hours: 0 };
             const workedDays = ts.worked_days != null ? ts.worked_days : 22;
             const vacDays = ts.vacation_days || 0;
             const sickDays = ts.sick_days || 0;
-            const sickPct = ts.sick_pay_pct != null ? ts.sick_pay_pct : 60;
             const unpaidDays = ts.unpaid_leave_days || 0;
             const otHours = ts.overtime_hours || 0;
             const holHours = ts.holiday_hours || 0;
@@ -8381,13 +8951,6 @@ async function showTimesheetsModal() {
                   <input type="number" step="0.5" id="ts_sick_${idx}" class="input-field" style="height:30px; text-align:center; padding:0; font-size:12.5px;" value="${sickDays}">
                 </td>
                 <td style="padding:4px; text-align:center;">
-                  <select id="ts_pct_${idx}" class="input-field" style="height:30px; text-align:center; padding:0 4px; font-size:12px;">
-                    <option value="60" ${sickPct == 60 ? 'selected' : ''}>60%</option>
-                    <option value="75" ${sickPct == 75 ? 'selected' : ''}>75%</option>
-                    <option value="100" ${sickPct == 100 ? 'selected' : ''}>100%</option>
-                  </select>
-                </td>
-                <td style="padding:4px; text-align:center;">
                   <input type="number" step="0.5" id="ts_vac_${idx}" class="input-field" style="height:30px; text-align:center; padding:0; font-size:12.5px;" value="${vacDays}">
                 </td>
                 <td style="padding:4px; text-align:center;">
@@ -8404,14 +8967,14 @@ async function showTimesheetsModal() {
                 </td>
               </tr>
             `;
-          }).join('') || '<tr><td colspan="9" class="muted" style="text-align:center; padding:24px;">Идэвхтэй ажилтан байхгүй байна.</td></tr>'}
+          }).join('') || '<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">Идэвхтэй ажилтан байхгүй байна.</td></tr>'}
         </tbody>
       </table>
     </div>
     
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <div style="font-size:11.5px; color:var(--text-muted);">
-        💡 *Табелаар бодогдсон цагууд Цалингийн цэс дэх сарын цалин бодолтод шууд тусгагдана.
+        💡 *Цагийн бүртгэлийн хүснэгтээр бодогдсон цагууд доорх Цалингийн тооцооллын хүснэгтэд шууд уялдаж тусгагдана.
       </div>
       <div style="display:flex; gap:8px;">
         <button class="btn secondary" onclick="hideModal()">Болих</button>
@@ -8520,7 +9083,6 @@ async function saveTimesheetsList(count, year, month) {
     const worked_days = parseFloat($(`#ts_work_${i}`).value) || 0;
     const vacation_days = parseFloat($(`#ts_vac_${i}`).value) || 0;
     const sick_days = parseFloat($(`#ts_sick_${i}`).value) || 0;
-    const sick_pay_pct = parseFloat($(`#ts_pct_${i}`).value) || 60;
     const unpaid_leave_days = parseFloat($(`#ts_unpaid_${i}`).value) || 0;
     const overtime_hours = parseFloat($(`#ts_ot_${i}`).value) || 0;
     const holiday_hours = parseFloat($(`#ts_hol_${i}`).value) || 0;
@@ -8533,7 +9095,6 @@ async function saveTimesheetsList(count, year, month) {
         worked_days,
         vacation_days,
         sick_days,
-        sick_pay_pct,
         unpaid_leave_days,
         overtime_hours,
         holiday_hours
@@ -8543,8 +9104,9 @@ async function saveTimesheetsList(count, year, month) {
   
   const results = await Promise.all(promises);
   if (results) {
-    alert("Цагийн бүртгэлүүд (Табель) амжилттай хадгалагдлаа.");
+    alert("Цагийн бүртгэлийн хүснэгт амжилттай хадгалагдлаа.");
     hideModal();
+    salaryTab();
   }
 }
 
@@ -9772,7 +10334,7 @@ function mountAssistantChat() {
     #asstPanel { position:fixed; right:24px; bottom:92px; z-index:900;
       width:400px; max-width:calc(100vw - 32px); height:min(620px, 76vh);
       display:none; flex-direction:column; border-radius:14px; overflow:hidden;
-      background:var(--card-bg,#fff); color:var(--text,#1a1a1a);
+      background:var(--card-bg,#fff); color:var(--text-main,#0f172a);
       border:1px solid var(--border,#e3e6ea);
       box-shadow:0 18px 50px rgba(0,0,0,.28); }
     #asstPanel.open { display:flex; }

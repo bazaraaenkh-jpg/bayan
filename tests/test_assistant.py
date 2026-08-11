@@ -518,3 +518,43 @@ def test_history_order_holds_for_questions_asked_in_one_instant(session, books):
     hist = assistant.history(session, books.id)
     assert [h["question"] for h in hist] == ["нөат", "авлага", "мөнгө",
                                              "зардал", "борлуулалт"]
+
+
+# ----------------------------------------------- дебит/кредитийн тэнцэл
+
+@pytest.mark.parametrize("question", [
+    "дэвтэр тэнцэж байна уу",
+    "дебит кредит тэнцсэн үү",
+    "тэнцэл шалгаач",
+])
+def test_router_reaches_the_balance_check(question):
+    assert assistant.route_by_rules(question) == "balance_check"
+
+
+def test_balanced_books_are_reported_as_balanced(session, books):
+    out = assistant.ask(session, books.id, "owner", "дэвтэр тэнцэж байна уу",
+                        use_ai=False, today=TODAY)
+
+    assert out["status"] == "answered"
+    assert "ТЭНЦСЭН" in out["answer"]
+    assert out["data"]["compare"]["balanced"] is True
+    assert out["data"]["value_minor"] == 0
+
+
+def test_unbalanced_books_name_the_broken_entry(session, books):
+    from sqlalchemy import select as _select
+
+    from bayan.models import JournalLine
+
+    line = session.scalars(_select(JournalLine).where(
+        JournalLine.debit_minor > 0)).first()
+    line.debit_minor += 500_00           # дэвтрийг гаднаас эвдэнэ
+    session.flush()
+
+    out = assistant.ask(session, books.id, "owner", "дебит кредит тэнцсэн үү",
+                        use_ai=False, today=TODAY)
+
+    assert "ТЭНЦЭХГҮЙ" in out["answer"]
+    assert out["data"]["value_minor"] == 500_00
+    assert out["data"]["compare"]["unbalanced_count"] == 1
+    assert out["data"]["rows"]                      # аль бичилт болохыг заана

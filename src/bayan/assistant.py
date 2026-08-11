@@ -197,6 +197,22 @@ def _template_answer(result: metrics.MetricResult) -> str:
             text += " АНХААР: үлдэгдэл сөрөг рүү орж байна."
         return text + _accuracy_sentence(cmp_all) + f" Таамаглалын үндэслэл: {result.source}."
 
+    if result.metric == "balance_check":
+        c = cmp_all
+        if c.get("balanced"):
+            return (f"{result.period_phrase} дэвтэр ТЭНЦСЭН байна. "
+                    f"{c.get('entry_count', 0)} бичилтийн нийт дебит "
+                    f"{fmt_mnt(c.get('total_debit_minor', 0))} = нийт кредит "
+                    f"{fmt_mnt(c.get('total_credit_minor', 0))}.")
+        text = (f"{result.period_phrase} дэвтэр ТЭНЦЭХГҮЙ байна — зөрүү "
+                f"{fmt_mnt(result.value_minor)}.")
+        for chk in c.get("checks", []):
+            if not chk["ok"]:
+                text += f"\n• {chk['title']}: {chk['detail']}"
+        if c.get("unbalanced_count"):
+            text += f"\nТэнцэхгүй {c['unbalanced_count']} бичилт доор жагсав."
+        return text
+
     if result.metric == "anomalies":
         by = cmp_all.get("by_severity", {})
         if not result.value_minor:
