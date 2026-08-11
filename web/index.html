@@ -269,6 +269,47 @@
   .sidebar-footer { justify-content: space-between; }
   .sidebar-footer i { opacity: .5; }
 
+  /* ------------------------------------------------ төлөвийн тэмдэг (chip) */
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
+    border: 1px solid; white-space: nowrap;
+  }
+  .chip.ok  { background: var(--primary-light); border-color: var(--primary);
+              color: var(--primary); }
+  .chip.bad { background: var(--danger-light); border-color: var(--danger);
+              color: var(--danger); }
+  .chip.warn{ background: var(--warning-light); border-color: var(--warning);
+              color: var(--warning); }
+
+  /* ------------------------------------------------ багцын хугацааны зурвас */
+  #planStrip {
+    display: none; align-items: center; gap: 10px;
+    padding: 7px 20px; font-size: 12.5px;
+    border-bottom: 1px solid var(--border-dark);
+    background: var(--info-light); color: var(--text-main);
+  }
+  #planStrip.show { display: flex; }
+  #planStrip.warn { background: var(--warning-light); }
+  #planStrip.over { background: var(--danger-light); }
+  #planStrip .strip-cta { margin-left: auto; }
+
+  /* ------------------------------------------------------- заавартай хоосон */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 34px 20px; text-align: center; color: var(--text-muted);
+  }
+  .empty-state .es-icon {
+    width: 46px; height: 46px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 19px;
+    background: var(--primary-light); color: var(--primary);
+  }
+  .empty-state .es-title { font-size: 14.5px; font-weight: 700; color: var(--text-main); }
+  .empty-state .es-hint { font-size: 13px; max-width: 460px; line-height: 1.55; }
+  .empty-state .es-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+                             margin-top: 4px; }
+
   /* ------------------------------------------ дебит/кредитийн тэнцлийн баннер */
   .bal-banner {
     display: flex; align-items: flex-start; gap: 12px;
@@ -1284,6 +1325,7 @@
 
 <!-- Main Right Container -->
 <div id="main-container">
+  <div id="planStrip"></div>
   <!-- Top Header bar -->
   <div id="top-header">
     <div class="header-left">
@@ -1491,6 +1533,51 @@ document.addEventListener('DOMContentLoaded', () => {
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// ------------------------------------------------- багцын хугацааны зурвас
+//
+// Туршилт хэдэн хоног үлдсэнийг НУУХГҮЙ — дэлгэц болгоны дээд талд.
+
+async function refreshPlanStrip() {
+  const strip = $('#planStrip');
+  if (!strip || !companyId) return;
+  const s = await api(`/companies/${companyId}/subscription`).catch(() => null);
+  if (!s || !s.plan) { strip.classList.remove('show'); return; }
+
+  const d = s.days_left;
+  const expired = !s.active || d < 0;
+  strip.className = 'show' + (expired ? ' over' : (d <= 7 ? ' warn' : ''));
+  strip.innerHTML = `
+    <i class="fa-solid ${expired ? 'fa-circle-exclamation' : 'fa-circle-info'}"></i>
+    <span>${s.is_trial ? 'Үнэгүй туршилт' : esc(s.plan)}
+      ${expired ? 'ДУУССАН' : 'идэвхтэй'} · Дуусах: ${esc(s.ends_at)}${
+        expired ? '' : ` · ${d} хоног үлдсэн`}</span>
+    ${(expired || d <= 14)
+      ? `<button class="btn btn-xs strip-cta" onclick="switchTab('smart_tools')">
+           <i class="fa-solid fa-crown"></i> Багц сунгах</button>` : ''}`;
+}
+
+// ----------------------------------------------------- заавартай хоосон төлөв
+//
+// «Мэдээлэл алга» гэж хэлээд орхивол хэрэглэгч дараа нь юу хийхээ мэдэхгүй.
+// Хоосон бүрд нь дараагийн алхмыг товчтой нь хамт харуулна.
+
+function emptyState(title, hint, actions = [], icon = 'fa-inbox') {
+  return `<div class="empty-state">
+    <div class="es-icon"><i class="fa-solid ${icon}"></i></div>
+    <div class="es-title">${esc(title)}</div>
+    ${hint ? `<div class="es-hint">${esc(hint)}</div>` : ''}
+    ${actions.length ? `<div class="es-actions">${actions.map(a =>
+      `<button class="btn ${a.secondary ? 'secondary' : ''}" onclick="${a.onclick}">
+         ${a.icon ? `<i class="fa-solid ${a.icon}"></i> ` : ''}${esc(a.label)}
+       </button>`).join('')}</div>` : ''}
+  </div>`;
+}
+
+function emptyRow(cols, title, hint, actions = [], icon = 'fa-inbox') {
+  return `<tr><td colspan="${cols}" style="padding:0">
+    ${emptyState(title, hint, actions, icon)}</td></tr>`;
+}
+
 // ---------------------------------------------------- Хүснэгтийн нэгдсэн хэрэгсэл
 // Хайлт, багана сонгогч, мөрийн тоог хүснэгт болгонд гар аргаар бичихийн оронд
 // нэг удаа бичээд <table data-tools> гэж тэмдэглэхэд л залгагдана.
@@ -1663,6 +1750,15 @@ window.alert = (msg) => {
 // Нябо-гийн хамгийн эхний асуулт нь «тэнцэж байна уу» — түүнд нэг харцаар
 // хариулна. Тэнцэхгүй бол зөрүүг НУУХГҮЙ, аль бичилт болохыг нь заана.
 
+function balanceChipHtml(bal) {
+  if (!bal) return '';
+  return bal.balanced
+    ? `<span class="chip ok" title="Нийт дебит = нийт кредит">
+         <i class="fa-solid fa-circle-check"></i> ТЭНЦЛЭЭ</span>`
+    : `<span class="chip bad" title="Зөрүү ${fmt(bal.difference_minor)}">
+         <i class="fa-solid fa-triangle-exclamation"></i> ТЭНЦЭХГҮЙ</span>`;
+}
+
 function balanceBannerHtml(bal) {
   if (!bal) return '';
 
@@ -1705,9 +1801,26 @@ function balanceBannerHtml(bal) {
   </div>`;
 }
 
+// Хэрэгсэл залгах нь утгатай эсэх. Бүх хүснэгтэд залгах нь зорилго боловч
+// толгойгүй, эсвэл цөөн мөртэй хүснэгтэд хайлт, багана сонгогч нэмэх нь
+// зөвхөн шуугиан болно — тэднийг алгасана.
+const TABLE_TOOLS_MIN_ROWS = 6;
+
+function tableDeservesTools(table) {
+  if (table.hasAttribute('data-no-tools')) return false;
+  if (table.closest('.sel-list, #asstPanel, #toastWrap')) return false;
+  if (table.hasAttribute('data-tools')) return true;      // гараар хүссэн
+  const tbody = table.tBodies[0];
+  if (!tbody || !table.tHead) return false;
+  // Нэг мөрт «хоосон байна» гэсэн мэдэгдэл бол хэрэгсэл хэрэггүй
+  if (tbody.rows.length < TABLE_TOOLS_MIN_ROWS) return false;
+  return true;
+}
+
 function enhanceTables(root) {
-  (root || document).querySelectorAll('table[data-tools]:not([data-tools-ready])')
+  (root || document).querySelectorAll('table:not([data-tools-ready])')
     .forEach(table => {
+      if (!tableDeservesTools(table)) return;
       table.setAttribute('data-tools-ready', '1');
       const tbody = table.tBodies[0];
       if (!tbody) return;
@@ -2030,7 +2143,8 @@ async function render() {
 
   // AI туслах чатбот — бүх дэлгэц дээр хамт явна (нэг удаа суулгана)
   mountAssistantChat();
-  enhanceSelects(document);   // толгой, хажуу цэс дэх select-үүд
+  enhanceSelects(document);
+  refreshPlanStrip();   // толгой, хажуу цэс дэх select-үүд
 
   // Update header breadcrumb depending on tab selection
   const tabTitles = {
@@ -2720,7 +2834,11 @@ async function renderCoaTab() {
       `);
     });
 
-    return htmlRows.join('') || '<tr><td colspan="4" class="muted" style="text-align:center; padding:18px">Данс олдсонгүй.</td></tr>';
+    return htmlRows.join('') || emptyRow(4, 'Данс олдсонгүй',
+     'Хайлтаа өөрчлөх, эсвэл нягтлангийн Excel дансны төлөвлөгөөгөө импортлоорой.',
+     [{label:'Excel-ээс оруулах', icon:'fa-file-import',
+       onclick:"document.getElementById('coaImportFile').click()", secondary:true}],
+     'fa-list-ol');
   };
 
   $('#content').innerHTML = `
@@ -2865,10 +2983,11 @@ async function coaDelete(code) {
 
 // ---------------------------------------------------- Dashboard Tab
 async function dash() {
-  const [inc, tb, sugs] = await Promise.all([
+  const [inc, tb, sugs, bal] = await Promise.all([
     api(`/companies/${companyId}/income-statement`).catch(() => ({ revenue_minor: 0, expenses_minor: 0, cogs_minor: 0, net_income_minor: 0 })),
     api(`/companies/${companyId}/trial-balance`).catch(() => []),
-    api(`/companies/${companyId}/suggestions?status=pending`).catch(() => [])
+    api(`/companies/${companyId}/suggestions?status=pending`).catch(() => []),
+    api(`/companies/${companyId}/balance-check`).catch(() => null)
   ]);
     
   const safeInc = inc || { revenue_minor: 0, expenses_minor: 0, cogs_minor: 0, net_income_minor: 0 };
@@ -2917,12 +3036,29 @@ async function dash() {
           <i class="fa-solid ${(safeInc.net_income_minor || 0) >= 0 ? 'fa-face-smile' : 'fa-face-frown'}"></i> ${(safeInc.net_income_minor || 0) >= 0 ? 'Ашигтай ажиллаж байна' : 'Алдагдалтай ажиллаж байна'}
         </div>
       </div>
-      <div class="kpi pend" onclick="document.querySelectorAll('#sidebar-tabs button')[3].click()" style="cursor:pointer;">
-        <div class="l">AI ангилал батлах</div>
+      <div class="kpi pend" onclick="switchTab('review')" style="cursor:pointer;">
+        <div class="l">Өнөөдөр шалгах мөр</div>
         <div class="v">${pending}</div>
-        <div style="font-size:11.5px; color:var(--warning); margin-top:6px; font-weight:700;"><i class="fa-solid fa-circle-exclamation"></i> Шалгах гүйлгээнүүд байна</div>
+        <div style="font-size:11.5px; color:${pending ? 'var(--warning)' : 'var(--primary)'}; margin-top:6px; font-weight:700;">
+          <i class="fa-solid ${pending ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i>
+          ${pending ? 'AI ангилал батлахыг хүлээж байна' : 'Бүгд батлагдсан'}
+        </div>
       </div>
     </div>
+
+    <!-- Дэвтрийн эрүүл мэнд — тоо хараад дүгнэх шаардлагагүй -->
+    ${bal ? `<div class="card" style="margin-top:16px; padding:14px 18px; display:flex;
+                 align-items:center; gap:18px; flex-wrap:wrap;">
+      ${balanceChipHtml(bal)}
+      <span class="muted" style="font-size:13px;">
+        <b>${bal.entry_count}</b> бичилт · Дт <b>${fmt(bal.total_debit_minor)}</b>
+        · Кт <b>${fmt(bal.total_credit_minor)}</b>
+        ${bal.balanced ? '' : ` · зөрүү <b style="color:var(--danger)">${fmt(bal.difference_minor)}</b>`}
+      </span>
+      <button class="btn btn-xs secondary" style="margin-left:auto" onclick="switchTab('tb')">
+        <i class="fa-solid fa-scale-balanced"></i> Гүйлгээний баланс
+      </button>
+    </div>` : ''}
     
     <!-- Dashboard Columns Grid -->
     <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px; margin-top: 24px; align-items: start;">
@@ -2978,16 +3114,16 @@ async function dash() {
           <h2><i class="fa-solid fa-bolt" style="color: var(--warning)"></i> Түргэн холбоос</h2>
           <p class="muted" style="margin-bottom:16px;">Нягтлангийн өдөр тутмын үйлдлүүд:</p>
           <div style="display:flex; flex-direction:column; gap:10px;">
-            <button class="btn secondary" style="width:100%; justify-content:flex-start;" onclick="document.querySelectorAll('#sidebar-tabs button')[3].click()">
+            <button class="btn secondary" style="width:100%; justify-content:flex-start;" onclick="switchTab('statements')">
               <i class="fa-solid fa-file-excel"></i> Банкны хуулга оруулах
             </button>
-            <button class="btn" style="width:100%; justify-content:flex-start;" onclick="document.querySelectorAll('#sidebar-tabs button')[4].click()">
+            <button class="btn" style="width:100%; justify-content:flex-start;" onclick="switchTab('review')">
               <i class="fa-solid fa-check-double"></i> AI Ангилал батлах (${pending})
             </button>
-            <button class="btn secondary" style="width:100%; justify-content:flex-start;" onclick="document.querySelectorAll('#sidebar-tabs button')[8].click()">
+            <button class="btn secondary" style="width:100%; justify-content:flex-start;" onclick="switchTab('salary')">
               <i class="fa-solid fa-wallet"></i> Цалин бодох
             </button>
-            <button class="btn secondary" style="width:100%; justify-content:flex-start;" onclick="document.querySelectorAll('#sidebar-tabs button')[10].click()">
+            <button class="btn secondary" style="width:100%; justify-content:flex-start;" onclick="switchTab('financial_statements')">
               <i class="fa-solid fa-file-invoice-dollar"></i> Тайлангууд харах
             </button>
           </div>
@@ -3250,7 +3386,10 @@ async function renderTrialBalanceTab() {
     <!-- Top Action bar exactly matching screenshot -->
     <div class="tb-header-actions">
       <div>
-        <h2 style="font-size:20px; font-weight:800; margin:0;"><i class="fa-solid fa-scale-balanced" style="color:var(--primary)"></i> Гүйлгээний баланс</h2>
+        <h2 style="font-size:20px; font-weight:800; margin:0; display:flex; align-items:center; gap:10px;">
+          <span><i class="fa-solid fa-scale-balanced" style="color:var(--primary)"></i> Гүйлгээний баланс</span>
+          ${balanceChipHtml(bal)}
+        </h2>
         <p class="muted" style="margin-top:2px;">${currentYear} оны тайлант үе</p>
       </div>
       <div style="display:flex; gap:8px;">
@@ -4433,7 +4572,9 @@ async function renderRulesTab() {
             </tr>
           </thead>
           <tbody>
-            ${rows || '<tr><td colspan="6" class="muted" style="text-align:center; padding:24px">Одоогоор идэвхтэй дүрэм бүртгэгдээгүй байна.</td></tr>'}
+            ${rows || emptyRow(6, 'Ангиллын дүрэм алга',
+     'Дүрэм нь AI-аас ҮРГЭЛЖ дээгүүр ажилладаг — нэг удаа зааж өгвөл тэр утгатай гүйлгээ дахин асуухгүй.',
+     [{label:'Дүрэм нэмэх', icon:'fa-plus', onclick:'ruleAdd()'}], 'fa-list-check')}
           </tbody>
         </table>
       </div>
@@ -5244,7 +5385,10 @@ async function statements() {
                     onclick="deleteStatement('${s.id}', '${(s.file || '').replace(/'/g, "\\'")}')">
               <i class="fa-solid fa-trash"></i>
             </button>
-          </td></tr>`).join('') || '<tr><td colspan="6" class="muted" style="text-align:center; padding:18px">Хуулга оруулаагүй байна.</td></tr>'}
+          </td></tr>`).join('') || emptyRow(6, 'Банкны хуулга оруулаагүй байна',
+     'Excel эсвэл PDF хуулгаа чирч оруулахад систем форматыг нь өөрөө таньж, гүйлгээг ангилна.',
+     [{label:'Хуулга оруулах', icon:'fa-file-arrow-up', onclick:"document.querySelector('#stFile')?.click()"}],
+     'fa-building-columns')}
           </tbody>
         </table>
       </div>
@@ -5439,7 +5583,10 @@ async function review() {
             </tr>
           </thead>
           <tbody>
-            ${rows || '<tr><td colspan="8" class="muted" style="text-align:center; padding:32px;">Тухайн ангилалд баталгаажуулах гүйлгээ байхгүй байна.</td></tr>'}
+            ${rows || emptyRow(8, 'Баталгаажуулах гүйлгээ алга',
+     'Бүх санал батлагдсан байна. Шинэ гүйлгээ орохын тулд банкны хуулга оруулна уу.',
+     [{label:'Хуулга оруулах', icon:'fa-file-arrow-up', onclick:"switchTab('statements')", secondary:true}],
+     'fa-circle-check')}
           </tbody>
         </table>
       </div>
@@ -6504,7 +6651,9 @@ async function invTab() {
               </tr>
             `;
           }).join('')
-          || '<tr><td colspan="8" class="muted" style="text-align:center">Бараа бүртгэгдээгүй байна.</td></tr>'}
+          || emptyRow(8, 'Бараа бүртгэгдээгүй байна',
+     'Бараа үүсгэсний дараа орлого, зарлага, үлдэгдэл, дундаж өртөг автоматаар хөтлөгдөнө.',
+     [{label:'Бараа нэмэх', icon:'fa-plus', onclick:'itemNew()'}], 'fa-boxes-stacked')}
         </tbody>
       </table>
     </div>`;
@@ -7242,7 +7391,9 @@ async function assetsTab() {
             ? `<button class="btn btn-xs secondary" style="color:var(--danger); padding:4px 8px; font-size:11px;" onclick="assetRetire('${a.id}', '${a.code} - ${a.name}')"><i class="fa-solid fa-trash-can"></i> Хасах</button>` 
             : '<span class="pill review" style="font-size:11px; padding:2px 6px;">хасагдсан</span>'}
         </td></tr>`).join('')
-        || '<tr><td colspan="7" class="muted" style="text-align:center">Үндсэн хөрөнгө бүртгэгдээгүй байна.</td></tr>'}
+        || emptyRow(7, 'Үндсэн хөрөнгө бүртгэгдээгүй байна',
+     'Хөрөнгө бүртгэвэл элэгдэл сар бүр автоматаар бодогдож журналд бичигдэнэ.',
+     [{label:'Хөрөнгө нэмэх', icon:'fa-plus', onclick:'assetNew()'}], 'fa-building')}
       </table>
     </div>`;
 }

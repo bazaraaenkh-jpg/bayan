@@ -3361,6 +3361,33 @@ def trial_balance(company_id: str, date_from: str | None = None,
     return ledger.trial_balance(db, company_id, d_from, d_to)
 
 
+@app.get("/api/companies/{company_id}/subscription")
+def subscription_status(company_id: str,
+                        ctx: dict = Depends(company_guard("read")),
+                        db: Session = Depends(get_db)):
+    """Багцын төлөв — туршилтын хугацаа дуусахыг ил харуулахад."""
+    from datetime import datetime
+
+    from .models import Subscription
+
+    sub = db.scalar(select(Subscription)
+                    .where(Subscription.company_id == company_id,
+                           Subscription.status == "ACTIVE")
+                    .order_by(Subscription.ends_at.desc()))
+    if sub is None:
+        return {"active": False, "plan": None, "ends_at": None,
+                "days_left": None, "is_trial": False}
+
+    now = datetime.utcnow()
+    return {
+        "active": sub.ends_at >= now,
+        "plan": sub.plan,
+        "ends_at": sub.ends_at.date().isoformat(),
+        "days_left": (sub.ends_at.date() - now.date()).days,
+        "is_trial": (sub.plan or "").upper() == "TRIAL",
+    }
+
+
 @app.get("/api/companies/{company_id}/balance-check")
 def balance_check_api(company_id: str, date_from: str | None = None,
                       date_to: str | None = None,
