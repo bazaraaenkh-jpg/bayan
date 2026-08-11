@@ -2241,7 +2241,7 @@ function setupDragDrop(suffix, uploadFn) {
 async function renderProfileTab() {
   const [c, meInfo, rates, loans] = await Promise.all([
     api(`/companies/${companyId}`),
-    api(`/api/me`).catch(() => ({ transaction_lock_days: 365 })),
+    api(`/me`).catch(() => ({ transaction_lock_days: 365 })),
     api(`/companies/${companyId}/fx-rates`).catch(() => []),
     api(`/companies/${companyId}/loans`).catch(() => [])
   ]);

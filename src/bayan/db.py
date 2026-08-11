@@ -28,6 +28,14 @@ def _run_migrations(engine):
             conn.commit()
         except Exception:
             pass
+        try:
+            # TimeSheet-д нэмэгдсэн чөлөөний хоног. Энэ мөргүй бол одоо
+            # байгаа сан дээр цалингийн урьдчилсан тооцоо 500 өгнө.
+            conn.execute(text(
+                "ALTER TABLE time_sheet ADD COLUMN unpaid_leave_days FLOAT DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            pass
 
 
 def make_engine(url: str = _DEFAULT_URL):

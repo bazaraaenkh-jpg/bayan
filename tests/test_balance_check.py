@@ -152,3 +152,23 @@ def test_balance_sheet_equation_is_part_of_the_verdict(session, company):
 
     codes = [c["code"] for c in check_balance(session, company.id)["checks"]]
     assert "BS_EQUATION" in codes
+
+
+# ------------------------------------------- дэлгэц шалгах явцад илэрсэн алдаа
+
+def test_timesheet_has_the_unpaid_leave_column(session):
+    """Загварт нэмэгдсэн багана одоо байгаа санд ч үүссэн байх ёстой.
+
+    Миграц дутуу байсан тул цалингийн урьдчилсан тооцоо 500 өгч байв."""
+    from sqlalchemy import text
+
+    cols = {r[1] for r in session.execute(text("PRAGMA table_info(time_sheet)"))}
+    assert "unpaid_leave_days" in cols
+
+
+def test_audit_log_timestamp_column_is_named_at():
+    """api.py нь AuditLog.created_at гэж эрэмбэлж AttributeError өгч байв."""
+    from bayan.models import AuditLog
+
+    assert hasattr(AuditLog, "at")
+    assert not hasattr(AuditLog, "created_at")

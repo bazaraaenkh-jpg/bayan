@@ -1886,14 +1886,16 @@ def payroll_preview(company_id: str, year: int, month: int,
             "worked_days": w_days,
             "worked_hours": worked_hours,
             "base_salary_minor": e.base_salary_minor,
-            "allowance_minor": c["allowance_minor"],
-            "gross_minor": c["gross_minor"],
-            "ndsh_employer_minor": c["ndsh_employer_minor"],
-            "ndsh_employee_minor": c["ndsh_employee_minor"],
-            "hhoat_gross_minor": c["hhoat_gross_minor"],
-            "hhoat_credit_minor": c["hhoat_credit_minor"],
-            "hhoat_minor": c["hhoat_minor"],
-            "net_minor": c["net_minor"],
+            # calc_one нь түлхүүрээ _minor дагаваргүйгээр буцаадаг
+            # (gross, ndsh_emp, …) — энд API-ийн нэрлэлт рүү буулгана.
+            "allowance_minor": c["allowance"],
+            "gross_minor": c["gross"],
+            "ndsh_employer_minor": c["ndsh_er"],
+            "ndsh_employee_minor": c["ndsh_emp"],
+            "hhoat_gross_minor": c["hhoat_gross"],
+            "hhoat_credit_minor": c["hhoat_credit"],
+            "hhoat_minor": c["hhoat"],
+            "net_minor": c["net"],
             "work_condition": work_cond,
             "ndsh_er_pct": c["ndsh_er_pct"],
             "is_manual": False
@@ -4497,7 +4499,7 @@ def toggle_user_superadmin(user_id: str, body: AdminUserSuperadminIn, db: Sessio
 @app.get("/api/admin/system-logs")
 def get_admin_system_logs(db: Session = Depends(get_db), admin=Depends(superadmin_guard)):
     from .models import AuditLog
-    logs = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(100)).all()
+    logs = db.scalars(select(AuditLog).order_by(AuditLog.at.desc()).limit(100)).all()
     return [{
         "id": l.id,
         "company_id": l.company_id,
