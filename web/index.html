@@ -269,6 +269,124 @@
   .sidebar-footer { justify-content: space-between; }
   .sidebar-footer i { opacity: .5; }
 
+  /* =============================================== БҮЛЭГЛЭСЭН ДЭЭД ЦЭС */
+  #topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 20px; height: 52px;
+    background: #0f172a; color: #e2e8f0;
+    position: sticky; top: 0; z-index: 600;
+  }
+  #topbar .brand { display: flex; align-items: center; gap: 9px;
+                   font-weight: 800; font-size: 15px; color: #fff; flex: none; }
+  #topbar .brand .logo-icon { width: 28px; height: 28px; font-size: 13px; }
+  #topbar .sidebar-nav { display: flex; align-items: center; gap: 2px;
+                         overflow-x: auto; scrollbar-width: none; }
+  #topbar .sidebar-nav::-webkit-scrollbar { height: 0; }
+
+  .nav-group { position: relative; }
+  #sidebar-tabs .nav-btn, #sidebar-tabs > button[data-tab] {
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+    padding: 8px 12px; border: none; border-radius: 8px; cursor: pointer;
+    background: transparent; color: #cbd5e1; font: inherit; font-size: 13.5px;
+    font-weight: 600; transition: background-color .15s, color .15s;
+  }
+  #sidebar-tabs .nav-btn:hover, #sidebar-tabs > button[data-tab]:hover {
+    background: rgba(255,255,255,.08); color: #fff;
+  }
+  #sidebar-tabs .nav-btn.active, #sidebar-tabs > button[data-tab].active {
+    background: var(--primary); color: #fff;
+  }
+  .nav-caret { font-size: 9px; opacity: .7; }
+  .nav-group.open > .nav-btn { background: rgba(255,255,255,.12); color: #fff; }
+
+  .nav-menu {
+    display: none; position: absolute; left: 0; top: calc(100% + 6px);
+    min-width: 220px; padding: 6px; z-index: 700;
+    background: var(--card-bg); border: 1px solid var(--border-dark);
+    border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+  }
+  .nav-group.open .nav-menu { display: block; }
+  .nav-menu button {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 8px 11px; border: none; border-radius: 8px; cursor: pointer;
+    background: transparent; color: var(--text-main); font: inherit;
+    font-size: 13.5px; text-align: left;
+  }
+  .nav-menu button:hover { background: var(--primary-light); color: var(--primary); }
+  .nav-menu button.active { color: var(--primary); font-weight: 700; }
+  .nav-menu button i { width: 16px; color: var(--text-muted); }
+
+  /* --------------------------------------------------------- модулийн таб */
+  #moduleTabs {
+    display: none; align-items: center; gap: 4px; flex-wrap: wrap;
+    padding: 8px 20px; background: var(--card-bg);
+    border-bottom: 1px solid var(--border-dark);
+  }
+  #moduleTabs.show { display: flex; }
+  #moduleTabs .mt-label {
+    font-size: 11px; font-weight: 800; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-muted); margin-right: 8px;
+  }
+  .mt-tab {
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer;
+    border: 1px solid transparent; background: transparent;
+    color: var(--text-muted); font: inherit; font-size: 13px; font-weight: 600;
+  }
+  .mt-tab:hover { background: var(--primary-light); color: var(--primary); }
+  .mt-tab.active { background: var(--primary); color: #fff; }
+
+  #main-container { margin-left: 0 !important; }
+
+  @media (max-width: 900px) {
+    #topbar { gap: 10px; padding: 0 12px; }
+    #topbar .brand span { display: none; }
+  }
+
+  /* --------------------------------------------------------- дансны картууд */
+  .acc-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .acc-card {
+    display: flex; flex-direction: column; gap: 2px; min-width: 168px;
+    padding: 11px 14px; border-radius: var(--radius-sm); cursor: pointer;
+    border: 1px solid var(--border-dark); background: var(--card-bg);
+    color: var(--text-main); font: inherit; text-align: left;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .acc-card:hover { border-color: var(--primary); }
+  .acc-card.active { border-color: var(--primary);
+                     box-shadow: 0 0 0 3px var(--primary-light); }
+  .acc-card.total { cursor: default; background: var(--primary-light);
+                    border-color: var(--primary); }
+  .ac-code { font-size: 11.5px; font-weight: 800; color: var(--text-muted);
+             font-family: monospace; letter-spacing: .04em; }
+  .ac-name { font-size: 12px; color: var(--text-muted);
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+             max-width: 190px; }
+  .ac-bal { font-size: 15px; font-weight: 800; margin-top: 3px; }
+
+  /* ------------------------------------------------ сарын хаалтын дараалал */
+  .close-steps { display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap; }
+  .close-step {
+    display: flex; align-items: center; gap: 10px; flex: 1 1 150px;
+    padding: 10px 12px; border-radius: var(--radius-sm); cursor: pointer;
+    border: 1px solid var(--border-dark); background: var(--card-bg);
+    color: var(--text-main); font: inherit; text-align: left;
+    transition: border-color .15s, background-color .15s;
+  }
+  .close-step:hover { border-color: var(--primary); }
+  .close-step.done { background: var(--primary-light); border-color: var(--primary); }
+  .close-step.next { border-color: var(--warning); box-shadow: 0 0 0 3px var(--warning-light); }
+  .cs-num {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-size: 12.5px; font-weight: 800;
+    background: var(--border); color: var(--text-muted);
+  }
+  .close-step.done .cs-num { background: var(--primary); color: #fff; }
+  .close-step.next .cs-num { background: var(--warning); color: #fff; }
+  .cs-label { display: block; font-size: 13.5px; font-weight: 700; }
+  .cs-hint { display: block; font-size: 11.5px; color: var(--text-muted); }
+  .cs-arrow { align-self: center; color: var(--text-muted); font-size: 11px; }
+
   /* ------------------------------------------------ төлөвийн тэмдэг (chip) */
   .chip {
     display: inline-flex; align-items: center; gap: 6px;
@@ -1284,48 +1402,16 @@
 <body>
 
 <!-- Left Premium Sidebar -->
-<div id="sidebar">
-  <div class="sidebar-header">
-    <div class="logo-icon"><i class="fa-solid fa-leaf"></i></div>
-    <span>Bayan AI</span>
-  </div>
-  
-  <!-- Sidebar Navigation Tabs -->
-  <div class="sidebar-nav" id="sidebar-tabs">
-    <div class="sidebar-title">БҮРТГЭЛ</div>
-    <button data-tab="dash" class="active"><i class="fa-solid fa-chart-pie"></i>Хяналтын самбар</button>
-    <button data-tab="statements"><i class="fa-solid fa-building-columns"></i>Мөнгөн хөрөнгө</button>
-    <button data-tab="review"><i class="fa-solid fa-book-open"></i>Ерөнхий журнал</button>
-    <button data-tab="salary"><i class="fa-solid fa-wallet"></i>Цалин</button>
-    <button data-tab="assets"><i class="fa-solid fa-building"></i>Үндсэн хөрөнгө</button>
-    <button data-tab="inv"><i class="fa-solid fa-boxes-stacked"></i>Бараа материал</button>
-    <button data-tab="partners"><i class="fa-solid fa-handshake"></i>Харилцагч (Авлага/Өглөг)</button>
-    <button data-tab="pos"><i class="fa-solid fa-calculator"></i>POS Борлуулалт</button>
-    <button data-tab="wip"><i class="fa-solid fa-gears"></i>Үйлдвэрлэл</button>
-    
-    <div class="sidebar-title">ТАЙЛАН</div>
-    <button data-tab="tb"><i class="fa-solid fa-scale-balanced"></i>Гүйлгээний баланс</button>
-    <button data-tab="financial_statements"><i class="fa-solid fa-file-lines"></i>Санхүүгийн тайлан</button>
-    <button data-tab="tax_reports"><i class="fa-solid fa-file-invoice-dollar"></i>Татвар & НДШ тайлан</button>
-    
-    <div class="sidebar-title">ТОХИРГОО</div>
-    <button data-tab="rules"><i class="fa-solid fa-list-check"></i>Ангилал</button>
-    <button data-tab="coa"><i class="fa-solid fa-list-ol"></i>Данснууд</button>
-    <button data-tab="profile"><i class="fa-solid fa-sliders"></i>Тохиргоо</button>
-    <button data-tab="audit_trail"><i class="fa-solid fa-clock-rotate-left"></i>Өөрчлөлтийн түүх</button>
-    <button data-tab="smart_tools"><i class="fa-solid fa-cubes"></i>Багц хэрэгсэл</button>
-    <button data-tab="admin"><i class="fa-solid fa-user-gear"></i>Админ Панель</button>
-  </div>
-  
-  <div class="sidebar-footer">
-    <span>Верси 0.4</span>
-    <i class="fa-solid fa-shield-halved"></i>
-  </div>
-</div>
-
 <!-- Main Right Container -->
 <div id="main-container">
   <div id="planStrip"></div>
+
+  <!-- Бүлэглэсэн дээд цэс — 260px хажуугийн самбарыг орлоно -->
+  <div id="topbar">
+    <div class="brand"><div class="logo-icon"><i class="fa-solid fa-leaf"></i></div><span>Bayan AI</span></div>
+    <div class="sidebar-nav" id="sidebar-tabs"></div>
+  </div>
+  <div id="moduleTabs"></div>
   <!-- Top Header bar -->
   <div id="top-header">
     <div class="header-left">
@@ -1532,6 +1618,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// ------------------------------------------------------ сарын хаалтын дараалал
+//
+// Дугаарлагдсан 4 алхам — дугаар нь бодит дараалал учраас утгатай:
+// данс байхгүй бол импорт хийхэд ангилах газар байхгүй, батлаагүй бол
+// тайлан дутуу гарна.
+
+function closeSequenceHtml(tb, stmts, pending, locks) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth() + 1;
+
+  const thisMonth = (Array.isArray(stmts) ? stmts : []).filter(x => {
+    const d = (x.uploaded_at || x.period_from || '').slice(0, 7);
+    return d === `${y}-${String(m).padStart(2, '0')}`;
+  }).length;
+  const locked = (Array.isArray(locks) ? locks : []).some(l => l.year === y && l.month === m);
+
+  const steps = [
+    { n: 1, label: 'Данс',   done: (window._accounts || []).length > 0,
+      hint: `${(window._accounts || []).length} данс`, tab: 'coa' },
+    { n: 2, label: 'Импорт', done: thisMonth > 0,
+      hint: thisMonth ? `${thisMonth} хуулга` : 'энэ сард хуулга алга', tab: 'statements' },
+    { n: 3, label: 'Батлах', done: !pending,
+      hint: pending ? `${pending} санал хүлээгдэж байна` : 'бүгд батлагдсан', tab: 'review' },
+    { n: 4, label: 'Тайлан', done: locked,
+      hint: locked ? 'сар түгжигдсэн' : 'сар нээлттэй', tab: 'financial_statements' },
+  ];
+  const nextStep = steps.find(s => !s.done);
+
+  return `<div class="card" style="margin-top:16px; padding:16px 18px;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+      <h2 style="font-size:15px; margin:0;">
+        <i class="fa-solid fa-list-check" style="color:var(--primary)"></i>
+        ${y} оны ${m}-р сарын хаалт
+      </h2>
+      ${nextStep
+        ? `<span class="chip warn">Дараагийн алхам: ${nextStep.n}. ${esc(nextStep.label)}</span>`
+        : '<span class="chip ok"><i class="fa-solid fa-circle-check"></i> Сар хаагдсан</span>'}
+    </div>
+    <div class="close-steps">
+      ${steps.map((st, i) => `
+        <button class="close-step ${st.done ? 'done' : ''} ${st === nextStep ? 'next' : ''}"
+                onclick="switchTab('${st.tab}')">
+          <span class="cs-num">${st.done ? '<i class="fa-solid fa-check"></i>' : st.n}</span>
+          <span>
+            <span class="cs-label">${esc(st.label)}</span>
+            <span class="cs-hint">${esc(st.hint)}</span>
+          </span>
+        </button>
+        ${i < steps.length - 1 ? '<i class="fa-solid fa-chevron-right cs-arrow"></i>' : ''}
+      `).join('')}
+    </div>
+  </div>`;
+}
 
 // ------------------------------------------------- багцын хугацааны зурвас
 //
@@ -1962,6 +2102,45 @@ function showForm(title, fields, onsubmit) {
     hideModal();
   };
 }
+// ------------------------------------------- эрсдэлтэй үйлдлийг тайлбарлах
+//
+// Эргэшгүй үйлдлийн ӨМНӨ юу болохыг тодорхой хэлнэ. Хөтчийн confirm() нь
+// домэйны нэртэй саарал хайрцаг гаргадаг бөгөөд юу болохыг тайлбарлах
+// зайгүй — тиймээс аппын дотоод модал.
+
+function confirmRisky({ title, steps = [], warning = '', confirmLabel = 'Үргэлжлүүлэх',
+                        danger = true }) {
+  return new Promise(resolve => {
+    const card = $('#modalCard');
+    card.style.width = '520px';
+    card.innerHTML = `
+      <h2 style="display:flex; align-items:center; gap:10px;">
+        <i class="fa-solid fa-triangle-exclamation"
+           style="color:var(--${danger ? 'danger' : 'warning'})"></i>
+        ${esc(title)}
+      </h2>
+      ${steps.length ? `<div style="margin:12px 0;">
+        <div class="muted" style="font-size:12.5px; margin-bottom:6px;">Аюулгүй дараалал:</div>
+        <ol style="margin:0; padding-left:20px; font-size:13.5px; line-height:1.8;">
+          ${steps.map(x => `<li>${esc(x)}</li>`).join('')}
+        </ol></div>` : ''}
+      ${warning ? `<div style="margin:12px 0; padding:11px 13px; border-radius:8px;
+          background:var(--warning-light); border-left:3px solid var(--warning);
+          font-size:13px; line-height:1.55;">${esc(warning)}</div>` : ''}
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button class="btn secondary" id="rk_no">Болих</button>
+        <button class="btn" id="rk_yes"
+                style="${danger ? 'background:var(--danger); border-color:var(--danger)' : ''}">
+          ${esc(confirmLabel)}
+        </button>
+      </div>`;
+    $('#modalOverlay').style.display = 'flex';
+    const done = (v) => { hideModal(); resolve(v); };
+    $('#rk_no').onclick = () => done(false);
+    $('#rk_yes').onclick = () => done(true);
+  });
+}
+
 function showModal() { $('#modalOverlay').style.display = 'flex';
   enhanceSelects($('#modalCard')); }
 function hideModal() { $('#modalOverlay').style.display = 'none'; }
@@ -2095,8 +2274,99 @@ window.toggleSubmenu = function(id) {
 };
 
 // Sidebar navigation tab triggers with global switchTab and event delegation
+// ================================================================= НАВИГАЦИ
+//
+// 18 элементтэй, бүлэглэгдээгүй хажуугийн самбар нь харах ачаалал өндөртэй
+// байв. Модулиар бүлэглэсэн дээд цэс + модуль доторх таб болгосноор цэс
+// богиносож, ажлын талбай 260px өргөсөнө.
+
+const NAV = [
+  { tab: 'dash', label: 'Хяналтын самбар', icon: 'fa-chart-pie' },
+  { label: 'Журнал', icon: 'fa-book-open', items: [
+      { tab: 'review', label: 'Ерөнхий журнал', icon: 'fa-book-open' },
+      { tab: 'rules',  label: 'Ангилал & дүрэм', icon: 'fa-list-check' },
+      { tab: 'coa',    label: 'Данснууд', icon: 'fa-list-ol' } ] },
+  { label: 'Мөнгөн хөрөнгө', icon: 'fa-building-columns', items: [
+      { tab: 'statements', label: 'Банкны хуулга', icon: 'fa-building-columns' },
+      { tab: 'pos',        label: 'POS борлуулалт', icon: 'fa-calculator' } ] },
+  { label: 'Агуулах', icon: 'fa-boxes-stacked', items: [
+      { tab: 'inv',      label: 'Бараа материал', icon: 'fa-boxes-stacked' },
+      { tab: 'wip',      label: 'Үйлдвэрлэл', icon: 'fa-gears' },
+      { tab: 'partners', label: 'Харилцагч', icon: 'fa-handshake' } ] },
+  { tab: 'assets', label: 'Үндсэн хөрөнгө', icon: 'fa-building' },
+  { tab: 'salary', label: 'Цалин', icon: 'fa-wallet' },
+  { label: 'Тайлан', icon: 'fa-file-lines', items: [
+      { tab: 'tb',                   label: 'Гүйлгээний баланс', icon: 'fa-scale-balanced' },
+      { tab: 'financial_statements', label: 'Санхүүгийн тайлан', icon: 'fa-file-lines' },
+      { tab: 'tax_reports',          label: 'Татвар & НДШ', icon: 'fa-file-invoice-dollar' } ] },
+  { label: 'Тохиргоо', icon: 'fa-sliders', items: [
+      { tab: 'profile',     label: 'Компанийн тохиргоо', icon: 'fa-sliders' },
+      { tab: 'audit_trail', label: 'Өөрчлөлтийн түүх', icon: 'fa-clock-rotate-left' },
+      { tab: 'smart_tools', label: 'Багц хэрэгсэл', icon: 'fa-cubes' },
+      { tab: 'admin',       label: 'Админ панель', icon: 'fa-user-gear' } ] },
+];
+
+function navGroupOf(tabName) {
+  return NAV.find(g => g.items && g.items.some(i => i.tab === tabName)) || null;
+}
+
+function renderTopNav() {
+  const host = $('#sidebar-tabs');
+  if (!host) return;
+  host.innerHTML = NAV.map(g => g.items ? `
+    <div class="nav-group">
+      <button class="nav-btn" type="button" data-group="${esc(g.label)}">
+        <i class="fa-solid ${g.icon}"></i> ${esc(g.label)}
+        <i class="fa-solid fa-chevron-down nav-caret"></i>
+      </button>
+      <div class="nav-menu">
+        ${g.items.map(i => `<button data-tab="${i.tab}">
+            <i class="fa-solid ${i.icon}"></i> ${esc(i.label)}</button>`).join('')}
+      </div>
+    </div>`
+    : `<button data-tab="${g.tab}" class="nav-btn">
+         <i class="fa-solid ${g.icon}"></i> ${esc(g.label)}</button>`).join('');
+
+  host.querySelectorAll('.nav-group > .nav-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const grp = btn.parentNode;
+      const open = grp.classList.contains('open');
+      document.querySelectorAll('.nav-group.open').forEach(x => x.classList.remove('open'));
+      if (!open) grp.classList.add('open');
+    };
+  });
+}
+
+// Модуль доторх таб — бүлэгт хэдэн ч дэлгэц байвал дээр нь эгнэнэ
+function renderModuleTabs(active) {
+  const host = $('#moduleTabs');
+  if (!host) return;
+  const g = navGroupOf(active);
+  if (!g) { host.innerHTML = ''; host.classList.remove('show'); return; }
+  host.classList.add('show');
+  host.innerHTML = `<span class="mt-label">${esc(g.label)}</span>` +
+    g.items.map(i => `<button class="mt-tab ${i.tab === active ? 'active' : ''}"
+        onclick="switchTab('${i.tab}')">
+        <i class="fa-solid ${i.icon}"></i> ${esc(i.label)}</button>`).join('');
+}
+
+function syncNavActive(active) {
+  document.querySelectorAll('#sidebar-tabs .nav-group').forEach(grp => {
+    grp.classList.remove('open');
+    const has = [...grp.querySelectorAll('button[data-tab]')]
+      .some(b => b.dataset.tab === active);
+    grp.querySelector('.nav-btn').classList.toggle('active', has);
+  });
+  renderModuleTabs(active);
+}
+
+document.addEventListener('click', () =>
+  document.querySelectorAll('.nav-group.open').forEach(x => x.classList.remove('open')));
+
 window.switchTab = function(t) {
   tab = t;
+  syncNavActive(t);
   // If active tab belongs to bank-submenu, automatically open it!
   if (t === 'statements' || t === 'review') {
     const bankSub = document.getElementById('bank-submenu');
@@ -2144,7 +2414,9 @@ async function render() {
   // AI туслах чатбот — бүх дэлгэц дээр хамт явна (нэг удаа суулгана)
   mountAssistantChat();
   enhanceSelects(document);
-  refreshPlanStrip();   // толгой, хажуу цэс дэх select-үүд
+  refreshPlanStrip();
+  renderTopNav();
+  syncNavActive(tab);   // толгой, хажуу цэс дэх select-үүд
 
   // Update header breadcrumb depending on tab selection
   const tabTitles = {
@@ -2173,15 +2445,15 @@ async function render() {
   const c = await api(`/companies/${companyId}`);
   if (needsOnboarding(companyId, c)) {
     isOnboarding = true;
-    $('#sidebar').style.display = 'none';
-    $('#main-container').style.marginLeft = '0px';
+    
+    $('#main-container').style.marginLeft = '0';
     $('#onboardingNav').style.display = 'flex';
     $('#page-title').textContent = 'Шинэ компани тохируулах';
     gotoOnboarding(onboardingStep);
   } else {
     isOnboarding = false;
-    $('#sidebar').style.display = 'flex';
-    $('#main-container').style.marginLeft = '260px';
+    
+    $('#main-container').style.marginLeft = '0';
     $('#onboardingNav').style.display = 'none';
     $('#page-title').textContent = tabTitles[tab] || 'Ажлын талбар';
     
@@ -2309,8 +2581,8 @@ async function renderOnboarding2() {
 function skipOnboarding() {
   if (companyId) localStorage.setItem(`onboarding_done_${companyId}`, 'true');
   isOnboarding = false;
-  if ($('#sidebar')) $('#sidebar').style.display = 'flex';
-  if ($('#main-container')) $('#main-container').style.marginLeft = '260px';
+  if ($('#sidebar')) 
+  if ($('#main-container')) $('#main-container').style.marginLeft = '0';
   if ($('#onboardingNav')) $('#onboardingNav').style.display = 'none';
   switchTab('dash');
 }
@@ -2335,8 +2607,8 @@ async function finishOnboarding() {
   } catch (err) {
     console.error(err);
   }
-  if ($('#sidebar')) $('#sidebar').style.display = 'flex';
-  if ($('#main-container')) $('#main-container').style.marginLeft = '260px';
+  if ($('#sidebar')) 
+  if ($('#main-container')) $('#main-container').style.marginLeft = '0';
   if ($('#onboardingNav')) $('#onboardingNav').style.display = 'none';
   switchTab('dash');
 }
@@ -2973,7 +3245,13 @@ function coaAdd() {
 }
 
 async function coaDelete(code) {
-  if (!confirm(`Та ${code} кодтой дансыг устгахдаа итгэлтэй байна уу?`)) return;
+  if (!await confirmRisky({
+    title: `${code} дансыг устгах уу?`,
+    steps: ['Данс дансны төлөвлөгөөнөөс хасагдана',
+            'Тухайн данстай бичилт байвал устгал амжилтгүй болно'],
+    warning: 'Бичилттэй дансыг устгаж болохгүй — оронд нь идэвхгүй болгоно уу.',
+    confirmLabel: 'Устгах'
+  })) return;
   const res = await del(`/companies/${companyId}/accounts/${code}`);
   if (res && res.ok) {
     alert("Данс амжилттай устгагдлаа.");
@@ -2983,11 +3261,13 @@ async function coaDelete(code) {
 
 // ---------------------------------------------------- Dashboard Tab
 async function dash() {
-  const [inc, tb, sugs, bal] = await Promise.all([
+  const [inc, tb, sugs, bal, stmts, locks] = await Promise.all([
     api(`/companies/${companyId}/income-statement`).catch(() => ({ revenue_minor: 0, expenses_minor: 0, cogs_minor: 0, net_income_minor: 0 })),
     api(`/companies/${companyId}/trial-balance`).catch(() => []),
     api(`/companies/${companyId}/suggestions?status=pending`).catch(() => []),
-    api(`/companies/${companyId}/balance-check`).catch(() => null)
+    api(`/companies/${companyId}/balance-check`).catch(() => null),
+    api(`/companies/${companyId}/statements`).catch(() => []),
+    api(`/companies/${companyId}/period-locks`).catch(() => [])
   ]);
     
   const safeInc = inc || { revenue_minor: 0, expenses_minor: 0, cogs_minor: 0, net_income_minor: 0 };
@@ -3060,6 +3340,9 @@ async function dash() {
       </button>
     </div>` : ''}
     
+
+    <!-- Сарын хаалтын дараалал: дугаар нь бодит дараалал -->
+    ${closeSequenceHtml(safeTb, stmts, pending, locks)}
     <!-- Dashboard Columns Grid -->
     <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px; margin-top: 24px; align-items: start;">
       
@@ -5035,7 +5318,10 @@ async function openManualEntryModal() {
   $('#modalCard').style.width = '800px';
   parsedLines = [];
   
-  const temps = await api(`/companies/${companyId}/journal-templates`).catch(() => []);
+  const [temps, nextNo] = await Promise.all([
+    api(`/companies/${companyId}/journal-templates`).catch(() => []),
+    api(`/companies/${companyId}/entries/next-no`).catch(() => ({document_no: ''}))
+  ]);
   window._journalTemplates = temps;
   
   const tempOptions = temps.map(t => `<option value="${t.id}">${t.template_name}</option>`).join('');
@@ -5060,6 +5346,51 @@ async function openManualEntryModal() {
           ${tempOptions}
         </select>
       </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Баримтын дугаар</label>
+      <input id="mj_docno" class="input-field" value="${nextNo.document_no || ''}" readonly
+             style="font-family:monospace; max-width:180px;"
+             title="Дараагийн дугаар автоматаар. Хадгалахад эцсийн дугаар олгогдоно.">
+    </div>
+
+    <!-- Хурдан мөр: данс, дүн, утга бичихэд эсрэг талыг систем сонгоно -->
+    <div class="card" style="margin:0 0 12px; padding:12px; background:var(--primary-light);
+                             border:1px dashed var(--primary);">
+      <div style="font-size:12.5px; font-weight:700; margin-bottom:8px;">
+        <i class="fa-solid fa-bolt"></i> Хурдан мөр нэмэх
+      </div>
+      <div style="display:grid; grid-template-columns: 1.4fr 1fr 1.4fr 1.4fr auto; gap:8px; align-items:end;">
+        <div class="form-group" style="margin:0">
+          <label style="font-size:11.5px">Данс</label>
+          <select id="qe_acc" class="input-field" style="height:36px" onchange="quickSuggest()">
+            ${(window._accounts || []).filter(a => a.is_postable)
+              .map(a => `<option value="${a.code}">${a.code} — ${a.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:11.5px">Дүн (₮)</label>
+          <input id="qe_amount" type="number" class="input-field" style="height:36px" placeholder="0">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:11.5px">Утга</label>
+          <input id="qe_desc" class="input-field" style="height:36px" placeholder="ж: 7-р сарын түрээс"
+                 oninput="quickSuggest()">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="font-size:11.5px">Харьцах данс</label>
+          <select id="qe_counter" class="input-field" style="height:36px">
+            <option value="">— Автомат —</option>
+            ${(window._accounts || []).filter(a => a.is_postable)
+              .map(a => `<option value="${a.code}">${a.code} — ${a.name}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn" style="height:36px" onclick="quickAddLine()">
+          <i class="fa-solid fa-plus"></i> Нэмэх
+        </button>
+      </div>
+      <div id="qe_hint" class="muted" style="font-size:11.5px; margin-top:6px;"></div>
     </div>
     
     <div class="form-group" style="margin-bottom:12px;">
@@ -5097,10 +5428,69 @@ async function openManualEntryModal() {
     <div style="display:flex; justify-content:flex-end; gap:8px;">
       <button class="btn secondary" onclick="hideModal()">Болих</button>
       <button class="btn secondary" id="mj_save_temp_btn" disabled onclick="saveCurrentAsTemplate()"><i class="fa-solid fa-save"></i> Загвар болгож хадгалах</button>
-      <button class="btn" id="mj_save_btn" disabled onclick="saveManualJournalEntry()">Бичилт хадгалах</button>
+      <button class="btn secondary" id="mj_draft_btn" disabled onclick="saveManualJournalEntry('draft')"
+              title="Хадгална, гэхдээ тайланд орохгүй — дараа нь батална">
+        <i class="fa-solid fa-file-pen"></i> Хадгалах (Ноорог)
+      </button>
+      <button class="btn" id="mj_save_btn" disabled onclick="saveManualJournalEntry('posted')">
+        <i class="fa-solid fa-check"></i> Хадгалаад батлах
+      </button>
     </div>
   `;
   $('#modalOverlay').style.display = 'flex';
+}
+
+// ------------------------------------------------- хурдан мөр ба автомат данс
+//
+// Нябо дүн, утга бичихэд эсрэг талын дансыг систем өөрөө сонгоно.
+// Ангиллын дүрэм нь ҮРГЭЛЖ дээгүүр — хэрэглэгч хүсвэл дарж өөрчилнө.
+
+let _qeSuggestion = null;
+
+async function quickSuggest() {
+  const desc = ($('#qe_desc') || {}).value || '';
+  const acc = ($('#qe_acc') || {}).value || '';
+  const hint = $('#qe_hint');
+  if (!hint) return;
+
+  const s = await api(`/companies/${companyId}/suggest-counter-account` +
+    `?description=${encodeURIComponent(desc)}&account_code=${encodeURIComponent(acc)}`)
+    .catch(() => null);
+  _qeSuggestion = s && s.code ? s : null;
+
+  hint.innerHTML = _qeSuggestion
+    ? `<i class="fa-solid fa-wand-magic-sparkles"></i> Автомат харьцах данс:
+       <b>${esc(_qeSuggestion.code)} ${esc(_qeSuggestion.name)}</b>
+       <span style="opacity:.7">(${esc(_qeSuggestion.reason)})</span>`
+    : 'Харьцах дансыг гараар сонгоно уу.';
+}
+
+function quickAddLine() {
+  const acc = $('#qe_acc').value;
+  const amount = parseFloat($('#qe_amount').value || '0');
+  const desc = ($('#qe_desc').value || '').trim();
+  const counter = $('#qe_counter').value || (_qeSuggestion ? _qeSuggestion.code : '');
+
+  if (!acc || !amount) { toast('Данс ба дүнг оруулна уу.', 'warn'); return; }
+  if (!counter) { toast('Харьцах данс тодорхойгүй — гараар сонгоно уу.', 'warn'); return; }
+  if (acc === counter) { toast('Данс ба харьцах данс ижил байна.', 'warn'); return; }
+
+  // Зардал/хөрөнгө нэмэгдвэл дебит, орлого бол кредит талд бичигдэнэ
+  const isIncome = acc[0] === '5' || acc[0] === '4';
+  // Excel-ийн наах хэлбэртэй ижил: данс, дебит, кредит, тайлбар — TAB-аар
+  const TAB = String.fromCharCode(9), NL = String.fromCharCode(10);
+  const cols = (a, d, c) => [a, d, c, desc].join(TAB);
+  const first = isIncome ? cols(acc, 0, amount) : cols(acc, amount, 0);
+  const second = isIncome ? cols(counter, amount, 0) : cols(counter, 0, amount);
+
+  const area = $('#mj_paste_area');
+  area.value = (area.value.trim() ? area.value.replace(/\s+$/, '') + NL : '') + first + NL + second;
+  parseExcelPaste();
+
+  $('#qe_amount').value = '';
+  $('#qe_desc').value = '';
+  $('#qe_hint').innerHTML = '';
+  _qeSuggestion = null;
 }
 
 function loadJournalTemplate() {
@@ -5211,27 +5601,37 @@ function parseExcelPaste() {
     const allAccountsValid = parsedLines.every(l => accMap[l.account_code] && accMap[l.account_code].is_postable);
     
     saveTempBtn.removeAttribute('disabled');
-    
+    const draftBtn = $('#mj_draft_btn');
+    const setEnabled = (on) => [saveBtn, draftBtn].forEach(b => b &&
+      (on ? b.removeAttribute('disabled') : b.setAttribute('disabled', 'true')));
+
+    // Амьд тэнцэл — хадгалахыг оролдох хүртэл хүлээлгэхгүй, бичиж байхад нь хэлнэ
+    const foot = diffText.closest('tr');
     if (diff === 0 && totalDebit > 0) {
       if (allAccountsValid) {
         diffText.innerHTML = `<span style="color:var(--primary)"><i class="fa-solid fa-circle-check"></i> Тэнцсэн</span>`;
-        saveBtn.removeAttribute('disabled');
+        if (foot) foot.style.background = 'var(--primary-light)';
+        setEnabled(true);
       } else {
         diffText.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-triangle-exclamation"></i> Бүлэг эсвэл буруу данс байна!</span>`;
-        saveBtn.setAttribute('disabled', 'true');
+        if (foot) foot.style.background = 'var(--danger-light)';
+        setEnabled(false);
       }
     } else {
-      diffText.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-triangle-exclamation"></i> Тэнцээгүй (${fmt(Math.abs(diff))})</span>`;
-      saveBtn.setAttribute('disabled', 'true');
+      diffText.innerHTML = `<span style="color:var(--danger)"><i class="fa-solid fa-scale-unbalanced"></i>
+        Тэнцэлийг шалгана уу — зөрүү ${fmt(Math.abs(diff))}</span>`;
+      if (foot) foot.style.background = 'var(--danger-light)';
+      setEnabled(false);
     }
   } else {
     $('#mj_preview_container').style.display = 'none';
     $('#mj_save_btn').setAttribute('disabled', 'true');
+    if ($('#mj_draft_btn')) $('#mj_draft_btn').setAttribute('disabled', 'true');
     $('#mj_save_temp_btn').setAttribute('disabled', 'true');
   }
 }
 
-async function saveManualJournalEntry() {
+async function saveManualJournalEntry(status = 'posted') {
   const entry_date = $('#mj_date').value;
   const memo = $('#mj_memo').value.trim() || null;
   
@@ -5248,6 +5648,7 @@ async function saveManualJournalEntry() {
   const body = {
     entry_date,
     memo,
+    status,
     lines: parsedLines.map(l => ({
       account_code: l.account_code,
       debit_minor: l.debit_minor,
@@ -5264,9 +5665,59 @@ async function saveManualJournalEntry() {
   }
 }
 
+// ------------------------------------------------------- дансны карт солигч
+//
+// Данс сонголтыг унадаг цэсэнд нуухын оронд карт болгоно — үлдэгдэл шууд
+// харагдаж, дарахад тухайн дансны контекст руу шилжинэ.
+
+window._cashAccount = window._cashAccount || null;
+
+function cashAccountCards(tb) {
+  const rows = (Array.isArray(tb) ? tb : [])
+    .filter(r => /^(10|11)/.test(r.code))
+    .map(r => ({ ...r, bal: r.debit_minor - r.credit_minor }))
+    .filter(r => r.bal || r.debit_minor || r.credit_minor);
+
+  if (!rows.length) return '';
+
+  const total = rows.reduce((a, r) => a + r.bal, 0);
+  return `<div class="acc-cards">
+    ${rows.map(r => `
+      <button class="acc-card ${window._cashAccount === r.code ? 'active' : ''}"
+              onclick="pickCashAccount('${r.code}')" title="${esc(r.name)}">
+        <span class="ac-code">${esc(r.code)}</span>
+        <span class="ac-name">${esc(r.name)}</span>
+        <span class="ac-bal">${fmt(r.bal)}</span>
+      </button>`).join('')}
+    <div class="acc-card total">
+      <span class="ac-code">НИЙТ</span>
+      <span class="ac-name">Мөнгөн хөрөнгө</span>
+      <span class="ac-bal">${fmt(total)}</span>
+    </div>
+  </div>`;
+}
+
+function pickCashAccount(code) {
+  window._cashAccount = window._cashAccount === code ? null : code;
+  document.querySelectorAll('.acc-card').forEach(el => el.classList.remove('active'));
+  if (window._cashAccount) {
+    const el = [...document.querySelectorAll('.acc-card')]
+      .find(x => x.querySelector('.ac-code')?.textContent === code);
+    if (el) el.classList.add('active');
+    toast(`${code} дансны контекст идэвхжлээ.`);
+  }
+}
+
 // ---------------------------------------------------- Bank Statement Tab
 window.deleteStatement = async (id, file) => {
-  if (!confirm(`"${file}" хуулгыг гүйлгээ, саналын хамт бүрмөсөн устгах уу?\n\nЭнэ үйлдлийг буцаах боломжгүй.`)) return;
+  if (!await confirmRisky({
+    title: `"${file}" хуулгыг устгах уу?`,
+    steps: ['Хуулгын бүх гүйлгээ устана',
+            'Тэдгээрт үүссэн ангиллын санал устана',
+            'Батлагдсан журналын бичилт ҮЛДЭНЭ — тэдгээрийг гараар буцаана'],
+    warning: 'Энэ үйлдлийг буцаах боломжгүй. Устгахаас өмнө тайлангаа хэвлэж авахыг зөвлөе.',
+    confirmLabel: 'Бүрмөсөн устгах'
+  })) return;
   try {
     const r = await fetch(`/api/companies/${companyId}/statements/${id}`,
       { method: 'DELETE', headers: { Authorization: 'Bearer ' + token() } });
@@ -5285,9 +5736,10 @@ window.deleteStatement = async (id, file) => {
 };
 
 async function statements() {
-  const [sts, recon] = await Promise.all([
+  const [sts, recon, tb] = await Promise.all([
     api(`/companies/${companyId}/statements`),
-    api(`/companies/${companyId}/bank-reconciliation`).catch(() => null)
+    api(`/companies/${companyId}/bank-reconciliation`).catch(() => null),
+    api(`/companies/${companyId}/trial-balance`).catch(() => [])
   ]);
   
   const reconHtml = recon ? `
@@ -5307,7 +5759,10 @@ async function statements() {
     </div>
   ` : '';
   
+  const cashCardsHtml = cashAccountCards(tb);
+
   $('#content').innerHTML = `
+    ${cashCardsHtml}
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:16px;">
       <!-- Card 1: Bank Statements Multi-Upload -->
       <div class="card" style="margin:0;">

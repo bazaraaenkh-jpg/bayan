@@ -490,6 +490,8 @@ class JournalEntryIn(BaseModel):
     entry_date: date
     memo: str | None = None
     lines: list[LineInputSchema]
+    #: "draft" — хадгална, тайланд ОРОХГҮЙ. "posted" — шууд батална.
+    status: str = "posted"
 
 @app.post("/api/companies/{company_id}/entries")
 def create_manual_entry(company_id: str, body: JournalEntryIn,
@@ -506,15 +508,71 @@ def create_manual_entry(company_id: str, body: JournalEntryIn,
     ]
     
     try:
+        from .models import EntryStatus
+        wanted = (EntryStatus.draft if body.status == "draft"
+                  else EntryStatus.posted)
         entry = ledger.post_entry(
             db, company_id, body.entry_date, ledger_lines,
-            source_type=SourceType.manual, memo=body.memo, actor_id=ctx["uid"]
+            source_type=SourceType.manual, memo=body.memo,
+            actor_id=ctx["uid"], status=wanted
         )
         db.commit()
-        return {"ok": True, "entry_no": entry.entry_no, "entry_id": entry.id}
+        return {"ok": True, "entry_no": entry.entry_no, "entry_id": entry.id,
+                "status": entry.status.value,
+                "document_no": ledger.document_no(
+                    "ЕЖ", entry.entry_no, body.entry_date.year)}
     except Exception as e:
         db.rollback()
         raise HTTPException(400, str(e))
+
+
+@app.get("/api/companies/{company_id}/entries/next-no")
+def next_entry_number(company_id: str, prefix: str = "ЕЖ", year: int | None = None,
+                      ctx: dict = Depends(company_guard("read")),
+                      db: Session = Depends(get_db)):
+    """Дараагийн баримтын дугаарыг формд урьдчилан бөглөхөд."""
+    no = ledger.next_entry_no(db, company_id)
+    return {"entry_no": no,
+            "document_no": ledger.document_no(prefix, no, year or date.today().year)}
+
+
+@app.get("/api/companies/{company_id}/suggest-counter-account")
+def suggest_counter_account(company_id: str, description: str = "",
+                            account_code: str = "",
+                            ctx: dict = Depends(company_guard("read")),
+                            db: Session = Depends(get_db)):
+    """Эсрэг талын дансыг санал болгоно — «— Автомат —» талбарт.
+
+    Нябо-гийн өөрийн ангиллын дүрэм ҮРГЭЛЖ дээгүүр. Дүрэм олдохгүй бол
+    дансны бүлгээс логик дүгнэлт хийнэ: зардал/худалдан авалт нь мөнгөнөөс
+    гардаг, орлого нь мөнгө рүү ордог."""
+    from .models import ClassifierRule
+
+    text = (description or "").lower()
+    rule = None
+    if text:
+        for r in db.scalars(select(ClassifierRule).where(
+                ClassifierRule.company_id == company_id,
+                ClassifierRule.active == True)  # noqa: E712
+                .order_by(ClassifierRule.priority)):
+            if r.keyword.lower() in text:
+                rule = r
+                break
+
+    if rule and rule.account_code != account_code:
+        acc = db.scalar(select(Account).where(
+            Account.company_id == company_id, Account.code == rule.account_code))
+        if acc is not None:
+            return {"code": acc.code, "name": acc.name,
+                    "reason": f"«{rule.keyword}» дүрмээр"}
+
+    # Дүрэм алга — бүлгээр нь дүгнэнэ. Мөнгө нь хамгийн түгээмэл эсрэг тал.
+    cash = db.scalar(select(Account).where(
+        Account.company_id == company_id, Account.code == "1101"))
+    if cash is not None and not account_code.startswith(("10", "11")):
+        return {"code": cash.code, "name": cash.name,
+                "reason": "мөнгөн хөрөнгө — түгээмэл эсрэг тал"}
+    return {"code": None, "name": None, "reason": "санал алга"}
 
 
 @app.get("/api/companies/{company_id}/accounts")

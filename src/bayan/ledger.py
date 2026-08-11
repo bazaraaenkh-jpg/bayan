@@ -215,6 +215,7 @@ def post_entry(
     reversal_of: str | None = None,
     is_system_generated: bool = False,
     is_realized: bool = True,
+    status: EntryStatus = EntryStatus.posted,
 ) -> JournalEntry:
     """Бичилт хийх цорын ганц зам. Бүх инвариант энд шалгагдана."""
     if not lines:
@@ -256,7 +257,7 @@ def post_entry(
     entry = JournalEntry(
         company_id=company_id, entry_no=next_no, entry_date=entry_date,
         memo=memo, source_type=source_type, source_id=source_id,
-        status=EntryStatus.posted, created_by=actor_id, reversal_of=reversal_of,
+        status=status, created_by=actor_id, reversal_of=reversal_of,
         is_system_generated=is_system_generated, is_realized=is_realized,
     )
 
@@ -351,6 +352,18 @@ def trial_balance(
                      "debit_minor": int(dr), "credit_minor": int(cr),
                      "balance_minor": int(balance)})
     return rows
+
+
+def next_entry_no(session: Session, company_id: str) -> int:
+    """Дараагийн журналын дугаар — формд урьдчилан харуулахад."""
+    return (session.scalar(
+        select(func.max(JournalEntry.entry_no)).where(
+            JournalEntry.company_id == company_id)) or 0) + 1
+
+
+def document_no(prefix: str, entry_no: int, year: int) -> str:
+    """«ЕЖ/26-001» хэлбэрийн баримтын дугаар."""
+    return f"{prefix}/{year % 100:02d}-{entry_no:03d}"
 
 
 # ============================================================ ТЭНЦЛИЙН ШАЛГУУР
