@@ -3839,36 +3839,126 @@ def reconcile_ebarimt_with_bank(
     year: int = Form(2026),
     month: int = Form(7),
     files: list[UploadFile] = File(None),
+    datasets: list[str] = Form(None),
+    date_from: str = Form(None),
+    date_to: str = Form(None),
+    allow_mock: bool = Form(False),
     ctx: dict = Depends(company_guard("post")),
     db: Session = Depends(get_db)
 ):
+    """eBarimt-ын 4 тайланг (ААН/иргэн × орлого/зарлага) банкны хуулгатай тулгана.
+
+    Файл тус бүрийн төрлийг нэрээр нь (эсвэл `datasets` талбараар) таньж,
+    орлогын падааныг зөвхөн мөнгө ОРСОН, зарлагынхыг зөвхөн мөнгө ГАРСАН
+    гүйлгээтэй тулгана.
+    """
+    from datetime import datetime, time as dtime, timedelta
+
     from .models import BankTxn
-    ebarimt_items = []
-    
-    if mode == "excel" and files:
-        for f in files:
+
+    ebarimt_items: list[dict] = []
+    file_reports: list[dict] = []
+
+    if mode == "excel":
+        if not files:
+            raise HTTPException(422, "eBarimt файл ирээгүй байна.")
+        labels = list(datasets or [])
+        for pos, f in enumerate(files):
             file_bytes = f.file.read()
-            if not file_bytes: continue
+            if not file_bytes:
+                file_reports.append({"file": f.filename, "error": "Файл хоосон байна."})
+                continue
+            hint = labels[pos] if pos < len(labels) and labels[pos] else None
+            if hint in ("", "auto"):
+                hint = None
             try:
-                parsed = ebarimt.parse_ebarimt_excel(file_bytes)
-                ebarimt_items.extend(parsed)
+                parsed = ebarimt.parse_ebarimt_export(file_bytes, f.filename, hint)
+            except ebarimt.EbarimtParseError as e:
+                file_reports.append({"file": f.filename, "error": str(e)})
+                continue
             except Exception as e:
-                raise HTTPException(422, f"eBarimt Excel '{f.filename}' файлыг уншихад алдаа гарлаа: {e}")
+                file_reports.append({
+                    "file": f.filename,
+                    "error": f"Уншихад алдаа гарлаа: {e}"})
+                continue
+            ebarimt_items.extend(parsed["items"])
+            file_reports.append({
+                "file": f.filename,
+                "dataset": parsed["dataset"],
+                "label": parsed["label"] or "Тодорхойгүй төрөл",
+                "direction": parsed["direction"],
+                "count": len(parsed["items"]),
+                "amount_mnt": sum(i["total_minor"] for i in parsed["items"]) / 100,
+                "skipped_rows": parsed["skipped_rows"],
+                "voided_rows": parsed["voided_rows"],
+                "columns": parsed["columns"],
+            })
+        if not ebarimt_items:
+            detail = "; ".join(
+                f"{r['file']}: {r['error']}" for r in file_reports if r.get("error"))
+            raise HTTPException(422, detail or "eBarimt файлаас нэг ч мөр уншигдсангүй.")
     else:
         client = ebarimt.EbarimtClient()
+        if client.is_mock and not allow_mock:
+            # Өмнө нь энэ салаа ЧИМЭЭГҮЙ mock өгөгдөл буцаадаг байсан тул
+            # хэрэглэгч бодит тулгалт хийсэн гэж эндүүрдэг байв.
+            raise HTTPException(422,
+                "eBarimt API холбогдоогүй байна (EBARIMT_TIN / EBARIMT_TOKEN "
+                "тохируулаагүй). НӨАТУС-аас татсан 4 тайлангаа Excel горимоор "
+                "оруулна уу.")
         try:
             recs = client.fetch_receipts(year, month)
             invs = client.fetch_purchase_invoices(year, month)
-            for r in recs:
-                ebarimt_items.append({"date": r["date"], "total_minor": r["total_minor"], "receipt_id": r["receipt_id"], "party": "Борлуулалтын eBarimt"})
-            for i in invs:
-                ebarimt_items.append({"date": i["date"], "total_minor": i["total_minor"], "receipt_id": i["invoice_id"], "party": i.get("supplier_name", "Худалдан авалт")})
         except Exception as e:
             raise HTTPException(422, f"eBarimt API-аас татахад алдаа гарлаа: {e}")
-            
-    bank_txns = db.scalars(select(BankTxn).where(BankTxn.company_id == company_id)).all()
-    
-    # Дүн, огноо, харилцагчийн нэрийг жинлэн тулгана (ebarimt_match.py)
+        for r in recs:
+            ebarimt_items.append({
+                "date": r["date"], "total_minor": r["total_minor"],
+                "receipt_id": r["receipt_id"], "party": "Борлуулалтын eBarimt",
+                "dataset": "org_income", "dataset_label": "Байгууллагын орлого",
+                "direction": "in", "vat_minor": r.get("vat_minor"),
+            })
+        for i in invs:
+            ebarimt_items.append({
+                "date": i["date"], "total_minor": i["total_minor"],
+                "receipt_id": i["invoice_id"],
+                "party": i.get("supplier_name", "Худалдан авалт"),
+                "dataset": "org_expense", "dataset_label": "Байгууллагын зарлага",
+                "direction": "out", "vat_minor": i.get("vat_minor"),
+            })
+        file_reports.append({
+            "file": "eBarimt API", "dataset": None, "label": "API-аас татсан",
+            "count": len(ebarimt_items),
+            "amount_mnt": sum(i["total_minor"] for i in ebarimt_items) / 100,
+        })
+
+    # ---- Банкны гүйлгээг зөвхөн хамаарах хугацаанаас авна ------------------
+    # Өмнө нь компанийн БҮХ түүхийг татдаг байсан тул «eBarimt дутуу» гэсэн
+    # хэдэн зуун мөр гарч, тайлан ашиглах боломжгүй болдог байв.
+    win_from = win_to = None
+    try:
+        if date_from:
+            win_from = date.fromisoformat(date_from)
+        if date_to:
+            win_to = date.fromisoformat(date_to)
+    except ValueError:
+        raise HTTPException(422, "date_from / date_to нь YYYY-MM-DD хэлбэртэй байна.")
+
+    if win_from is None or win_to is None:
+        days = [date.fromisoformat(i["date"]) for i in ebarimt_items if i.get("date")]
+        if days:
+            pad = timedelta(days=ebarimt_match.DATE_TOLERANCE_DAYS)
+            win_from = win_from or (min(days) - pad)
+            win_to = win_to or (max(days) + pad)
+
+    q = select(BankTxn).where(BankTxn.company_id == company_id)
+    if win_from is not None:
+        q = q.where(BankTxn.posted_at >= datetime.combine(win_from, dtime.min))
+    if win_to is not None:
+        q = q.where(BankTxn.posted_at <= datetime.combine(win_to, dtime.max))
+    bank_txns = db.scalars(q).all()
+
+    # Дүн, огноо, харилцагчийн нэр, ЧИГЛЭЛийг жинлэн тулгана (ebarimt_match.py)
     results = ebarimt_match.match(ebarimt_items, bank_txns)
 
     used_txn_ids = set()
@@ -3876,22 +3966,45 @@ def reconcile_ebarimt_with_bank(
     matched_count = 0
     matched_amount_minor = 0
     review_count = 0
+    ds_stats: dict[str, dict] = {}
 
     for item, res in zip(ebarimt_items, results):
         amt = item["total_minor"]
+        ds_key = item.get("dataset") or "unknown"
+        st = ds_stats.setdefault(ds_key, {
+            "dataset": item.get("dataset"),
+            "label": item.get("dataset_label") or "Төрөл тодорхойгүй",
+            "direction": item.get("direction"),
+            "count": 0, "amount_mnt": 0.0,
+            "matched_count": 0, "matched_amount_mnt": 0.0,
+            "unmatched_count": 0, "unmatched_amount_mnt": 0.0,
+        })
+        st["count"] += 1
+        st["amount_mnt"] += amt / 100
+
         row = {
-            "date": item["date"],
+            "date": item.get("date") or "-",
             "total_mnt": amt / 100,
+            "vat_mnt": (item.get("vat_minor") or 0) / 100,
             "ebarimt_id": item["receipt_id"],
             "party": item["party"],
+            "party_tin": item.get("party_tin"),
+            "dataset": item.get("dataset"),
+            "dataset_label": item.get("dataset_label"),
+            "direction": item.get("direction"),
+            "source_file": item.get("source_file"),
             "bank_txn_id": res.txn_id,
             "confidence": res.confidence,
+            "group_id": res.group_id,
+            "group_size": res.group_size,
             "match_reason": ", ".join(res.reasons),
         }
         if res.txn_id:
             used_txn_ids.add(res.txn_id)
             matched_count += 1
             matched_amount_minor += amt
+            st["matched_count"] += 1
+            st["matched_amount_mnt"] += amt / 100
             # Итгэл багатай тулгалтыг батлахгүй, хүний нүдэнд үлдээнэ
             row["needs_review"] = not res.auto
             if not res.auto:
@@ -3900,8 +4013,10 @@ def reconcile_ebarimt_with_bank(
         else:
             row["needs_review"] = False
             row["status"] = "NO_BANK_PAYMENT"
+            st["unmatched_count"] += 1
+            st["unmatched_amount_mnt"] += amt / 100
         items_detail.append(row)
-            
+
     for b in bank_txns:
         if b.id not in used_txn_ids:
             items_detail.append({
@@ -3909,16 +4024,25 @@ def reconcile_ebarimt_with_bank(
                 "total_mnt": b.amount_minor / 100,
                 "ebarimt_id": "-",
                 "party": b.counterparty_name or b.description_raw or "Банкны гүйлгээ",
+                "dataset": None,
+                "dataset_label": None,
+                "direction": ebarimt_match.txn_direction(b),
                 "bank_txn_id": b.id,
                 "status": "NO_EBARIMT"
             })
 
     total_ebarimts_amount_minor = sum(i["total_minor"] for i in ebarimt_items)
     total_bank_amount_minor = sum(b.amount_minor for b in bank_txns)
-    
+
     return {
         "ok": True,
         "mode": mode,
+        "period": {
+            "from": win_from.isoformat() if win_from else None,
+            "to": win_to.isoformat() if win_to else None,
+        },
+        "files": file_reports,
+        "datasets": sorted(ds_stats.values(), key=lambda d: d["label"]),
         "total_ebarimt_count": len(ebarimt_items),
         "total_ebarimt_amount_mnt": total_ebarimts_amount_minor / 100,
         "total_bank_count": len(bank_txns),
@@ -3926,7 +4050,7 @@ def reconcile_ebarimt_with_bank(
         "matched_count": matched_count,
         "matched_amount_mnt": matched_amount_minor / 100,
         "unmatched_ebarimt_count": len(ebarimt_items) - matched_count,
-        "unmatched_bank_count": len(bank_txns) - matched_count,
+        "unmatched_bank_count": len(bank_txns) - len(used_txn_ids),
         "review_count": review_count,
         "tolerance": {
             "amount_mnt": ebarimt_match.AMOUNT_TOLERANCE_MINOR / 100,

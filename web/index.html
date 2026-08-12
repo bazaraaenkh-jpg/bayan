@@ -5781,24 +5781,27 @@ async function statements() {
         <div>
           <h2><i class="fa-solid fa-receipt" style="color:var(--primary)"></i> eBarimt & Хуулгын Тулгалт</h2>
           <div style="font-size:11.5px; margin-bottom:6px; color:var(--text-muted);">
-            Олон банкны хуулгыг eBarimt API эсвэл eBarimt Excel экспорттой тулгана.
+            НӨАТУС-аас татсан <b>4 тайланг</b> (байгууллага/иргэн × орлого/зарлага)
+            банкны хуулгатай тулгана. Орлогын баримт зөвхөн мөнгө орсон,
+            зарлагынх зөвхөн мөнгө гарсан гүйлгээтэй тулгагдана.
           </div>
           <div style="margin-bottom:10px;">
             <select id="eb_mode" class="input-field" style="min-height:42px; padding:8px 12px; font-size:13.5px; width:100%;" onchange="toggleEbarimtMode()">
-              <option value="api">eBarimt API (НӨАТҮС-аас татах)</option>
-              <option value="excel">eBarimt Excel / CSV Файлууд Оруулах</option>
+              <option value="excel">eBarimt Excel / CSV тайлангууд (4 файл)</option>
+              <option value="api">eBarimt API (НӨАТУС-аас татах — холболт шаардана)</option>
             </select>
           </div>
-          <div id="eb_api_box" style="margin-bottom:10px;">
+          <div id="eb_api_box" style="display:none; margin-bottom:10px;">
             <input type="month" id="eb_month" class="input-field" style="min-height:42px; padding:8px 12px; font-size:13.5px; width:100%;" value="2026-07">
           </div>
-          <div id="eb_excel_box" style="display:none; margin-bottom:10px;">
+          <div id="eb_excel_box" style="margin-bottom:10px;">
             <div id="eb_dropzone" onclick="$('#eb_excel_file').click()" style="height:70px; display:flex; flex-direction:column; justify-content:center; align-items:center; border:2px dashed var(--primary); border-radius:6px; cursor:pointer; background:var(--bg);">
               <i class="fa-solid fa-folder-open" style="font-size:18px; color:var(--primary); margin-bottom:2px;"></i>
-              <span style="font-size:11.5px; font-weight:600;">eBarimt Excel файлуудаа энд чирэх эсвэл сонгох</span>
+              <span style="font-size:11.5px; font-weight:600;">4 тайлангаа энд чирэх эсвэл сонгох</span>
+              <span style="font-size:10.5px;" class="muted">Төрлийг файлын нэрээр таана — буруу бол доор нь сонгож засна</span>
             </div>
             <input type="file" id="eb_excel_file" accept=".xlsx,.xls,.csv" multiple style="display:none;" onchange="handleEbarimtFilesSelect(this.files)">
-            <div id="eb_file_list" style="margin-top:4px; font-size:11px; max-height:60px; overflow-y:auto;"></div>
+            <div id="eb_file_list" style="margin-top:4px; font-size:11px; max-height:150px; overflow-y:auto;"></div>
           </div>
         </div>
         
@@ -10128,9 +10131,29 @@ function toggleEbarimtMode() {
   }
 }
 
+// eBarimt-ын 4 тайлан — файлын нэрээр төрлийг таана (сервер талын
+// detect_dataset-тэй ижил дүрэм), хэрэглэгч гараар засаж болно.
+const EB_DATASETS = [
+  ['org_income', 'Байгууллагын орлого'],
+  ['org_expense', 'Байгууллагын зарлага'],
+  ['citizen_income', 'Иргэний орлого'],
+  ['citizen_expense', 'Иргэний зарлага'],
+];
+
+function guessEbarimtDataset(name) {
+  const t = (name || '').toLowerCase().replace(/[_-]/g, ' ');
+  let kind = null, flow = null;
+  if (/байгууллаг|аан|b2b|org|company/.test(t)) kind = 'org';
+  else if (/иргэн|хувь хүн|b2c|citizen/.test(t)) kind = 'citizen';
+  if (/зарлага|худалдан|авалт|purchase|expense/.test(t)) flow = 'expense';
+  else if (/орлого|борлуулалт|sale|income/.test(t)) flow = 'income';
+  if (!kind || !flow) return '';
+  return `${kind}_${flow}`;
+}
+
 function handleEbarimtFilesSelect(files) {
   if (!files || files.length === 0) return;
-  const newFiles = Array.from(files);
+  const newFiles = Array.from(files).map(f => ({ file: f, dataset: guessEbarimtDataset(f.name) }));
   window._selectedEbarimtFiles = [...window._selectedEbarimtFiles, ...newFiles];
   renderEbarimtFileList();
 }
@@ -10140,6 +10163,10 @@ function removeEbarimtFile(idx) {
   renderEbarimtFileList();
 }
 
+function setEbarimtFileDataset(idx, value) {
+  if (window._selectedEbarimtFiles[idx]) window._selectedEbarimtFiles[idx].dataset = value;
+}
+
 function renderEbarimtFileList() {
   const listEl = $('#eb_file_list');
   if (!listEl) return;
@@ -10147,12 +10174,22 @@ function renderEbarimtFileList() {
     listEl.innerHTML = '';
     return;
   }
-  listEl.innerHTML = window._selectedEbarimtFiles.map((f, i) => `
-    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg); padding:3px 6px; border-radius:4px; margin-bottom:2px; font-size:11px;">
-      <span><i class="fa-solid fa-file-excel" style="color:var(--primary); margin-right:4px;"></i> <b>${f.name}</b> (${Math.round(f.size/1024)} KB)</span>
-      <span style="cursor:pointer; color:var(--danger); font-weight:700; margin-left:6px;" onclick="removeEbarimtFile(${i})">×</span>
-    </div>
-  `).join('');
+  listEl.innerHTML = window._selectedEbarimtFiles.map((entry, i) => {
+    const f = entry.file;
+    const opts = ['<option value="">Төрлийг автоматаар таних</option>']
+      .concat(EB_DATASETS.map(([k, label]) =>
+        `<option value="${k}" ${entry.dataset === k ? 'selected' : ''}>${label}</option>`))
+      .join('');
+    return `
+    <div style="background:var(--bg); padding:4px 6px; border-radius:4px; margin-bottom:3px; font-size:11px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span><i class="fa-solid fa-file-excel" style="color:var(--primary); margin-right:4px;"></i> <b>${f.name}</b> (${Math.round(f.size/1024)} KB)</span>
+        <span style="cursor:pointer; color:var(--danger); font-weight:700; margin-left:6px;" onclick="removeEbarimtFile(${i})">×</span>
+      </div>
+      <select class="input-field" style="height:28px; font-size:11px; padding:2px 6px; margin-top:3px; width:100%;"
+              onchange="setEbarimtFileDataset(${i}, this.value)">${opts}</select>
+    </div>`;
+  }).join('');
 }
 
 async function runEbarimtBankReconciliation() {
@@ -10161,16 +10198,19 @@ async function runEbarimtBankReconciliation() {
   formData.append('mode', mode);
   
   if (mode === 'excel') {
-    const files = window._selectedEbarimtFiles.length > 0 
-      ? window._selectedEbarimtFiles 
-      : ($('#eb_excel_file') && $('#eb_excel_file').files ? Array.from($('#eb_excel_file').files) : []);
-      
-    if (files.length === 0) {
-      alert("eBarimt Excel эсвэл CSV файлаа сонгоно уу!");
+    let entries = window._selectedEbarimtFiles;
+    if (entries.length === 0 && $('#eb_excel_file') && $('#eb_excel_file').files) {
+      entries = Array.from($('#eb_excel_file').files)
+        .map(f => ({ file: f, dataset: guessEbarimtDataset(f.name) }));
+    }
+    if (entries.length === 0) {
+      alert("eBarimt-ын тайлан файлуудаа сонгоно уу!");
       return;
     }
-    for (let i = 0; i < files.length; i++) {
-      formData.append('files', files[i]);
+    // files ба datasets нь ижил дараалалтай — сервер тэр дарааллаар хослуулна
+    for (const e of entries) {
+      formData.append('files', e.file);
+      formData.append('datasets', e.dataset || '');
     }
   } else {
     const ym = $('#eb_month').value || '2026-07';
@@ -10210,7 +10250,8 @@ let currentEbarimtReconData = null;
 function filterEbarimtReconTab(filter) {
   if (!currentEbarimtReconData) return;
   const res = currentEbarimtReconData;
-  
+  window._ebStatusFilter = filter;
+
   ['all', 'MATCHED', 'NO_BANK_PAYMENT', 'NO_EBARIMT'].forEach(f => {
     const btn = $(`#eb_tab_${f}`);
     if (btn) {
@@ -10224,11 +10265,17 @@ function filterEbarimtReconTab(filter) {
     }
   });
 
-  const filteredItems = filter === 'all' ? res.items : res.items.filter(i => i.status === filter);
-  
+  let filteredItems = filter === 'all' ? res.items : res.items.filter(i => i.status === filter);
+  const dsFilter = window._ebDatasetFilter;
+  if (dsFilter) filteredItems = filteredItems.filter(i => i.dataset === dsFilter);
+
   let rowsHtml = filteredItems.map(i => `
     <tr style="${i.status === 'MATCHED' ? 'background:#f0fdf4;' : i.status === 'NO_BANK_PAYMENT' ? 'background:#fffbeb;' : 'background:#fef2f2;'}">
       <td>${i.date}</td>
+      <td>
+        <span style="font-size:11px; ${i.dataset_label ? '' : 'color:var(--text-muted);'}">${i.dataset_label || '— банк —'}</span>
+        ${i.direction ? `<div style="font-size:10.5px; color:var(--text-muted);">${i.direction === 'in' ? '↓ орлого' : '↑ зарлага'}</div>` : ''}
+      </td>
       <td><b>${i.ebarimt_id}</b></td>
       <td>${i.party}</td>
       <td class="num"><b>${fmt(i.total_mnt * 100)}</b></td>
@@ -10249,13 +10296,52 @@ function filterEbarimtReconTab(filter) {
 
   const tbody = $('#eb_recon_tbody');
   if (tbody) {
-    tbody.innerHTML = rowsHtml || '<tr><td colspan="5" style="text-align:center; padding:16px;" class="muted">Тухайн шүүлтүүрт тохирох гүйлгээ олдсонгүй.</td></tr>';
+    tbody.innerHTML = rowsHtml || '<tr><td colspan="6" style="text-align:center; padding:16px;" class="muted">Тухайн шүүлтүүрт тохирох гүйлгээ олдсонгүй.</td></tr>';
   }
+}
+
+function filterEbarimtByDataset(ds) {
+  window._ebDatasetFilter = (window._ebDatasetFilter === ds) ? null : ds;
+  document.querySelectorAll('[data-eb-ds]').forEach(el => {
+    el.style.outline = (el.getAttribute('data-eb-ds') === window._ebDatasetFilter)
+      ? '2px solid var(--primary)' : 'none';
+  });
+  filterEbarimtReconTab(window._ebStatusFilter || 'all');
 }
 
 function openEbarimtBankReconModal(res) {
   currentEbarimtReconData = res;
-  $('#modalCard').style.width = '920px';
+  window._ebDatasetFilter = null;
+  $('#modalCard').style.width = '980px';
+
+  // Файл тус бүрийн уншилтын тайлан — алдаатай файлыг чимээгүй алгасахгүй
+  const fileHtml = (res.files && res.files.length) ? `
+    <div style="margin-bottom:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+      ${res.files.map(f => f.error ? `
+        <div style="padding:7px 10px; font-size:11.5px; background:rgba(239,68,68,.08); color:var(--danger);">
+          <i class="fa-solid fa-triangle-exclamation"></i> <b>${f.file}</b> — ${f.error}
+        </div>` : `
+        <div style="padding:7px 10px; font-size:11.5px; display:flex; justify-content:space-between; gap:10px; border-bottom:1px solid var(--border);">
+          <span><i class="fa-solid fa-file-circle-check" style="color:var(--ok)"></i> <b>${f.file}</b>
+            → ${f.label}${f.direction ? (f.direction === 'in' ? ' (↓ орлого)' : ' (↑ зарлага)') : ''}</span>
+          <span class="muted">${f.count} мөр · ${fmt((f.amount_mnt || 0) * 100)}${f.voided_rows ? ` · ${f.voided_rows} хүчингүй` : ''}${f.skipped_rows ? ` · ${f.skipped_rows} алгасав` : ''}</span>
+        </div>`).join('')}
+    </div>` : '';
+
+  // 4 тайлангийн задаргаа — товшиж шүүнэ
+  const dsHtml = (res.datasets && res.datasets.length) ? `
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:8px; margin-bottom:14px;">
+      ${res.datasets.map(d => `
+        <div data-eb-ds="${d.dataset || ''}" onclick="filterEbarimtByDataset('${d.dataset || ''}')"
+             style="cursor:pointer; background:var(--bg); padding:9px 10px; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:11.5px; font-weight:700;">${d.label}
+            <span class="muted" style="font-weight:400;">${d.direction === 'in' ? '↓' : d.direction === 'out' ? '↑' : ''}</span></div>
+          <div style="font-size:14px; font-weight:700; color:var(--primary)">${fmt(d.amount_mnt * 100)}</div>
+          <div style="font-size:11px;" class="muted">${d.count} баримт ·
+            <span style="color:var(--ok)">${d.matched_count} таарсан</span>
+            ${d.unmatched_count ? ` · <span style="color:var(--warning)">${d.unmatched_count} таараагүй</span>` : ''}</div>
+        </div>`).join('')}
+    </div>` : '';
 
   $('#modalCard').innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
@@ -10285,6 +10371,15 @@ function openEbarimtBankReconModal(res) {
         <div style="font-size:11px; color:var(--danger)">eBarimt: ${res.unmatched_ebarimt_count} | Банк: ${res.unmatched_bank_count}</div>
       </div>
     </div>
+
+    ${fileHtml}
+    ${dsHtml}
+
+    ${res.period && res.period.from ? `
+      <div style="margin-bottom:10px; font-size:11.5px;" class="muted">
+        <i class="fa-solid fa-calendar-days"></i> Тулгасан хугацаа: <b>${res.period.from}</b> — <b>${res.period.to}</b>
+        (баримтуудын огноо ± ${res.tolerance ? res.tolerance.date_days : 7} хоног)
+      </div>` : ''}
 
     ${res.tolerance ? `
       <div style="margin-bottom:12px; padding:9px 12px; border-radius:8px; font-size:12px; line-height:1.5;
@@ -10316,6 +10411,7 @@ function openEbarimtBankReconModal(res) {
         <thead>
           <tr style="background:var(--bg); position:sticky; top:0; z-index:2;">
             <th>Огноо</th>
+            <th>Тайлан</th>
             <th>eBarimt ДДТД / Код</th>
             <th>Харилцагч / Гүйлгээний утга</th>
             <th class="num">Дүн</th>
@@ -10327,9 +10423,11 @@ function openEbarimtBankReconModal(res) {
       </table>
     </div>
     
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <div style="font-size:12px; color:var(--ok); font-weight:600;">
-        💡 Таарсан ${res.matched_count} гүйлгээ автоматаар ангилагдаж баталгаажлаа.
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+      <div style="font-size:12px; color:var(--text-muted);">
+        <i class="fa-solid fa-circle-info"></i>
+        Энэ бол <b>тулгалтын тайлан</b> — ${res.matched_count} баримт банкны гүйлгээтэй таарлаа.
+        Журналын бичилт үүсээгүй: ангилалт, батлалтыг «Ангилал» хэсгээс хийнэ.
       </div>
       <button class="btn secondary" onclick="hideModal()">Хаах</button>
     </div>

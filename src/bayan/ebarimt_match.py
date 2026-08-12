@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from difflib import SequenceMatcher
+from itertools import combinations
 
 # --------------------------------------------------------------- тохиргоо
 
@@ -22,6 +23,10 @@ AMOUNT_TOLERANCE_MINOR = 2_00      # ±2₮ хүртэлх зөрүүг зөвш
 DATE_TOLERANCE_DAYS = 7            # ±7 хоног
 AUTO_MATCH_THRESHOLD = 0.85        # үүнээс дээш бол автоматаар тулгана
 MIN_CANDIDATE_SCORE = 0.55         # үүнээс доош бол огт нэр дэвшүүлэхгүй
+
+# Нэг гүйлгээнд хэдэн падаан нийлж болох (нэг шилжүүлгээр олон баримт төлөх)
+GROUP_MAX_ITEMS = 4
+GROUP_CANDIDATE_LIMIT = 14         # хослолын тооны тэсрэлтээс хамгаална
 
 # Оноонд эзлэх жин (нийлбэр нь 1.0)
 W_AMOUNT, W_DATE, W_PARTY = 0.60, 0.25, 0.15
@@ -33,10 +38,30 @@ class MatchResult:
     txn_id: str | None
     confidence: float
     reasons: list[str] = field(default_factory=list)
+    group_id: str | None = None      # олон падаан → нэг гүйлгээ болсон бол
+    group_size: int = 1
 
     @property
     def auto(self) -> bool:
         return self.txn_id is not None and self.confidence >= AUTO_MATCH_THRESHOLD
+
+
+def txn_direction(txn) -> str | None:
+    """Банкны гүйлгээний чиглэл: credit = мөнгө ОРСОН, debit = ГАРСАН.
+
+    (pipeline.post_entries-ийн конвенцтой ижил — тэнд credit үед
+     Дт банк / Кт орлого бичилт үүсдэг.)
+    """
+    d = getattr(txn, "direction", None)
+    if d is None:
+        return None
+    val = getattr(d, "value", None) or str(d)
+    val = val.split(".")[-1].lower()
+    if val == "credit":
+        return "in"
+    if val == "debit":
+        return "out"
+    return None
 
 
 # --------------------------------------------------------------- туслахууд
@@ -105,8 +130,25 @@ def party_score(ebarimt_party: str | None, txn_texts: list[str | None]) -> float
     return best
 
 
+def direction_ok(item: dict, txn) -> bool:
+    """Орлогын падааныг зарлагын гүйлгээтэй тулгахаас сэргийлнэ.
+
+    eBarimt-ын 4 тайлангийн 2 нь орлого (мөнгө орно), 2 нь зарлага (мөнгө
+    гарна). Чиглэл мэдэгдэж байхад эсрэг чиглэлийн гүйлгээтэй тулгах нь
+    үргэлж алдаа — дүн, огноо нь тохиосон ч болохгүй.
+    """
+    want = item.get("direction")
+    have = txn_direction(txn)
+    if want is None or have is None:
+        return True
+    return want == have
+
+
 def score_pair(item: dict, txn) -> tuple[float, list[str]]:
     """Нэг падаан ↔ нэг гүйлгээний нийт итгэлийн оноо ба шалтгаан."""
+    if not direction_ok(item, txn):
+        return 0.0, []
+
     a_s = amount_score(int(item["total_minor"]), int(txn.amount_minor))
     if a_s == 0.0:
         return 0.0, []                                    # дүн таарахгүй бол шууд хаана
@@ -137,17 +179,94 @@ def score_pair(item: dict, txn) -> tuple[float, list[str]]:
     return total, reasons
 
 
-def match(ebarimt_items: list[dict], bank_txns: list) -> list[MatchResult]:
+def _group_score(items: list[dict], txn) -> tuple[float, list[str]]:
+    """Нийлмэл төлбөрийн итгэлийн оноо — дүн нийлбэрээр, огноо дунджаар."""
+    total = sum(int(i["total_minor"]) for i in items)
+    a_s = amount_score(total, int(txn.amount_minor))
+    if a_s == 0.0:
+        return 0.0, []
+
+    t_day = parse_day(getattr(txn, "posted_at", None))
+    d_scores = [date_score(parse_day(i.get("date")), t_day) for i in items]
+    if any(s == 0.0 for s in d_scores):
+        return 0.0, []
+    d_s = sum(d_scores) / len(d_scores)
+
+    texts = [getattr(txn, "counterparty_name", None),
+             getattr(txn, "description_raw", None)]
+    p_s = max(party_score(i.get("party"), texts) for i in items)
+
+    total_score = (W_AMOUNT * a_s + W_DATE * d_s + W_PARTY * p_s) * 0.95
+    diff = abs(total - int(txn.amount_minor))
+    reasons = [f"{len(items)} падаан нэг гүйлгээнд нийлсэн"]
+    reasons.append("нийлбэр яг тэнцүү" if diff == 0
+                   else f"нийлбэрийн зөрүү {diff / 100:.2f}₮")
+    return total_score, reasons
+
+
+def _match_groups(ebarimt_items: list[dict], results: list[MatchResult],
+                  bank_txns: list, taken_txns: set[str]) -> None:
+    """Үлдсэн падаануудыг нэг гүйлгээнд нийлүүлж тулгахыг оролдоно.
+
+    Бодит амьдралд нэг шилжүүлгээр хэд хэдэн баримтын төлбөрийг нэг дор
+    төлдөг. 1:1 тулгалт үүнийг барьж чаддаггүй тул падаанууд «банкны мөнгө
+    ирээгүй» болж хуурамчаар харагддаг байв.
+    """
+    free = [i for i, r in enumerate(results) if r.txn_id is None]
+    if not free:
+        return
+
+    for txn in bank_txns:
+        if txn.id in taken_txns or not free:
+            continue
+        t_day = parse_day(getattr(txn, "posted_at", None))
+        t_amt = int(txn.amount_minor)
+
+        cands = [
+            i for i in free
+            if direction_ok(ebarimt_items[i], txn)
+            and int(ebarimt_items[i]["total_minor"]) < t_amt
+            and date_score(parse_day(ebarimt_items[i].get("date")), t_day) > 0.0
+        ]
+        if len(cands) < 2:
+            continue
+        # Огноогоор ойрхныг эхэнд нь — хослолын хайлт хязгаартай
+        cands.sort(key=lambda i: -date_score(
+            parse_day(ebarimt_items[i].get("date")), t_day))
+        cands = cands[:GROUP_CANDIDATE_LIMIT]
+
+        found = None
+        for size in range(2, min(GROUP_MAX_ITEMS, len(cands)) + 1):
+            for combo in combinations(cands, size):
+                score, reasons = _group_score(
+                    [ebarimt_items[i] for i in combo], txn)
+                if score >= MIN_CANDIDATE_SCORE:
+                    found = (combo, score, reasons)
+                    break
+            if found:
+                break
+
+        if not found:
+            continue
+
+        combo, score, reasons = found
+        gid = f"G-{txn.id}"
+        for i in combo:
+            results[i] = MatchResult(i, txn.id, round(score, 4), list(reasons),
+                                     group_id=gid, group_size=len(combo))
+            free.remove(i)
+        taken_txns.add(txn.id)
+
+
+def match(ebarimt_items: list[dict], bank_txns: list,
+          allow_groups: bool = True) -> list[MatchResult]:
     """Падаан бүрд хамгийн тохирох гүйлгээг онооны дарааллаар оноино.
 
-    Нэг гүйлгээ зөвхөн нэг падаанд оногдоно. Хамгийн итгэлтэй хослолыг
-    түрүүлж баталгаажуулснаар ойролцоо дүнтэй хэд хэдэн падаан хоорондоо
-    солигдох эрсдэлийг багасгана.
+    Нэг гүйлгээ зөвхөн нэг падаанд (эсвэл нэг бүлэг падаанд) оногдоно.
+    Хамгийн итгэлтэй хослолыг түрүүлж баталгаажуулснаар ойролцоо дүнтэй хэд
+    хэдэн падаан хоорондоо солигдох эрсдэлийг багасгана.
     """
     candidates: list[tuple[float, int, str, list[str]]] = []
-    by_id = {}
-    for txn in bank_txns:
-        by_id[txn.id] = txn
 
     for idx, item in enumerate(ebarimt_items):
         for txn in bank_txns:
@@ -166,5 +285,10 @@ def match(ebarimt_items: list[dict], bank_txns: list) -> list[MatchResult]:
         taken_items[idx] = MatchResult(idx, txn_id, round(score, 4), reasons)
         taken_txns.add(txn_id)
 
-    return [taken_items.get(i, MatchResult(i, None, 0.0, []))
-            for i in range(len(ebarimt_items))]
+    results = [taken_items.get(i, MatchResult(i, None, 0.0, []))
+               for i in range(len(ebarimt_items))]
+
+    if allow_groups:
+        _match_groups(ebarimt_items, results, bank_txns, taken_txns)
+
+    return results
