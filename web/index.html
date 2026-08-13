@@ -10350,6 +10350,47 @@ function openEbarimtBankReconModal(res) {
         </div>`).join('')}
     </div>` : '';
 
+  // НӨАТ: eBarimt дээрх дүн ↔ дэвтрийн ТТ-03а. Зөвхөн харуулна — юу ч бичихгүй.
+  const v = res.vat && !res.vat.error ? res.vat : null;
+  const vatHtml = v ? `
+    <div style="margin-bottom:14px; border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+      <div style="padding:8px 12px; background:var(--bg); font-size:12px; font-weight:700;">
+        <i class="fa-solid fa-percent" style="color:var(--primary)"></i>
+        НӨАТ — eBarimt ↔ дэвтэр (${v.period})
+        <span class="muted" style="font-weight:400;">· ${v.receipts_in_period}/${v.receipts_total} баримт энэ сард</span>
+      </div>
+      <table style="width:100%; font-size:12px;">
+        <thead><tr style="background:var(--bg);">
+          <th style="text-align:left;">Үзүүлэлт</th>
+          <th class="num">eBarimt</th><th class="num">Дэвтэр (ТТ-03а)</th><th class="num">Зөрүү</th>
+        </tr></thead>
+        <tbody>
+          ${v.lines.map(l => `
+            <tr>
+              <td>${l.label}</td>
+              <td class="num">${fmt(l.ebarimt_minor)}</td>
+              <td class="num">${fmt(l.book_minor)}</td>
+              <td class="num" style="font-weight:700; color:${l.diff_minor === 0 ? 'var(--ok)' : 'var(--danger)'}">
+                ${l.diff_minor === 0 ? '0' : fmt(l.diff_minor)}</td>
+            </tr>`).join('')}
+          <tr style="border-top:2px solid var(--border);">
+            <td><b>Төлөх НӨАТ</b></td>
+            <td class="num"><b>${fmt(v.net_payable_minor)}</b></td>
+            <td class="num"><b>${fmt(v.book_net_payable_minor)}</b></td>
+            <td class="num" style="font-weight:700; color:${v.net_payable_minor === v.book_net_payable_minor ? 'var(--ok)' : 'var(--danger)'}">
+              ${fmt(v.net_payable_minor - v.book_net_payable_minor)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="padding:7px 12px; font-size:11px; line-height:1.5;" class="muted">
+        Борлуулалт ${v.ebarimt.sales.count} баримт (НӨАТ ногдох ${v.ebarimt.sales.vatable_count}) ·
+        Худалдан авалт ${v.ebarimt.purchases.count} баримт (НӨАТ ногдох ${v.ebarimt.purchases.vatable_count},
+        чөлөөлөгдөх ${fmt(v.ebarimt.purchases.exempt_gross_minor)}).
+        Зөрүү нь eBarimt дээр байгаа боловч дэвтэрт бүртгэгдээгүй гүйлгээг заана —
+        <b>энэ дэлгэц бүртгэл үүсгэхгүй</b>.
+      </div>
+    </div>` : '';
+
   $('#modalCard').innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
       <h2><i class="fa-solid fa-scale-balanced" style="color:var(--primary)"></i> eBarimt & Банкны Хуулгын Ангилал, Тулгалтын Тайлан</h2>
@@ -10389,6 +10430,7 @@ function openEbarimtBankReconModal(res) {
         түүний ААН-ы хэсэг — давхардсаныг нь харилцагч тодорхойтой (ААН-ы) тайлангаар үлдээв.
       </div>` : ''}
     ${dsHtml}
+    ${vatHtml}
 
     ${res.period && res.period.from ? `
       <div style="margin-bottom:10px; font-size:11.5px;" class="muted">

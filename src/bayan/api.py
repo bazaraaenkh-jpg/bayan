@@ -4074,6 +4074,22 @@ def reconcile_ebarimt_with_bank(
     total_ebarimts_amount_minor = sum(i["total_minor"] for i in ebarimt_items)
     total_bank_amount_minor = sum(b.amount_minor for b in bank_txns)
 
+    # НӨАТ-ын зэрэгцүүлэлт — баримтуудын дийлэнх сар дээр (зөвхөн харуулна)
+    vat_compare = None
+    months = defaultdict(int)
+    for i in ebarimt_items:
+        if i.get("date"):
+            months[i["date"][:7]] += 1
+    if months:
+        ym = max(months.items(), key=lambda kv: kv[1])[0]
+        y, m = int(ym[:4]), int(ym[5:7])
+        try:
+            vat_compare = vat.compare_with_book(db, company_id, ebarimt_items, y, m)
+            vat_compare["receipts_in_period"] = months[ym]
+            vat_compare["receipts_total"] = len(ebarimt_items)
+        except Exception as e:                       # тайланг тулгалтаас салгана
+            vat_compare = {"error": str(e)}
+
     return {
         "ok": True,
         "mode": mode,
@@ -4083,6 +4099,7 @@ def reconcile_ebarimt_with_bank(
         },
         "files": file_reports,
         "duplicate_count": duplicate_count,
+        "vat": vat_compare,
         "datasets": sorted(ds_stats.values(), key=lambda d: d["label"]),
         "total_ebarimt_count": len(ebarimt_items),
         "total_ebarimt_amount_mnt": total_ebarimts_amount_minor / 100,

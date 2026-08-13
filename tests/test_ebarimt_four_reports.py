@@ -549,3 +549,78 @@ def test_daily_settlement_end_to_end(client):
     assert j["unmatched_bank_count"] == 0
     assert j["tolerance"]["daily_aggregate"] is True
     assert "өдрийн нийлбэр" in j["items"][0]["match_reason"]
+
+
+# ============================================================================
+#  НӨАТ — татварын төрөл ба дэвтэртэй зэрэгцүүлэлт
+# ============================================================================
+
+def test_tax_type_is_parsed_from_real_column():
+    data = (B2B_HEADER +
+            "D1,2026-07-31,Мандал,5473489,13181.82,145000,Энгийн,ИБАРИМТ,Илгээгдсэн\n"
+            "D2,2026-07-31,ХХБ,2635534,0,20600,Чөлөөлөгдөх,ПОС,Илгээгдсэн\n"
+            "D3,2026-07-31,Экспорт,111,0,50000,Тэг хувь,ПОС,Илгээгдсэн\n").encode("utf-8")
+    res = ebarimt.parse_ebarimt_export(
+        data, "Байгууллага хоорондын гүйлгээ (борлуулалт).xlsx")
+    assert [i["tax_type"] for i in res["items"]] == ["VAT_ABLE", "VAT_FREE", "VAT_ZERO"]
+
+
+def test_tax_type_falls_back_to_vat_amount_when_column_missing():
+    """«Баримтын задаргаа»-д татварын төрлийн багана байхгүй."""
+    res = ebarimt.parse_ebarimt_export(
+        (POS_SALE_HEADER + POS_SALE_ROW).encode("utf-8"), "barimtiin_zadargaa.xlsx")
+    assert res["items"][0]["tax_type"] == "VAT_ABLE"      # НӨАТ 6000₮ бий
+
+    no_vat = POS_SALE_ROW.replace(",6000.00,", ",,")
+    res2 = ebarimt.parse_ebarimt_export(
+        (POS_SALE_HEADER + no_vat).encode("utf-8"), "barimtiin_zadargaa.xlsx")
+    assert res2["items"][0]["tax_type"] == "NOT_VAT"
+
+
+def test_summarize_ebarimt_splits_net_and_vat():
+    from bayan import vat as vatmod
+    items = [
+        {"direction": "in", "total_minor": 110_000_00, "vat_minor": 10_000_00,
+         "tax_type": "VAT_ABLE"},
+        {"direction": "in", "total_minor": 50_000_00, "vat_minor": 0,
+         "tax_type": "VAT_FREE"},
+        {"direction": "out", "total_minor": 22_000_00, "vat_minor": 2_000_00,
+         "tax_type": "VAT_ABLE"},
+    ]
+    s = vatmod.summarize_ebarimt(items)
+    assert s["sales"]["gross_minor"] == 160_000_00
+    assert s["sales"]["net_minor"] == 150_000_00       # НӨАТ хассан
+    assert s["sales"]["vat_minor"] == 10_000_00
+    assert s["sales"]["vatable_count"] == 1
+    assert s["sales"]["exempt_gross_minor"] == 50_000_00
+    assert s["net_payable_minor"] == 8_000_00          # 10,000 - 2,000
+
+
+def test_vat_comparison_shows_gap_against_empty_book(client):
+    """Дэвтэрт нэхэмжлэх огт байхгүй бол бүх дүн зөрүү болж харагдана."""
+    company_id, headers = _register(client)
+    r = _upload(client, company_id, headers, [
+        ("files", ("Байгууллага хоорондын гүйлгээ (борлуулалт).xlsx",
+                   (B2B_HEADER +
+                    "D1,2026-07-31,Мандал,5473489,10000,110000,Энгийн,ПОС,Илгээгдсэн\n"
+                    ).encode("utf-8"), "text/csv"))])
+    assert r.status_code == 200, r.text
+    v = r.json()["vat"]
+    assert v["period"] == "2026-07"
+    by_label = {l["label"]: l for l in v["lines"]}
+    assert by_label["Ногдуулсан НӨАТ"]["ebarimt_minor"] == 10_000_00
+    assert by_label["Ногдуулсан НӨАТ"]["book_minor"] == 0
+    assert by_label["Ногдуулсан НӨАТ"]["diff_minor"] == 10_000_00
+    assert by_label["Нийт борлуулалт (цэвэр)"]["ebarimt_minor"] == 100_000_00
+    assert v["net_payable_minor"] == 10_000_00
+
+
+def test_vat_block_does_not_break_reconciliation_response(client):
+    """НӨАТ-ын тооцоо унасан ч тулгалтын хариу бүрэн үлдэнэ."""
+    company_id, headers = _register(client)
+    r = _upload(client, company_id, headers, [
+        ("files", ("Байгууллагын орлого.csv",
+                   _csv("1,2026-07-15,D1,НОМИН ХХК,5011,100000,9090,0\n"), "text/csv"))])
+    j = r.json()
+    assert j["ok"] is True and j["vat"] is not None
+    assert j["total_ebarimt_count"] == 1

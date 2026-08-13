@@ -383,11 +383,42 @@ _FIELD_RULES: dict[str, tuple[list[tuple[str, int]], list[str]]] = {
               ["систем", "бараа", "үйлчилгээ", "хэмжих", "нэгж", "файл",
                "салбар", "байршил"]),
     "status": ([("төлөв", 10), ("status", 8)], []),
+    # «Энгийн / Чөлөөлөгдөх / 0%» — ТТ-03а-гийн 1-р (нийт борлуулалт) ба 3-р
+    # (НӨАТ ногдох борлуулалт) мөрийг ялгахад заавал хэрэгтэй
+    "tax_type": ([("татварын төрөл", 14), ("tax type", 10), ("taxtype", 10)], []),
     # ПОС терминалын дугаар — өдрийн нэгдсэн орлогыг терминалаар нь бүлэглэхэд
     "pos_no": ([("пос дугаар", 12), ("pos no", 10), ("терминал", 10)], []),
 }
 
 _VOID_WORDS = ("хүчингүй", "цуцл", "буцаа", "void", "cancel")
+
+#: ТЕГ-ийн ангилал → PosAPI-ийн taxType код
+_TAX_TYPES = (
+    ("чөлөөлөгд", "VAT_FREE"),
+    ("free", "VAT_FREE"),
+    ("тэг", "VAT_ZERO"),
+    ("0%", "VAT_ZERO"),
+    ("zero", "VAT_ZERO"),
+    ("энгийн", "VAT_ABLE"),
+    ("able", "VAT_ABLE"),
+    ("ногдох", "VAT_ABLE"),
+    ("нөатгүй", "NOT_VAT"),
+    ("нөат төлөгч бус", "NOT_VAT"),
+)
+
+
+def normalize_tax_type(text: str | None, vat_minor: int | None) -> str:
+    """Татварын төрлийг PosAPI-ийн кодоор буцаана.
+
+    Багана байхгүй бол НӨАТ-ын дүнгээр дүгнэнэ — 0 бол НӨАТ ногдоогүй гэж
+    үзнэ (чөлөөлөгдсөн үү, тэг хувьтай юу гэдгийг ялгаж чадахгүй тул
+    VAT_FREE биш, тодорхойгүй гэж үлдээхгүйн тулд NOT_VAT).
+    """
+    low = " ".join((text or "").lower().split())
+    for needle, code in _TAX_TYPES:
+        if needle in low:
+            return code
+    return "VAT_ABLE" if (vat_minor or 0) > 0 else "NOT_VAT"
 
 
 def _cell_text(v) -> str:
@@ -577,6 +608,9 @@ def parse_ebarimt_export(data: bytes, filename: str | None = None,
             skipped += 1
             continue
 
+        vat = _to_minor(cell("vat"))
+        tax_type = normalize_tax_type(_cell_text(cell("tax_type")), vat)
+
         iso = _to_iso_date(cell("date"))
         ddtd = _cell_text(cell("ddtd"))
         party = _cell_text(cell("party"))
@@ -595,7 +629,8 @@ def parse_ebarimt_export(data: bytes, filename: str | None = None,
         items.append({
             "date": iso,
             "total_minor": abs(total),
-            "vat_minor": _to_minor(cell("vat")),
+            "vat_minor": vat,
+            "tax_type": tax_type,
             "city_tax_minor": _to_minor(cell("city_tax")),
             "receipt_id": ddtd or f"EB-{len(items) + 1}",
             "party": party or meta.get("label") or "eBarimt",

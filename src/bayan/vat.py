@@ -61,6 +61,69 @@ def tt03a(session: Session, company_id: str, year: int,
     }
 
 
+def summarize_ebarimt(items: list[dict]) -> dict:
+    """eBarimt-ын баримтуудаас ТТ-03а-гийн гол дүнг тооцно (юу ч бичихгүй).
+
+    Баримтын дүн нь НӨАТ ОРСОН нийт дүн, харин ТТ-03а-гийн 1, 3-р мөр нь
+    цэвэр дүн тул хасаж өгнө. «Татварын төрөл» багана байвал НӨАТ ногдохыг
+    түүгээр, байхгүй бол НӨАТ-ын дүнгээр ялгана.
+    """
+    def side(direction: str) -> dict:
+        rows = [i for i in items if i.get("direction") == direction]
+        vatable = [i for i in rows if i.get("tax_type") == "VAT_ABLE"]
+        gross = sum(int(i["total_minor"]) for i in rows)
+        vat = sum(int(i.get("vat_minor") or 0) for i in rows)
+        return {
+            "count": len(rows),
+            "gross_minor": gross,
+            "net_minor": gross - vat,
+            "vat_minor": vat,
+            "vatable_count": len(vatable),
+            "vatable_gross_minor": sum(int(i["total_minor"]) for i in vatable),
+            "exempt_gross_minor": gross - sum(int(i["total_minor"]) for i in vatable),
+        }
+
+    sales, purchases = side("in"), side("out")
+    return {
+        "sales": sales,
+        "purchases": purchases,
+        "net_payable_minor": sales["vat_minor"] - purchases["vat_minor"],
+    }
+
+
+def compare_with_book(session: Session, company_id: str, items: list[dict],
+                      year: int, month: int | None = None) -> dict:
+    """eBarimt-ын дүн ба дэвтрийн ТТ-03а-г зэрэгцүүлж зөрүүг харуулна.
+
+    ЮУ Ч БИЧИХГҮЙ — журнал ч, нэхэмжлэх ч үүсгэхгүй. eBarimt дээр байгаа
+    боловч дэвтэрт бүртгэгдээгүй борлуулалт/худалдан авалтыг илрүүлэх
+    зорилготой (ТЕГ-т илгээхээс өмнөх шалгалт).
+    """
+    eb = summarize_ebarimt(items)
+    book = tt03a(session, company_id, year, month)
+    r = book["rows"]
+
+    lines = [
+        ("Нийт борлуулалт (цэвэр)", eb["sales"]["net_minor"], r["1_niit_borluulalt"]),
+        ("Ногдуулсан НӨАТ", eb["sales"]["vat_minor"], r["26_nogduulsan_tatvar"]),
+        ("Нийт худалдан авалт", eb["purchases"]["gross_minor"],
+         r["32_niit_hudaldan_avalt"]),
+        ("Төлсөн НӨАТ", eb["purchases"]["vat_minor"], r["42_tolson_noat"]),
+    ]
+    return {
+        "period": f"{year}" + (f"-{month:02d}" if month else ""),
+        "ebarimt": eb,
+        "book_rows": r,
+        "lines": [
+            {"label": label, "ebarimt_minor": a, "book_minor": b,
+             "diff_minor": a - b}
+            for label, a, b in lines
+        ],
+        "net_payable_minor": eb["net_payable_minor"],
+        "book_net_payable_minor": r["64_etssiin_tolboh"] - r["65_etssiin_butsaan_avah"],
+    }
+
+
 def reconcile_ebarimt(session: Session, company_id: str,
                       receipts: list[dict], year: int, month: int) -> dict:
     """Ebarimt-аас татсан падаануудыг борлуулалтын нэхэмжлэхтэй тулгана.
