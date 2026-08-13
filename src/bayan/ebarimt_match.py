@@ -28,6 +28,11 @@ MIN_CANDIDATE_SCORE = 0.55         # үүнээс доош бол огт нэр 
 GROUP_MAX_ITEMS = 4
 GROUP_CANDIDATE_LIMIT = 14         # хослолын тооны тэсрэлтээс хамгаална
 
+# ПОС/бэлэн борлуулалт банкинд ӨДРИЙН нэгдсэн орлого болж нэг дүнгээр ордог.
+# Тэр өдрийн бүх баримтын нийлбэрийг нэг гүйлгээтэй тулгана.
+DAILY_MIN_ITEMS = 2                # хоёроос доош бол ердийн бүлэглэлт хангалттай
+DAILY_SCORE_PENALTY = 0.98         # нэг бүрчлэн тулгасантай адилтгахгүй
+
 # Оноонд эзлэх жин (нийлбэр нь 1.0)
 W_AMOUNT, W_DATE, W_PARTY = 0.60, 0.25, 0.15
 
@@ -258,8 +263,94 @@ def _match_groups(ebarimt_items: list[dict], results: list[MatchResult],
         taken_txns.add(txn.id)
 
 
+def _match_daily(ebarimt_items: list[dict], results: list[MatchResult],
+                 bank_txns: list, taken_txns: set[str]) -> None:
+    """Нэг өдрийн бүх баримтын нийлбэрийг нэг гүйлгээтэй тулгана.
+
+    ПОС болон бэлэн мөнгөний борлуулалт банкинд баримт бүрээр ордоггүй —
+    өдрийн эцэст нэгдсэн дүнгээр (эсвэл маргааш нь) буудаг. Нэг бүрчлэн
+    тулгах, 2–4-өөр бүлэглэх аль нь ч үүнийг барьж чадахгүй тул өдөрт 20–30
+    баримт байхад бүгд «банкны мөнгө ирээгүй» болж харагддаг.
+
+    Хоёр төрлийн багц оролдоно: тухайн өдрийн БҮХ баримт, мөн ПОС терминал
+    тус бүрээр (олон терминалтай бол тус тусдаа суудаг).
+    """
+    free = [i for i, r in enumerate(results) if r.txn_id is None]
+    if len(free) < DAILY_MIN_ITEMS:
+        return
+
+    # (чиглэл, өдөр, терминал) → баримтын индексүүд. терминал=None бол өдрийн бүх дүн.
+    buckets: dict[tuple, list[int]] = {}
+    for i in free:
+        item = ebarimt_items[i]
+        day = parse_day(item.get("date"))
+        if day is None:
+            continue
+        direction = item.get("direction")
+        buckets.setdefault((direction, day, None), []).append(i)
+        # Тухайн өдөр ААН-ы шилжүүлгийн баримт хамт байвал өдрийн бүтэн
+        # нийлбэр таарахгүй тул тайлан тус бүрээр ч тусад нь оролдоно
+        ds = item.get("dataset")
+        if ds:
+            buckets.setdefault((direction, day, ("ds", ds)), []).append(i)
+        pos = (item.get("pos_no") or "").strip()
+        if pos:
+            buckets.setdefault((direction, day, ("pos", pos)), []).append(i)
+
+    # Том багцыг түрүүлж — өдрийн бүтэн нийлбэр нь дэд багцаас илүү хүчтэй дохио
+    ordered = sorted((k for k, v in buckets.items() if len(v) >= DAILY_MIN_ITEMS),
+                     key=lambda k: (-len(buckets[k]), k[1]))
+    matched_idx: set[int] = set()
+
+    for key in ordered:
+        direction, day, pos = key
+        members = [i for i in buckets[key] if i not in matched_idx]
+        if len(members) < DAILY_MIN_ITEMS:
+            continue
+        total = sum(int(ebarimt_items[i]["total_minor"]) for i in members)
+
+        best = None
+        for txn in bank_txns:
+            if txn.id in taken_txns:
+                continue
+            if direction is not None:
+                have = txn_direction(txn)
+                if have is not None and have != direction:
+                    continue
+            a_s = amount_score(total, int(txn.amount_minor))
+            if a_s == 0.0:
+                continue
+            d_s = date_score(day, parse_day(getattr(txn, "posted_at", None)))
+            if d_s == 0.0:
+                continue
+            p_s = max(party_score(ebarimt_items[i].get("party"),
+                                  [getattr(txn, "counterparty_name", None),
+                                   getattr(txn, "description_raw", None)])
+                      for i in members)
+            score = (W_AMOUNT * a_s + W_DATE * d_s + W_PARTY * p_s) * DAILY_SCORE_PENALTY
+            if score >= MIN_CANDIDATE_SCORE and (best is None or score > best[0]):
+                best = (score, txn, total)
+
+        if best is None:
+            continue
+
+        score, txn, total = best
+        diff = abs(total - int(txn.amount_minor))
+        where = f" ({pos[1]} ПОС)" if pos and pos[0] == "pos" else ""
+        reasons = [f"{day.isoformat()}-ний {len(members)} баримтын өдрийн "
+                   f"нийлбэр{where}"]
+        reasons.append("нийлбэр яг тэнцүү" if diff == 0
+                       else f"нийлбэрийн зөрүү {diff / 100:.2f}₮")
+        gid = f"D-{txn.id}"
+        for i in members:
+            results[i] = MatchResult(i, txn.id, round(score, 4), list(reasons),
+                                     group_id=gid, group_size=len(members))
+            matched_idx.add(i)
+        taken_txns.add(txn.id)
+
+
 def match(ebarimt_items: list[dict], bank_txns: list,
-          allow_groups: bool = True) -> list[MatchResult]:
+          allow_groups: bool = True, allow_daily: bool = True) -> list[MatchResult]:
     """Падаан бүрд хамгийн тохирох гүйлгээг онооны дарааллаар оноино.
 
     Нэг гүйлгээ зөвхөн нэг падаанд (эсвэл нэг бүлэг падаанд) оногдоно.
@@ -287,6 +378,11 @@ def match(ebarimt_items: list[dict], bank_txns: list,
 
     results = [taken_items.get(i, MatchResult(i, None, 0.0, []))
                for i in range(len(ebarimt_items))]
+
+    # Өдрийн нийлбэр нь 2–4-ийн хослолоос хүчтэй дохио тул түрүүлж явна —
+    # эс тэгвэл санамсаргүй гурвал тэр гүйлгээг эзэлж авна.
+    if allow_daily:
+        _match_daily(ebarimt_items, results, bank_txns, taken_txns)
 
     if allow_groups:
         _match_groups(ebarimt_items, results, bank_txns, taken_txns)

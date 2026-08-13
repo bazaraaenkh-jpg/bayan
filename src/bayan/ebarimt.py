@@ -383,6 +383,8 @@ _FIELD_RULES: dict[str, tuple[list[tuple[str, int]], list[str]]] = {
               ["систем", "бараа", "үйлчилгээ", "хэмжих", "нэгж", "файл",
                "салбар", "байршил"]),
     "status": ([("төлөв", 10), ("status", 8)], []),
+    # ПОС терминалын дугаар — өдрийн нэгдсэн орлогыг терминалаар нь бүлэглэхэд
+    "pos_no": ([("пос дугаар", 12), ("pos no", 10), ("терминал", 10)], []),
 }
 
 _VOID_WORDS = ("хүчингүй", "цуцл", "буцаа", "void", "cancel")
@@ -598,6 +600,7 @@ def parse_ebarimt_export(data: bytes, filename: str | None = None,
             "receipt_id": ddtd or f"EB-{len(items) + 1}",
             "party": party or meta.get("label") or "eBarimt",
             "party_tin": tin or None,
+            "pos_no": _cell_text(cell("pos_no")) or None,
             "dataset": ds,
             "dataset_label": meta.get("label"),
             "direction": direction,

@@ -3843,6 +3843,7 @@ def reconcile_ebarimt_with_bank(
     date_from: str = Form(None),
     date_to: str = Form(None),
     allow_mock: bool = Form(False),
+    daily_aggregate: bool = Form(True),
     ctx: dict = Depends(company_guard("post")),
     db: Session = Depends(get_db)
 ):
@@ -3997,7 +3998,8 @@ def reconcile_ebarimt_with_bank(
     bank_txns = db.scalars(q).all()
 
     # Дүн, огноо, харилцагчийн нэр, ЧИГЛЭЛийг жинлэн тулгана (ebarimt_match.py)
-    results = ebarimt_match.match(ebarimt_items, bank_txns)
+    results = ebarimt_match.match(ebarimt_items, bank_txns,
+                                  allow_daily=daily_aggregate)
 
     used_txn_ids = set()
     items_detail = []
@@ -4095,6 +4097,7 @@ def reconcile_ebarimt_with_bank(
             "amount_mnt": ebarimt_match.AMOUNT_TOLERANCE_MINOR / 100,
             "date_days": ebarimt_match.DATE_TOLERANCE_DAYS,
             "auto_threshold": ebarimt_match.AUTO_MATCH_THRESHOLD,
+            "daily_aggregate": daily_aggregate,
         },
         "items": items_detail
     }

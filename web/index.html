@@ -5803,6 +5803,11 @@ async function statements() {
             <input type="file" id="eb_excel_file" accept=".xlsx,.xls,.csv" multiple style="display:none;" onchange="handleEbarimtFilesSelect(this.files)">
             <div id="eb_file_list" style="margin-top:4px; font-size:11px; max-height:150px; overflow-y:auto;"></div>
           </div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:11.5px; margin-bottom:8px; cursor:pointer;">
+            <input type="checkbox" id="eb_daily" checked style="width:15px; height:15px;">
+            <span>Өдрийн нэгдсэн орлогоор тулгах
+              <span class="muted">(ПОС/бэлэн борлуулалт банкинд өдрөөр нэг дүнгээр ордог)</span></span>
+          </label>
         </div>
         
         <div style="margin-top:8px;">
@@ -10212,6 +10217,8 @@ async function runEbarimtBankReconciliation() {
       formData.append('files', e.file);
       formData.append('datasets', e.dataset || '');
     }
+    const daily = $('#eb_daily');
+    formData.append('daily_aggregate', daily ? String(daily.checked) : 'true');
   } else {
     const ym = $('#eb_month').value || '2026-07';
     const parts = ym.split('-');

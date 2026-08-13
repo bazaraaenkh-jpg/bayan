@@ -440,3 +440,112 @@ def test_pos_report_and_b2b_report_do_not_double_count(client):
     assert by_ds["citizen_expense"]["count"] == 1
     pos_report = [f for f in j["files"] if f["file"].startswith("barimtiin")][0]
     assert pos_report["duplicates_removed"] == 1
+
+
+# ============================================================================
+#  Өдрийн нэгдсэн орлого (ПОС / бэлэн борлуулалт)
+# ============================================================================
+#
+# ПОС-ын борлуулалт банкинд баримт бүрээр ордоггүй — өдрийн эцэст (эсвэл
+# маргааш нь) нэг дүнгээр буудаг. Нэг бүрчлэн ч, 2-4-өөр бүлэглэж ч барихгүй.
+
+def _pos_item(total_minor, day, rid, pos_no=None, party="", direction="in"):
+    it = {"total_minor": total_minor, "date": f"2026-07-{day:02d}",
+          "party": party, "receipt_id": rid, "direction": direction}
+    if pos_no:
+        it["pos_no"] = pos_no
+    return it
+
+
+def test_daily_settlement_matches_sum_of_all_receipts_that_day():
+    """Нэг өдрийн 25 баримт нэг нэгдсэн орлогод суусан."""
+    items = [_pos_item(10_000_00 + i, 1, f"R{i}") for i in range(25)]
+    total = sum(i["total_minor"] for i in items)
+    res = em.match(items, [_Txn("t1", total, 1, Direction.credit)])
+    assert all(r.txn_id == "t1" for r in res)
+    assert {r.group_size for r in res} == {25}
+    assert "өдрийн нийлбэр" in res[0].reasons[0]
+    assert res[0].auto
+
+
+def test_next_day_settlement_still_matches():
+    """Т+1-ээр буусан нэгдсэн орлого."""
+    items = [_pos_item(50_000_00, 10, "R1"), _pos_item(70_000_00, 10, "R2"),
+             _pos_item(30_000_00, 10, "R3")]
+    res = em.match(items, [_Txn("t1", 150_000_00, 11, Direction.credit)])
+    assert all(r.txn_id == "t1" for r in res)
+
+
+def test_daily_settlement_respects_direction():
+    items = [_pos_item(50_000_00, 10, "R1"), _pos_item(70_000_00, 10, "R2")]
+    res = em.match(items, [_Txn("t1", 120_000_00, 10, Direction.debit)])
+    assert all(r.txn_id is None for r in res)
+
+
+def test_each_pos_terminal_settles_separately():
+    """Хоёр терминал тус тусдаа суудаг — өдрийн бүтэн нийлбэр таарахгүй."""
+    # Дүнгүүд нь ганц ч гүйлгээтэй 1:1 тэнцэхгүй байхаар сонгосон — эс тэгвэл
+    # нэг бүрчлэн тулгалт (илүү хүчтэй дохио) түрүүлж авна
+    items = [_pos_item(45_000_00, 5, "A1", pos_no="7529057"),
+             _pos_item(55_000_00, 5, "A2", pos_no="7529057"),
+             _pos_item(17_000_00, 5, "B1", pos_no="8101727"),
+             _pos_item(23_000_00, 5, "B2", pos_no="8101727")]
+    res = em.match(items, [_Txn("t1", 100_000_00, 5, Direction.credit),
+                           _Txn("t2", 40_000_00, 5, Direction.credit)])
+    by_rid = {items[i]["receipt_id"]: r for i, r in enumerate(res)}
+    assert by_rid["A1"].txn_id == by_rid["A2"].txn_id == "t1"
+    assert by_rid["B1"].txn_id == by_rid["B2"].txn_id == "t2"
+    assert "ПОС" in by_rid["A1"].reasons[0]
+
+
+def test_separate_days_do_not_get_merged():
+    """Өөр өдрийн баримтууд нэг нэгдсэн орлогод хамаарахгүй."""
+    items = [_pos_item(50_000_00, 5, "R1"), _pos_item(50_000_00, 6, "R2")]
+    res = em.match(items, [_Txn("t1", 100_000_00, 6, Direction.credit)],
+                   allow_groups=False)
+    assert all(r.txn_id is None for r in res)
+
+
+def test_exact_single_match_wins_over_daily_bucket():
+    """Нэг бүрчлэн яг таарсан гүйлгээг өдрийн багц булаахгүй."""
+    items = [_pos_item(40_000_00, 5, "R1"), _pos_item(60_000_00, 5, "R2")]
+    res = em.match(items, [_Txn("t1", 40_000_00, 5, Direction.credit),
+                           _Txn("t2", 60_000_00, 5, Direction.credit)])
+    assert {r.txn_id for r in res} == {"t1", "t2"}
+    assert {r.group_size for r in res} == {1}
+
+
+def test_daily_aggregate_can_be_switched_off():
+    items = [_pos_item(50_000_00, 10, "R1"), _pos_item(70_000_00, 10, "R2")]
+    txns = [_Txn("t1", 120_000_00, 10, Direction.credit)]
+    assert all(r.txn_id == "t1" for r in em.match(items, txns))
+    off = em.match(items, txns, allow_groups=False, allow_daily=False)
+    assert all(r.txn_id is None for r in off)
+
+
+def test_pos_number_is_parsed_from_real_export():
+    res = ebarimt.parse_ebarimt_export(
+        (POS_SALE_HEADER + POS_SALE_ROW).encode("utf-8"), "barimtiin_zadargaa.xlsx")
+    assert res["items"][0]["pos_no"] == "7529057"
+
+
+def test_daily_settlement_end_to_end(client):
+    """145 ПОС баримт → өдрийн нэгдсэн орлого endpoint-оор."""
+    company_id, headers = _register(client)
+    rows = "".join(
+        f"7529057,00000701847300026070100000{1000 + i},2026-07-01 10:0{i % 10}:39.0,"
+        f"{10000 + i}.00,,{(10000 + i) / 11:.2f},0,,,ebarimt,,001,ebarimt,Баянгол\n"
+        for i in range(20))
+    total = sum(10000 + i for i in range(20))
+    _add_txn(company_id, amount_minor=total * 100, day=1, direction=Direction.credit,
+             name="ПОС ОРЛОГО")
+
+    r = _upload(client, company_id, headers, [
+        ("files", ("barimtiin_zadargaa.xlsx",
+                   (POS_SALE_HEADER + rows).encode("utf-8"), "text/csv"))])
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["matched_count"] == 20
+    assert j["unmatched_bank_count"] == 0
+    assert j["tolerance"]["daily_aggregate"] is True
+    assert "өдрийн нийлбэр" in j["items"][0]["match_reason"]
