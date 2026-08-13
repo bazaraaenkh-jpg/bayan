@@ -3932,6 +3932,44 @@ def reconcile_ebarimt_with_bank(
             "amount_mnt": sum(i["total_minor"] for i in ebarimt_items) / 100,
         })
 
+    # ---- ДДТД-ээр давхардлыг цэвэрлэнэ ------------------------------------
+    # «Баримтын задаргаа» экспорт нь БҮХ баримтыг агуулдаг бол «Байгууллага
+    # хоорондын гүйлгээ» нь түүний ААН-ы дэд олонлог. Дөрвүүлэнг нь зэрэг
+    # оруулбал нэг баримт хоёр удаа тоологдож, нэг нь заавал «банкны мөнгө
+    # ирээгүй» болж хуурамч дохио өгнө. Дэлгэрэнгүй мэдээлэлтэйг нь (ААН-ы
+    # тайлан — харилцагчийн нэр, ТТД-тэй) үлдээнэ.
+    _SPECIFICITY = {"org_income": 0, "org_expense": 0,
+                    "citizen_income": 1, "citizen_expense": 1}
+    kept: dict[tuple, int] = {}
+    deduped: list[dict] = []
+    duplicate_count = 0
+    dup_by_file: dict[str, int] = {}
+    for it in ebarimt_items:
+        rid = (it.get("receipt_id") or "").strip()
+        if not rid or rid.startswith("EB-"):     # ДДТД байхгүй бол дедуп хийхгүй
+            deduped.append(it)
+            continue
+        key = (it.get("direction"), rid)
+        prev = kept.get(key)
+        if prev is None:
+            kept[key] = len(deduped)
+            deduped.append(it)
+            continue
+        duplicate_count += 1
+        old = deduped[prev]
+        new_rank = _SPECIFICITY.get(it.get("dataset") or "", 2)
+        old_rank = _SPECIFICITY.get(old.get("dataset") or "", 2)
+        loser = old if new_rank < old_rank else it
+        if new_rank < old_rank:
+            deduped[prev] = it
+        dup_by_file[loser.get("source_file") or "-"] = \
+            dup_by_file.get(loser.get("source_file") or "-", 0) + 1
+    ebarimt_items = deduped
+    for rep in file_reports:
+        n = dup_by_file.get(rep.get("file"))
+        if n:
+            rep["duplicates_removed"] = n
+
     # ---- Банкны гүйлгээг зөвхөн хамаарах хугацаанаас авна ------------------
     # Өмнө нь компанийн БҮХ түүхийг татдаг байсан тул «eBarimt дутуу» гэсэн
     # хэдэн зуун мөр гарч, тайлан ашиглах боломжгүй болдог байв.
@@ -4042,6 +4080,7 @@ def reconcile_ebarimt_with_bank(
             "to": win_to.isoformat() if win_to else None,
         },
         "files": file_reports,
+        "duplicate_count": duplicate_count,
         "datasets": sorted(ds_stats.values(), key=lambda d: d["label"]),
         "total_ebarimt_count": len(ebarimt_items),
         "total_ebarimt_amount_mnt": total_ebarimts_amount_minor / 100,

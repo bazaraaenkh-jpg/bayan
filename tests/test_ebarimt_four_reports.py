@@ -298,3 +298,145 @@ def test_api_mode_without_credentials_does_not_return_mock(client, monkeypatch):
                     headers=headers, data={"mode": "api", "year": 2026, "month": 7})
     assert r.status_code == 422
     assert "EBARIMT" in r.json()["detail"]
+
+
+# ============================================================================
+#  НӨАТУС-ын БОДИТ экспортын формат (2026-07-ны файлууд дээр баталгаажсан)
+# ============================================================================
+#
+# Хоёр өөр экспорт байдаг:
+#   1. «Байгууллага хоорондын гүйлгээ (борлуулалт / худалдан авалт)» — ААН-ы
+#      баримтууд. Файлын нэрэнд төрөл нь бий.
+#   2. «Баримтын задаргаа» (barimtiin_zadargaa.xlsx) — ПОС/бүх баримт. Орлого,
+#      зарлагынх нь ЯГ ижил нэртэй буудаг тул зөвхөн толгойн баганаас ялгана.
+
+B2B_HEADER = ("ДДТД,Огноо,Харилцагчийн нэр,Харилцагчийн ТТД,НӨАТ,Нийт дүн,"
+              "Татварын төрөл,Хаанаас үүссэн,Төлөв\n")
+B2B_ROW = ("0000070184730002607310000015,2026-07-31,Мандал даатгал,5473489,"
+           "13181.818182,145000,Энгийн,ИБАРИМТ,Илгээгдсэн баримт\n")
+
+# «Х/А» = худалдан авагч → бид борлуулсан → орлого
+POS_SALE_HEADER = ("Пос дугаар,ДДТД,Огноо,Нийт дүн,НХАТ,НӨАТ,Цэвэр дүн,"
+                   "Х/А регистр,Х/А нэр,Хаанаас,НӨАТ төлөгч эсэх,Пос дугаар,"
+                   "Систем нийлүүлэгч,Байршлын алба\n")
+POS_SALE_ROW = ("7529057,000007018473000260701000001224,2026-07-01 10:05:39.0,"
+                "66000.00,,6000.00,60000.00,,,ebarimt,,001,ebarimt,Баянгол\n")
+
+# «Борлуулагч» = худалдагч → бид авсан → зарлага
+POS_BUY_HEADER = ("Пос дугаар,ДДТД,Огноо,Нийт дүн,НХАТ,НӨАТ,Цэвэр дүн,"
+                  "Борлуулагчийн регистр,Борлуулагчийн нэр,Хаанаас,"
+                  "НӨАТ төлөгч эсэх,Пос дугаар,Систем нийлүүлэгч,Байршлын алба\n")
+POS_BUY_ROW = ("7885419,026100238379001096720006310026,2026-07-01 15:00:35.0,"
+               "22000.00,,2000.00,20000.00,6011616,Дата бэйнк,POS,"
+               "НӨАТ төлөгч,012383,Дата Бэйнк ХХК,Хан-Уул\n")
+
+
+def test_real_b2b_export_columns_and_dataset():
+    res = ebarimt.parse_ebarimt_export(
+        (B2B_HEADER + B2B_ROW).encode("utf-8"),
+        "Байгууллага хоорондын гүйлгээ (борлуулалт) [7-р сар]_export_178.xlsx")
+    assert res["dataset"] == "org_income"
+    assert res["direction"] == "in"
+    (it,) = res["items"]
+    assert it["total_minor"] == 145_000_00        # «Нийт дүн», НӨАТ биш
+    assert it["vat_minor"] == 1_318_182           # 13181.818182₮ → мөнгө болгож бөөрөнхийлнө
+    assert it["party"] == "Мандал даатгал"
+    assert it["party_tin"] == "5473489"
+    assert it["receipt_id"].startswith("00000701847300026073")
+
+
+def test_real_b2b_purchase_export_is_outflow():
+    res = ebarimt.parse_ebarimt_export(
+        (B2B_HEADER + B2B_ROW).encode("utf-8"),
+        "Байгууллага хоорондын гүйлгээ (худалдан авалт) [7-р сар]_export.xlsx")
+    assert res["dataset"] == "org_expense"
+    assert res["items"][0]["direction"] == "out"
+
+
+def test_pos_export_direction_comes_from_header_not_file_name():
+    """Хоёр задаргаа ижил нэртэй буудаг тул толгойн баганаас ялгана."""
+    sale = ebarimt.parse_ebarimt_export(
+        (POS_SALE_HEADER + POS_SALE_ROW).encode("utf-8"), "barimtiin_zadargaa.xlsx")
+    buy = ebarimt.parse_ebarimt_export(
+        (POS_BUY_HEADER + POS_BUY_ROW).encode("utf-8"), "barimtiin_zadargaa.xlsx")
+    assert sale["dataset"] == "citizen_income" and sale["direction"] == "in"
+    assert buy["dataset"] == "citizen_expense" and buy["direction"] == "out"
+
+
+def test_system_supplier_column_is_not_taken_as_counterparty():
+    """«Систем нийлүүлэгч» бол ПОС-ын программын компани — харилцагч БИШ."""
+    res = ebarimt.parse_ebarimt_export(
+        (POS_BUY_HEADER + POS_BUY_ROW).encode("utf-8"), "barimtiin_zadargaa.xlsx")
+    (it,) = res["items"]
+    assert it["party"] == "Дата бэйнк"            # «Дата Бэйнк ХХК» биш
+    assert it["party_tin"] == "6011616"
+    assert it["total_minor"] == 22_000_00
+    assert it["vat_minor"] == 2_000_00            # «НӨАТ төлөгч эсэх» биш
+    assert it["date"] == "2026-07-01"             # цагийг таслана
+
+
+def _xlsx_with_broken_dimension(header: list[str], rows: list[list]) -> bytes:
+    """dimension нь «A1:A1» гэж худал бичигдсэн xlsx — eBarimt-ын экспорт ийм."""
+    import zipfile
+    import re as _re
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(header)
+    for r in rows:
+        ws.append(r)
+    buf = io.BytesIO()
+    wb.save(buf)
+
+    src = zipfile.ZipFile(io.BytesIO(buf.getvalue()))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as dst:
+        for info in src.infolist():
+            data = src.read(info.filename)
+            if info.filename.startswith("xl/worksheets/sheet"):
+                data = _re.sub(rb'<dimension ref="[^"]*"/>',
+                               b'<dimension ref="A1:A1"/>', data)
+            dst.writestr(info, data)
+    return out.getvalue()
+
+
+def test_xlsx_with_lying_dimension_still_reads_every_row():
+    """read_only горим хуудасны хэмжээнд итгэдэг тул 1 мөр уншаад зогсдог байв."""
+    data = _xlsx_with_broken_dimension(
+        ["ДДТД", "Огноо", "Харилцагчийн нэр", "Харилцагчийн ТТД", "НӨАТ", "Нийт дүн"],
+        [[f"DDTD-{i}", "2026-07-05", "Номин ХХК", "5011", 909, 10000 + i]
+         for i in range(30)])
+    res = ebarimt.parse_ebarimt_export(data, "Байгууллагын орлого.xlsx")
+    assert len(res["items"]) == 30
+
+
+def test_pos_report_and_b2b_report_do_not_double_count(client):
+    """ААН-ы тайлан нь задаргааны дэд олонлог — давхардлыг ДДТД-ээр цэвэрлэнэ."""
+    company_id, headers = _register(client)
+    ddtd = "026100238379001096720006310026"
+    pos = (POS_BUY_HEADER +
+           f"7885419,{ddtd},2026-07-01 15:00:35.0,22000.00,,2000.00,20000.00,"
+           f"6011616,Дата бэйнк,POS,НӨАТ төлөгч,012383,Дата Бэйнк ХХК,Хан-Уул\n"
+           f"7885420,{ddtd[:-1]}7,2026-07-02 15:00:35.0,5000.00,,0,5000.00,"
+           f"6011616,Дата бэйнк,POS,НӨАТ төлөгч,012383,Дата Бэйнк ХХК,Хан-Уул\n")
+    b2b = (B2B_HEADER +
+           f"{ddtd},2026-07-01,Дата бэйнк,6011616,2000,22000,Энгийн,ПОС,"
+           f"Илгээгдсэн баримт\n")
+
+    r = _upload(client, company_id, headers, [
+        ("files", ("barimtiin_zadargaa.xlsx", pos.encode("utf-8"), "text/csv")),
+        ("files", ("Байгууллага хоорондын гүйлгээ (худалдан авалт).xlsx",
+                   b2b.encode("utf-8"), "text/csv")),
+    ])
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["duplicate_count"] == 1
+    assert j["total_ebarimt_count"] == 2               # 3 биш
+    assert j["total_ebarimt_amount_mnt"] == 27_000.00  # 49,000 биш
+    # Давхардсаныг ААН-ы тайлангийн нэрээр үлдээнэ (харилцагч тодорхой)
+    by_ds = {d["dataset"]: d for d in j["datasets"]}
+    assert by_ds["org_expense"]["count"] == 1
+    assert by_ds["citizen_expense"]["count"] == 1
+    pos_report = [f for f in j["files"] if f["file"].startswith("barimtiin")][0]
+    assert pos_report["duplicates_removed"] == 1

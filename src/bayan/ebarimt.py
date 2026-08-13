@@ -218,6 +218,27 @@ _FLOW_IN = ("орлого", "борлуулалт", "борлуулсан", "sal
 _FLOW_OUT = ("зарлага", "худалдан авалт", "худалдан", "авалт", "purchase", "expense")
 
 
+def _header_dataset_hint(header_text: str) -> str | None:
+    """«Баримтын задаргаа» экспортын төрлийг ТОЛГОЙН баганаас таана.
+
+    НӨАТУС-аас татдаг ПОС-ын задаргаа хоёулаа `barimtiin_zadargaa.xlsx` нэртэй
+    буудаг тул файлын нэрээр ялгах боломжгүй. Ялгах цорын ганц дохио нь
+    харилцагчийн баганын нэр:
+
+      «Борлуулагчийн нэр/регистр»  → бид ХУДАЛДАЖ АВСАН  → зарлага
+      «Х/А нэр» (худалдан авагч)   → бид БОРЛУУЛСАН      → орлого
+
+    Эдгээр нь ААН-ы хоорондын тайлангаас тусдаа, ихэвчлэн иргэн/ПОС-ын
+    баримтууд тул иргэний тэнхлэгт хамааруулав — UI-аас гараар засаж болно.
+    """
+    low = " ".join(header_text.lower().split())
+    if "борлуулагч" in low:
+        return "иргэний зарлага"
+    if "х/а" in low or "худалдан авагч" in low:
+        return "иргэний орлого"
+    return None
+
+
 def detect_dataset(*hints: str | None) -> str | None:
     """Файлын нэр / толгойн текстээс 4 тайлангийн алийг нь таних.
 
@@ -272,6 +293,15 @@ def _read_rows(data: bytes, filename: str | None = None) -> list[list]:
         best: list[list] = []
         for ws in wb.worksheets:
             rows = [list(r) for r in ws.iter_rows(values_only=True)]
+            # eBarimt-ын экспортод хуудасны хэмжээ («A1:A1») ХУДАЛ бичигдсэн
+            # байдаг. read_only горим тэр мэдээлэлд итгэдэг тул 146 мөртэй
+            # файлаас ганц нүд уншигдана. Хэмжээг тооцоолуулж дахин уншина.
+            if len(rows) <= 1:
+                try:
+                    ws.reset_dimensions()
+                    rows = [list(r) for r in ws.iter_rows(values_only=True)]
+                except AttributeError:
+                    pass
             if len(rows) > len(best):
                 best = rows
         return best
@@ -343,10 +373,15 @@ _FIELD_RULES: dict[str, tuple[list[tuple[str, int]], list[str]]] = {
     "party_tin": ([("татвар төлөгчийн дугаар", 14), ("регистр", 11),
                    ("ттд", 9), ("tin", 9), ("рд", 4)], []),
     "party": ([("байгууллагын нэр", 14), ("нийлүүлэгчийн нэр", 14),
+               ("борлуулагчийн нэр", 14), ("худалдан авагчийн нэр", 14),
                ("харилцагч", 12), ("нийлүүлэгч", 12), ("худалдагч", 12),
-               ("худалдан авагч", 12), ("хэрэглэгч", 10), ("merchant", 9),
+               ("борлуулагч", 12), ("худалдан авагч", 12),
+               ("х/а нэр", 12), ("хэрэглэгч", 10), ("merchant", 9),
                ("нэр", 6)],
-              ["бараа", "үйлчилгээ", "хэмжих", "нэгж", "файл", "салбар"]),
+              # «Систем нийлүүлэгч» нь ПОС-ын программ хангамжийн компани —
+              # харилцагч БИШ. Мөн барааны мөрийн баганууд.
+              ["систем", "бараа", "үйлчилгээ", "хэмжих", "нэгж", "файл",
+               "салбар", "байршил"]),
     "status": ([("төлөв", 10), ("status", 8)], []),
 }
 
@@ -515,7 +550,8 @@ def parse_ebarimt_export(data: bytes, filename: str | None = None,
 
     header_text = " ".join(_cell_text(c) for c in rows[h_idx])
     title_text = " ".join(_cell_text(c) for r in rows[:h_idx] for c in r)
-    ds = dataset or detect_dataset(filename, title_text, header_text)
+    ds = dataset or detect_dataset(filename, title_text,
+                                   _header_dataset_hint(header_text), header_text)
     meta = DATASET_META.get(ds or "", {})
 
     items: list[dict] = []

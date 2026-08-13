@@ -10324,7 +10324,7 @@ function openEbarimtBankReconModal(res) {
         <div style="padding:7px 10px; font-size:11.5px; display:flex; justify-content:space-between; gap:10px; border-bottom:1px solid var(--border);">
           <span><i class="fa-solid fa-file-circle-check" style="color:var(--ok)"></i> <b>${f.file}</b>
             → ${f.label}${f.direction ? (f.direction === 'in' ? ' (↓ орлого)' : ' (↑ зарлага)') : ''}</span>
-          <span class="muted">${f.count} мөр · ${fmt((f.amount_mnt || 0) * 100)}${f.voided_rows ? ` · ${f.voided_rows} хүчингүй` : ''}${f.skipped_rows ? ` · ${f.skipped_rows} алгасав` : ''}</span>
+          <span class="muted">${f.count} мөр · ${fmt((f.amount_mnt || 0) * 100)}${f.duplicates_removed ? ` · <b style="color:var(--warning)">${f.duplicates_removed} давхардсан</b>` : ''}${f.voided_rows ? ` · ${f.voided_rows} хүчингүй` : ''}${f.skipped_rows ? ` · ${f.skipped_rows} алгасав` : ''}</span>
         </div>`).join('')}
     </div>` : '';
 
@@ -10373,6 +10373,14 @@ function openEbarimtBankReconModal(res) {
     </div>
 
     ${fileHtml}
+    ${res.duplicate_count ? `
+      <div style="margin-bottom:12px; padding:9px 12px; border-radius:8px; font-size:12px; line-height:1.5;
+           border:1px solid var(--border); background:rgba(245,158,11,.08);">
+        <i class="fa-solid fa-clone" style="color:var(--warning)"></i>
+        <b>${res.duplicate_count}</b> баримт хоёр тайланд давхар орсныг ДДТД-ээр нь хассан.
+        «Баримтын задаргаа» нь бүх баримтыг агуулдаг бол «Байгууллага хоорондын гүйлгээ» нь
+        түүний ААН-ы хэсэг — давхардсаныг нь харилцагч тодорхойтой (ААН-ы) тайлангаар үлдээв.
+      </div>` : ''}
     ${dsHtml}
 
     ${res.period && res.period.from ? `
