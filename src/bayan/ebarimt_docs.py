@@ -261,3 +261,189 @@ def create(session: Session, company_id: str, items: list[dict],
         "totals": p["totals"],
         "warnings": p["warnings"],
     }
+
+
+# =====================================================================
+#  Банкны гүйлгээг АВЛАГА/ӨГЛӨГИЙН ХААЛТ болгох
+# =====================================================================
+#
+# Баримтуудыг бүртгэсний дараа орлого, зардал нь аль хэдийн журналд суусан
+# байна. Банкны гүйлгээг ердийн ангилалтаар («Дт банк / Кт орлого») бичвэл
+# орлого, НӨАТ хоёр дахин тоологдоно. Зөв бичилт нь төлбөрийн хаалт:
+#
+#     мөнгө орсон:  Дт банк / Кт 1201 авлага
+#     мөнгө гарсан: Дт 3101 өглөг / Кт банк
+#
+# Дүнгийн жижиг зөрүү (банкны шимтгэл, бутархай) 7106-д бичигдэнэ.
+
+#: Дүн таарахгүй үлдсэн зөрүүг бичих данс (банкны шимтгэлийн зардал)
+FEE_ACCOUNT = "7106"
+
+
+def _bank_gl(session: Session, company_id: str) -> dict[str, str]:
+    from .models import Account, BankAccount
+
+    out: dict[str, str] = {}
+    for ba in session.scalars(select(BankAccount).where(
+            BankAccount.company_id == company_id)):
+        acc = session.get(Account, ba.gl_account_id)
+        if acc:
+            out[ba.account_no] = acc.code
+            out[ba.id] = acc.code
+    return out
+
+
+def plan_settlements(session: Session, company_id: str, items: list[dict],
+                     results: list, bank_txns: list) -> dict:
+    """Аль гүйлгээ аль нэхэмжлэхийг хаахыг тооцно — юу ч бичихгүй."""
+    from .models import BankTxn, Direction
+
+    txn_by_id = {t.id: t for t in bank_txns}
+    gl_map = _bank_gl(session, company_id)
+
+    inv_by_number: dict[str, Invoice] = {}
+    for inv in session.scalars(select(Invoice).where(
+            Invoice.company_id == company_id)):
+        inv_by_number[inv.number] = inv
+
+    groups: dict[str, list[dict]] = {}
+    missing_invoice: list[dict] = []
+
+    for item, res in zip(items, results):
+        if not res.txn_id:
+            continue
+        inv = inv_by_number.get((item.get("receipt_id") or "").strip())
+        if inv is None:
+            missing_invoice.append(_brief(item))
+            continue
+        if inv.outstanding_minor <= 0:
+            continue                       # аль хэдийн хаагдсан
+        groups.setdefault(res.txn_id, []).append({
+            "invoice": inv, "item": item,
+            "amount_minor": inv.outstanding_minor,
+        })
+
+    plans: list[dict] = []
+    skipped: list[dict] = []
+    for txn_id, members in groups.items():
+        txn = txn_by_id.get(txn_id)
+        if txn is None:
+            continue
+        if getattr(txn, "reconciled", False):
+            skipped.append({"bank_txn_id": txn_id, "reason": "аль хэдийн хаагдсан"})
+            continue
+        gl = gl_map.get(txn.bank_account_key)
+        if not gl:
+            skipped.append({"bank_txn_id": txn_id,
+                            "reason": f"{txn.bank_account_key} дансны GL код олдсонгүй"})
+            continue
+
+        covered = sum(m["amount_minor"] for m in members)
+        diff = int(txn.amount_minor) - covered
+        is_in = txn.direction == Direction.credit
+        plans.append({
+            "bank_txn_id": txn_id,
+            "date": txn.posted_at.date().isoformat() if txn.posted_at else None,
+            "bank_gl": gl,
+            "direction": "in" if is_in else "out",
+            "txn_amount_minor": int(txn.amount_minor),
+            "covered_minor": covered,
+            "fee_minor": diff,
+            "invoice_count": len(members),
+            "invoices": [{"number": m["invoice"].number,
+                          "amount_minor": m["amount_minor"]} for m in members],
+            "_members": members,
+            "_txn": txn,
+        })
+
+    return {
+        "settlements": plans,
+        "missing_invoice": missing_invoice,
+        "skipped": skipped,
+        "totals": {
+            "count": len(plans),
+            "amount_minor": sum(p["txn_amount_minor"] for p in plans),
+            "invoice_count": sum(p["invoice_count"] for p in plans),
+            "fee_minor": sum(p["fee_minor"] for p in plans),
+        },
+    }
+
+
+def settle(session: Session, company_id: str, plans: list[dict],
+           actor_id: str | None = None, fee_account: str = FEE_ACCOUNT) -> dict:
+    """Тооцооны хаалтын бичилтийг ҮНЭХЭЭР үүсгэнэ."""
+    from .models import SourceType
+
+    posted: list[dict] = []
+    failed: list[dict] = []
+
+    for p in plans:
+        txn = p["_txn"]
+        members = p["_members"]
+        gl = p["bank_gl"]
+        is_in = p["direction"] == "in"
+        entry_date = txn.posted_at.date()
+        memo = f"eBarimt тооцоо хаалт — {len(members)} баримт"
+
+        lines = []
+        if is_in:
+            lines.append(ledger.LineInput(gl, debit_minor=int(txn.amount_minor),
+                                          description=memo))
+            for m in members:
+                lines.append(ledger.LineInput(
+                    "1201", credit_minor=m["amount_minor"],
+                    counterparty_id=m["invoice"].counterparty_id,
+                    description=f"Нэхэмжлэх {m['invoice'].number}"))
+            if p["fee_minor"] > 0:      # банкинд илүү орсон — тайлбаргүй үлдэгдэл
+                lines.append(ledger.LineInput("5101", credit_minor=p["fee_minor"],
+                                              description="Тайлбаргүй зөрүү"))
+            elif p["fee_minor"] < 0:    # шимтгэл суутгасан
+                lines.append(ledger.LineInput(fee_account,
+                                              debit_minor=-p["fee_minor"],
+                                              description="Банкны шимтгэл"))
+        else:
+            for m in members:
+                lines.append(ledger.LineInput(
+                    "3101", debit_minor=m["amount_minor"],
+                    counterparty_id=m["invoice"].counterparty_id,
+                    description=f"Нэхэмжлэх {m['invoice'].number}"))
+            if p["fee_minor"] > 0:      # банкнаас илүү гарсан — шимтгэл
+                lines.append(ledger.LineInput(fee_account,
+                                              debit_minor=p["fee_minor"],
+                                              description="Банкны шимтгэл"))
+            elif p["fee_minor"] < 0:
+                lines.append(ledger.LineInput("5101", credit_minor=-p["fee_minor"],
+                                              description="Тайлбаргүй зөрүү"))
+            lines.append(ledger.LineInput(gl, credit_minor=int(txn.amount_minor),
+                                          description=memo))
+
+        try:
+            entry = ledger.post_entry(session, company_id, entry_date, lines,
+                                      source_type=SourceType.bank_txn,
+                                      source_id=txn.id, memo=memo,
+                                      actor_id=actor_id)
+        except (ledger.LedgerError, ValueError) as e:
+            failed.append({"bank_txn_id": txn.id, "error": str(e)})
+            continue
+
+        for m in members:
+            m["invoice"].paid_minor += m["amount_minor"]
+        txn.reconciled = True
+        txn.reconciled_line_id = entry.lines[0].id if getattr(entry, "lines", None) else None
+
+        # Тухайн гүйлгээний хүлээгдэж буй ангиллын саналыг хаана — эс тэгвэл
+        # нягтлан дараа нь «орлого» гэж дахин баталж, давхар бичилт үүснэ.
+        from .models import ClassificationSuggestion
+        for sug in session.scalars(select(ClassificationSuggestion).where(
+                ClassificationSuggestion.bank_txn_id == txn.id,
+                ClassificationSuggestion.status == "pending")):
+            sug.status = "rejected"
+            sug.rationale = ((sug.rationale or "") +
+                             " | eBarimt-ын тооцоо хаалтаар бичигдсэн")
+
+        posted.append({"bank_txn_id": txn.id, "entry_id": entry.id,
+                       "amount_minor": int(txn.amount_minor),
+                       "invoice_count": len(members)})
+
+    session.flush()
+    return {"posted_count": len(posted), "posted": posted, "failed": failed}

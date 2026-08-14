@@ -4187,6 +4187,78 @@ def post_ebarimt_documents(
     }
 
 
+@app.post("/api/companies/{company_id}/ebarimt/settle-bank")
+def settle_ebarimt_bank(
+    company_id: str,
+    mode: str = Form("excel"),
+    year: int = Form(2026),
+    month: int = Form(7),
+    files: list[UploadFile] = File(None),
+    datasets: list[str] = Form(None),
+    allow_mock: bool = Form(False),
+    daily_aggregate: bool = Form(True),
+    dry_run: bool = Form(True),
+    ctx: dict = Depends(company_guard("post")),
+    db: Session = Depends(get_db)
+):
+    """Тулгагдсан банкны гүйлгээг АВЛАГА/ӨГЛӨГИЙН ХААЛТ болгон бичнэ.
+
+    Баримтуудыг бүртгэсний дараа орлого, зардал нь журналд аль хэдийн суусан
+    байдаг. Банкны гүйлгээг ердийн ангилалтаар («Дт банк / Кт орлого») бичвэл
+    орлого, НӨАТ давхардана. Энд төлбөрийн хаалт бичигдэнэ:
+
+        мөнгө орсон:  Дт банк / Кт 1201 авлага
+        мөнгө гарсан: Дт 3101 өглөг / Кт банк
+
+    Дүнгийн зөрүү (банкны шимтгэл) 7106-д бичигдэнэ. dry_run өгөгдмөл нь true.
+    """
+    from datetime import datetime, time as dtime, timedelta
+
+    from .models import BankTxn
+
+    ebarimt_items, file_reports, duplicate_count = _collect_ebarimt_items(
+        mode, files, datasets, year, month, allow_mock)
+
+    days = [date.fromisoformat(i["date"]) for i in ebarimt_items if i.get("date")]
+    q = select(BankTxn).where(BankTxn.company_id == company_id)
+    if days:
+        pad = timedelta(days=ebarimt_match.DATE_TOLERANCE_DAYS)
+        q = q.where(
+            BankTxn.posted_at >= datetime.combine(min(days) - pad, dtime.min),
+            BankTxn.posted_at <= datetime.combine(max(days) + pad, dtime.max))
+    bank_txns = db.scalars(q).all()
+
+    results = ebarimt_match.match(ebarimt_items, bank_txns,
+                                  allow_daily=daily_aggregate)
+    p = ebarimt_docs.plan_settlements(db, company_id, ebarimt_items,
+                                      results, bank_txns)
+
+    def _public(plans):
+        return [{k: v for k, v in x.items() if not k.startswith("_")} for x in plans]
+
+    if dry_run:
+        return {
+            "ok": True, "dry_run": True,
+            "files": file_reports, "duplicate_count": duplicate_count,
+            "settlements": _public(p["settlements"]),
+            "missing_invoice_count": len(p["missing_invoice"]),
+            "missing_invoice": p["missing_invoice"][:50],
+            "skipped": p["skipped"],
+            "totals": p["totals"],
+        }
+
+    res = ebarimt_docs.settle(db, company_id, p["settlements"],
+                              actor_id=ctx.get("uid"))
+    return {
+        "ok": True, "dry_run": False,
+        "files": file_reports, "duplicate_count": duplicate_count,
+        "missing_invoice_count": len(p["missing_invoice"]),
+        "skipped": p["skipped"],
+        "totals": p["totals"],
+        **res,
+    }
+
+
 class FxRevalueIn(BaseModel):
     reval_date: str
 

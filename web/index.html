@@ -10661,6 +10661,123 @@ async function commitEbarimtDocuments() {
           : 'ТТ-03а нь eBarimt-ын дүнтэй бүрэн тэнцээгүй байна — тулгалтын дэлгэцээс зөрүүг шалгана уу.'}
         <div style="margin-top:6px;">Төлөх НӨАТ: <b>${fmt(v.net_payable_minor)}</b></div>
       </div>` : ''}
+    <div style="display:flex; justify-content:space-between; gap:8px; margin-top:14px;">
+      <button class="btn" onclick="previewEbarimtSettlement()">
+        <i class="fa-solid fa-money-bill-transfer"></i> Банкны гүйлгээг хаах</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn secondary" onclick="hideModal()">Хаах</button>
+        <button class="btn secondary" onclick="hideModal(); reportsTab()">Тайлан харах</button>
+      </div>
+    </div>`;
+}
+
+// --- 2 дахь алхам: банкны гүйлгээг авлага/өглөгийн хаалт болгох ------------
+// Баримтууд бүртгэгдсэн тул орлого, зардал журналд аль хэдийн суусан.
+// Гүйлгээг ердийн ангилалтаар бичвэл давхардана — энд төлбөрийн хаалт бичнэ.
+
+async function _ebarimtSettleCall(extra) {
+  const r = await fetch(`/api/companies/${companyId}/ebarimt/settle-bank`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + token() },
+    body: _ebarimtDocsForm(extra)
+  });
+  const text = await r.text();
+  let j = null;
+  try { j = JSON.parse(text); } catch (_) {}
+  return { ok: r.ok, status: r.status, data: j };
+}
+
+async function previewEbarimtSettlement() {
+  if (!window._selectedEbarimtFiles || !window._selectedEbarimtFiles.length) {
+    alert('Файлууд сонгогдоогүй байна.');
+    return;
+  }
+  const res = await _ebarimtSettleCall({ dry_run: true });
+  if (!res.ok || !res.data) {
+    alert((res.data && res.data.detail) || `Серверийн алдаа (${res.status})`);
+    return;
+  }
+  const p = res.data, t = p.totals || {};
+  $('#modalCard').style.width = '820px';
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h2><i class="fa-solid fa-money-bill-transfer" style="color:var(--primary)"></i>
+        Банкны гүйлгээг тооцооны хаалт болгох</h2>
+      <button class="btn secondary btn-xs" onclick="hideModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="font-size:12px; line-height:1.6; margin-bottom:12px;">
+      <b>${t.count || 0}</b> банкны гүйлгээгээр <b>${t.invoice_count || 0}</b> нэхэмжлэх хаагдана
+      (${fmt(t.amount_minor || 0)}).
+      <div style="margin-top:6px; font-family:monospace; font-size:11.5px; background:var(--bg); padding:8px 10px; border-radius:6px;">
+        мөнгө орсон:  Дт банк / Кт 1201 авлага<br>
+        мөнгө гарсан: Дт 3101 өглөг / Кт банк
+      </div>
+      ${t.fee_minor ? `<div style="margin-top:6px;">Дүнгийн зөрүү ${fmt(Math.abs(t.fee_minor))} — банкны шимтгэл (7106) болж бичигдэнэ.</div>` : ''}
+    </div>
+    ${p.missing_invoice_count ? `
+      <div style="margin-bottom:12px; padding:9px 12px; border-radius:8px; font-size:12px;
+           background:rgba(245,158,11,.1); border:1px solid var(--warning);">
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i>
+        ${p.missing_invoice_count} баримт нэхэмжлэхгүй байна — эхлээд «Бүртгэлд буулгах» алхмыг гүйцээнэ үү.
+      </div>` : ''}
+    ${(p.skipped || []).length ? `
+      <div style="margin-bottom:12px; font-size:11.5px;" class="muted">
+        ${p.skipped.length} гүйлгээ алгасагдана (${[...new Set(p.skipped.map(s => s.reason))].join(', ')}).
+      </div>` : ''}
+    <div style="max-height:230px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:14px;">
+      <table style="width:100%; font-size:12px;">
+        <thead><tr style="background:var(--bg); position:sticky; top:0;">
+          <th>Огноо</th><th>Чиглэл</th><th class="num">Гүйлгээ</th>
+          <th class="num">Нэхэмжлэх</th><th class="num">Зөрүү</th>
+        </tr></thead>
+        <tbody>${(p.settlements || []).slice(0, 200).map(s => `
+          <tr>
+            <td>${s.date || '—'}</td>
+            <td>${s.direction === 'in' ? '↓ орлого' : '↑ зарлага'}</td>
+            <td class="num">${fmt(s.txn_amount_minor)}</td>
+            <td class="num">${s.invoice_count} ш · ${fmt(s.covered_minor)}</td>
+            <td class="num" style="color:${s.fee_minor ? 'var(--warning)' : 'var(--text-muted)'}">
+              ${s.fee_minor ? fmt(s.fee_minor) : '0'}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="muted" style="font-size:11.5px;">Одоогоор юу ч бичигдээгүй.</div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn secondary" onclick="hideModal()">Цуцлах</button>
+        <button class="btn" id="eb_settle_go" onclick="commitEbarimtSettlement()"
+                ${t.count ? '' : 'disabled'}>
+          <i class="fa-solid fa-check"></i> ${t.count || 0} гүйлгээг хаах</button>
+      </div>
+    </div>`;
+  showModal();
+}
+
+async function commitEbarimtSettlement() {
+  const btn = $('#eb_settle_go');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Бичиж байна...'; }
+  const res = await _ebarimtSettleCall({ dry_run: false });
+  if (!res.ok || !res.data) {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Дахин оролдох'; }
+    alert((res.data && res.data.detail) || `Серверийн алдаа (${res.status})`);
+    return;
+  }
+  const d = res.data;
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h2><i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> Тооцоо хаагдлаа</h2>
+      <button class="btn secondary btn-xs" onclick="hideModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="font-size:13px; line-height:1.7;">
+      <b>${d.posted_count}</b> банкны гүйлгээ авлага/өглөгийн хаалт болж бичигдлээ.
+      ${d.failed && d.failed.length ? `<br><span style="color:var(--danger)">${d.failed.length} гүйлгээ амжилтгүй.</span>` : ''}
+      <br><span class="muted">Эдгээр гүйлгээ «тулгагдсан» болсон тул ангиллын саналд дахин гарахгүй —
+      орлого давхар бичигдэхээс сэргийлнэ.</span>
+    </div>
+    ${d.failed && d.failed.length ? `
+      <div style="max-height:140px; overflow-y:auto; font-size:11.5px; border:1px solid var(--border);
+           border-radius:6px; padding:8px; margin-top:10px;">
+        ${d.failed.map(f => `<div>${f.bank_txn_id.slice(0, 8)} — ${f.error}</div>`).join('')}
+      </div>` : ''}
     <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
       <button class="btn secondary" onclick="hideModal()">Хаах</button>
       <button class="btn" onclick="hideModal(); reportsTab()">Тайлан харах</button>

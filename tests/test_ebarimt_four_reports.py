@@ -777,3 +777,201 @@ def test_vat_comparison_is_zero_after_posting(client):
     for line in v["lines"]:
         assert line["diff_minor"] == 0, line
     assert v["net_payable_minor"] == v["book_net_payable_minor"]
+
+
+# ============================================================================
+#  Банкны гүйлгээ → авлага/өглөгийн хаалт (давхар бүртгэлээс сэргийлнэ)
+# ============================================================================
+
+def _settle(client, company_id, headers, files, **form):
+    data = {"mode": "excel"}
+    data.update({k: str(v).lower() if isinstance(v, bool) else v
+                 for k, v in form.items()})
+    return client.post(f"/api/companies/{company_id}/ebarimt/settle-bank",
+                       headers=headers, data=data, files=files)
+
+
+def _bank_account(company_id, account_no="413108778"):
+    """Хуулгын дансанд GL данс холбоно (upload_statement-ийн адил)."""
+    from bayan.coa_seed import add_bank_gl_account
+    from bayan.models import BankAccount
+    s = apimod.SessionLocal()
+    gl = add_bank_gl_account(s, company_id, "bank", account_no)
+    s.add(BankAccount(company_id=company_id, bank="bank",
+                      account_no=account_no, gl_account_id=gl.id))
+    s.commit()
+    code = gl.code
+    s.close()
+    return code
+
+
+def _balance(company_id, code, year=2026, month=7):
+    """Тухайн дансны сарын дебит/кредит хөдөлгөөн."""
+    from datetime import date as _d
+    from bayan import ledger
+    s = apimod.SessionLocal()
+    try:
+        rows = ledger.trial_balance(s, company_id, _d(year, month, 1),
+                                    _d(year, month, 28))
+    finally:
+        s.close()
+    for r in rows:
+        if r.get("code") == code:
+            return r
+    return None
+
+
+def test_settlement_closes_receivable_not_revenue(client):
+    """Хаалт нь 1201-ийг хаана — 5101 орлого ДАХИН нэмэгдэхгүй."""
+    company_id, headers = _register(client)
+    gl_code = _bank_account(company_id)
+    _add_txn(company_id, amount_minor=145_000_00, day=5,
+             direction=Direction.credit, name="Мандал даатгал")
+
+    sales = [("S1", "2026-07-05", "Мандал даатгал", "5473489", "13181.82", "145000")]
+    _post_docs(client, company_id, headers, _files(sales), dry_run=False)
+
+    before = _balance(company_id, "5101")
+    r = _settle(client, company_id, headers, _files(sales), dry_run=False)
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["posted_count"] == 1
+    assert j["failed"] == []
+
+    after = _balance(company_id, "5101")
+    assert after["credit_minor"] == before["credit_minor"]     # орлого нэмэгдээгүй
+    ar = _balance(company_id, "1201")
+    assert ar["debit_minor"] == ar["credit_minor"] == 145_000_00   # авлага хаагдсан
+    bank = _balance(company_id, gl_code)
+    assert bank["debit_minor"] == 145_000_00
+
+
+def test_settlement_marks_txn_reconciled_and_kills_suggestion(client):
+    """Хаагдсан гүйлгээ дахин «орлого» гэж ангилагдахгүй."""
+    from bayan.models import BankTxn, ClassificationSuggestion
+    company_id, headers = _register(client)
+    _bank_account(company_id)
+    _add_txn(company_id, amount_minor=145_000_00, day=5,
+             direction=Direction.credit, name="Мандал даатгал")
+
+    s = apimod.SessionLocal()
+    txn_id = s.scalars(select_bank_txn(company_id)).first().id
+    s.add(ClassificationSuggestion(
+        bank_txn_id=txn_id, company_id=company_id, account_code="5101",
+        vat_flag=True, counterparty_name="Мандал даатгал", confidence=0.9,
+        source="rule", status="pending"))
+    s.commit(); s.close()
+
+    sales = [("S1", "2026-07-05", "Мандал даатгал", "5473489", "13181.82", "145000")]
+    _post_docs(client, company_id, headers, _files(sales), dry_run=False)
+    _settle(client, company_id, headers, _files(sales), dry_run=False)
+
+    s = apimod.SessionLocal()
+    try:
+        t = s.get(BankTxn, txn_id)
+        assert t.reconciled is True
+        sug = s.scalars(select_suggestions(company_id)).first()
+        assert sug.status == "rejected"
+    finally:
+        s.close()
+
+
+def select_bank_txn(company_id):
+    from sqlalchemy import select
+    from bayan.models import BankTxn
+    return select(BankTxn).where(BankTxn.company_id == company_id)
+
+
+def select_suggestions(company_id):
+    from sqlalchemy import select
+    from bayan.models import ClassificationSuggestion
+    return select(ClassificationSuggestion).where(
+        ClassificationSuggestion.company_id == company_id)
+
+
+def test_settlement_dry_run_writes_nothing(client):
+    company_id, headers = _register(client)
+    _bank_account(company_id)
+    _add_txn(company_id, amount_minor=145_000_00, day=5, direction=Direction.credit)
+    sales = [("S1", "2026-07-05", "Мандал даатгал", "5473489", "13181.82", "145000")]
+    _post_docs(client, company_id, headers, _files(sales), dry_run=False)
+
+    j = _settle(client, company_id, headers, _files(sales)).json()
+    assert j["dry_run"] is True
+    assert j["totals"]["count"] == 1
+    ar = _balance(company_id, "1201")
+    assert ar["credit_minor"] == 0        # авлага хаагдаагүй
+
+
+def test_settlement_is_idempotent(client):
+    company_id, headers = _register(client)
+    _bank_account(company_id)
+    _add_txn(company_id, amount_minor=145_000_00, day=5, direction=Direction.credit)
+    sales = [("S1", "2026-07-05", "Мандал даатгал", "5473489", "13181.82", "145000")]
+    _post_docs(client, company_id, headers, _files(sales), dry_run=False)
+
+    assert _settle(client, company_id, headers, _files(sales),
+                   dry_run=False).json()["posted_count"] == 1
+    again = _settle(client, company_id, headers, _files(sales), dry_run=False).json()
+    assert again["posted_count"] == 0
+
+
+def test_bank_fee_difference_goes_to_fee_account(client):
+    """Банк шимтгэлээ суутгасан бол зөрүү 7106-д бичигдэнэ."""
+    company_id, headers = _register(client)
+    _bank_account(company_id)
+    _add_txn(company_id, amount_minor=144_999_00, day=5,      # 1₮ дутуу орсон
+             direction=Direction.credit, name="Мандал даатгал")
+    sales = [("S1", "2026-07-05", "Мандал даатгал", "5473489", "13181.82", "145000")]
+    _post_docs(client, company_id, headers, _files(sales), dry_run=False)
+
+    j = _settle(client, company_id, headers, _files(sales), dry_run=False).json()
+    assert j["posted_count"] == 1
+    fee = _balance(company_id, "7106")
+    assert fee["debit_minor"] == 100        # 1.00₮
+
+
+def test_purchase_settlement_closes_payable(client):
+    company_id, headers = _register(client)
+    gl_code = _bank_account(company_id)
+    _add_txn(company_id, amount_minor=741_000_00, day=8,
+             direction=Direction.debit, name="Хангамж ХХК")
+    purch = [("P1", "2026-07-08", "Хангамж ХХК", "2117932", "67363.64", "741000")]
+    _post_docs(client, company_id, headers, _files(None, purch), dry_run=False)
+
+    j = _settle(client, company_id, headers, _files(None, purch), dry_run=False).json()
+    assert j["posted_count"] == 1
+    ap = _balance(company_id, "3101")
+    assert ap["debit_minor"] == ap["credit_minor"] == 741_000_00
+    bank = _balance(company_id, gl_code)
+    assert bank["credit_minor"] == 741_000_00
+
+
+def test_settlement_reports_receipts_without_invoice(client):
+    """Баримтуудыг бүртгээгүй бол юуг нь хаах вэ гэдгийг хэлнэ."""
+    company_id, headers = _register(client)
+    _bank_account(company_id)
+    _add_txn(company_id, amount_minor=145_000_00, day=5, direction=Direction.credit)
+    sales = [("S1", "2026-07-05", "Мандал даатгал", "5473489", "13181.82", "145000")]
+
+    j = _settle(client, company_id, headers, _files(sales)).json()
+    assert j["totals"]["count"] == 0
+    assert j["missing_invoice_count"] == 1
+
+
+def test_daily_group_settles_every_invoice_in_the_group(client):
+    """Өдрийн нэгдсэн орлого — нэг бичилтээр 3 нэхэмжлэхийг хаана."""
+    company_id, headers = _register(client)
+    _bank_account(company_id)
+    _add_txn(company_id, amount_minor=300_000_00, day=5, direction=Direction.credit,
+             name="ПОС ОРЛОГО")
+    sales = [("S1", "2026-07-05", "Иргэн А", "", "9090.91", "100000"),
+             ("S2", "2026-07-05", "Иргэн Б", "", "9090.91", "100000"),
+             ("S3", "2026-07-05", "Иргэн В", "", "9090.91", "100000")]
+    _post_docs(client, company_id, headers, _files(sales), dry_run=False)
+
+    j = _settle(client, company_id, headers, _files(sales), dry_run=False).json()
+    assert j["posted_count"] == 1
+    assert j["posted"][0]["invoice_count"] == 3
+    ar = _balance(company_id, "1201")
+    assert ar["credit_minor"] == 300_000_00
