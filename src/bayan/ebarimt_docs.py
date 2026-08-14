@@ -31,7 +31,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import ledger
+from . import ebarimt_accounts, ledger
 from .partners import Counterparty, Invoice, InvoiceKind, PartnerKind, post_invoice
 
 #: Худалдан авалтын өгөгдмөл зардлын данс (нягтлан дараа нь ангилна)
@@ -102,6 +102,11 @@ def plan(session: Session, company_id: str, items: list[dict],
     already: list[dict] = []
     skipped: list[dict] = []
 
+    # Зардлын дансыг нийлүүлэгчээр нь ангилна — бүгдийг 7199-д хийвэл
+    # тайлан утгагүй болно. Дүрмүүдийг нэг л удаа уншина.
+    rules_cache = ebarimt_accounts._company_rules(session, company_id)
+    suppliers: dict[str, dict] = {}
+
     for it in items:
         rid = (it.get("receipt_id") or "").strip()
         direction = it.get("direction")
@@ -121,13 +126,32 @@ def plan(session: Session, company_id: str, items: list[dict],
         gross = int(it["total_minor"])
         vat = int(it.get("vat_minor") or 0)
         city = int(it.get("city_tax_minor") or 0)
+
+        acc = None
+        if direction == "out":
+            acc = ebarimt_accounts.resolve(
+                session, company_id, it.get("party"), it.get("party_tin"),
+                rules_cache=rules_cache, fallback=expense_account)
+            key = (it.get("party_tin") or it.get("party") or "?").strip()
+            s = suppliers.setdefault(key, {
+                "party": it.get("party"), "party_tin": it.get("party_tin"),
+                "account_code": acc["account_code"], "source": acc["source"],
+                "matched": acc["matched"], "is_individual": acc["is_individual"],
+                "count": 0, "amount_minor": 0,
+            })
+            s["count"] += 1
+            s["amount_minor"] += gross
+
         to_create.append({
             **_brief(it),
             "kind": "sales" if direction == "in" else "purchase",
             "net_minor": gross - vat - city,
             "vat_minor": vat,
             "city_tax_minor": city,
-            "expense_account": expense_account if direction == "out" else None,
+            "expense_account": acc["account_code"] if acc else None,
+            "account_source": acc["source"] if acc else None,
+            "account_matched": acc["matched"] if acc else None,
+            "is_individual": acc["is_individual"] if acc else False,
         })
 
     sales = [d for d in to_create if d["kind"] == "sales"]
@@ -155,6 +179,27 @@ def plan(session: Session, company_id: str, items: list[dict],
     if already:
         warnings.append(f"{len(already)} баримт өмнө нь бүртгэгдсэн тул алгасана.")
 
+    supplier_list = sorted(suppliers.values(), key=lambda s: -s["amount_minor"])
+    unclassified = [s for s in supplier_list if s["source"] == "fallback"]
+    classified_amount = sum(s["amount_minor"] for s in supplier_list
+                            if s["source"] != "fallback")
+    purchase_amount = sum(s["amount_minor"] for s in supplier_list)
+    if unclassified:
+        warnings.append(
+            f"{len(unclassified)} нийлүүлэгч ангилагдаагүй тул {expense_account}-д "
+            f"унана ({sum(s['amount_minor'] for s in unclassified) / 100:,.2f}₮). "
+            f"Нэг удаа зааж өгвөл дараагийн сард автоматаар ангилагдана.")
+
+    by_account: dict[str, dict] = {}
+    for d in to_create:
+        if d["kind"] != "purchase":
+            continue
+        b = by_account.setdefault(d["expense_account"],
+                                  {"account_code": d["expense_account"],
+                                   "count": 0, "amount_minor": 0})
+        b["count"] += 1
+        b["amount_minor"] += d["net_minor"] + d["vat_minor"]
+
     return {
         "period": f"{period[0]}-{period[1]:02d}" if period else None,
         "to_create": to_create,
@@ -163,6 +208,15 @@ def plan(session: Session, company_id: str, items: list[dict],
         "totals": totals,
         "existing_vat_movement": existing,
         "warnings": warnings,
+        "suppliers": supplier_list,
+        "unclassified_suppliers": unclassified,
+        "by_account": sorted(by_account.values(), key=lambda b: b["account_code"]),
+        "classification": {
+            "supplier_count": len(supplier_list),
+            "classified_supplier_count": len(supplier_list) - len(unclassified),
+            "classified_amount_minor": classified_amount,
+            "purchase_amount_minor": purchase_amount,
+        },
     }
 
 

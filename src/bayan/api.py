@@ -28,8 +28,9 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from . import (assets, auth, ebarimt, ebarimt_docs, ebarimt_match, fx, inventory,
-               ledger, partners, reports, storage, vat, wip)
+from . import (assets, auth, ebarimt, ebarimt_accounts, ebarimt_docs,
+               ebarimt_match, fx, inventory, ledger, partners, reports,
+               storage, vat, wip)
 from .amounts import parse_amount, parse_date
 from .classify import bucket, classify_batch
 from .coa_seed import add_bank_gl_account, seed_company, setup_company
@@ -4257,6 +4258,66 @@ def settle_ebarimt_bank(
         "totals": p["totals"],
         **res,
     }
+
+
+class SupplierAccountIn(BaseModel):
+    keyword: str                      # нийлүүлэгчийн нэр эсвэл түүний хэсэг
+    account_code: str
+
+
+class SupplierAccountsIn(BaseModel):
+    items: list[SupplierAccountIn]
+
+
+@app.post("/api/companies/{company_id}/ebarimt/supplier-accounts")
+def learn_supplier_accounts(company_id: str, body: SupplierAccountsIn,
+                            ctx: dict = Depends(company_guard("post")),
+                            db: Session = Depends(get_db)):
+    """Нийлүүлэгч → зардлын дансны дүрмийг хадгална (дараа сард автомат).
+
+    Дүрэм нь `classifier_rule`-д priority=100-аар суух тул суурь дүрмийг
+    дардаг бөгөөд банкны гүйлгээний ангилалтад ч ашиглагдана.
+    """
+    known = {a.code for a in db.scalars(
+        select(Account).where(Account.company_id == company_id,
+                              Account.is_postable == True))}          # noqa: E712
+    saved, failed = [], []
+    for it in body.items:
+        if it.account_code not in known:
+            failed.append({"keyword": it.keyword,
+                           "error": f"{it.account_code} данс байхгүй эсвэл бичилт хийх боломжгүй"})
+            continue
+        try:
+            rule = ebarimt_accounts.learn(db, company_id, it.keyword, it.account_code)
+        except ValueError as e:
+            failed.append({"keyword": it.keyword, "error": str(e)})
+            continue
+        saved.append({"keyword": rule.keyword, "account_code": rule.account_code})
+    return {"ok": True, "saved": saved, "failed": failed}
+
+
+@app.get("/api/companies/{company_id}/ebarimt/supplier-accounts")
+def list_supplier_account_rules(company_id: str,
+                                ctx: dict = Depends(company_guard("read")),
+                                db: Session = Depends(get_db)):
+    """Хадгалагдсан нийлүүлэгчийн дүрмүүд (зөвхөн зарлагын чиглэлийнх)."""
+    from .models import ClassifierRule, Direction as _D
+
+    rules = db.scalars(
+        select(ClassifierRule).where(
+            ClassifierRule.company_id == company_id,
+            ClassifierRule.direction == _D.debit,
+            ClassifierRule.active == True,                            # noqa: E712
+            ClassifierRule.priority < ebarimt_accounts_priority_cutoff())
+        .order_by(ClassifierRule.keyword)).all()
+    return [{"keyword": r.keyword, "account_code": r.account_code,
+             "priority": r.priority} for r in rules]
+
+
+def ebarimt_accounts_priority_cutoff() -> int:
+    """Суурь дүрмийн эрэмбийн доод хязгаар — түүнээс дээших нь хэрэглэгчийнх."""
+    from .coa_seed import DEFAULT_RULE_PRIORITY_BASE
+    return DEFAULT_RULE_PRIORITY_BASE
 
 
 class FxRevalueIn(BaseModel):

@@ -10534,6 +10534,7 @@ async function previewEbarimtDocuments() {
     alert((res.data && res.data.detail) || `Серверийн алдаа (${res.status})`);
     return;
   }
+  await _ebExpenseAccounts();          // дансны жагсаалт (сонгох талбарт)
   openEbarimtDocsModal(res.data);
 }
 
@@ -10584,11 +10585,13 @@ function openEbarimtDocsModal(p) {
         ${p.skipped.length} баримт алгасагдана (${[...new Set(p.skipped.map(s => s.reason))].join(', ')}).
       </div>` : ''}
 
+    ${(p.classification && p.classification.supplier_count) ? renderEbarimtSupplierPanel(p) : ''}
+
     <div style="max-height:240px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:14px;">
       <table style="width:100%; font-size:12px;">
         <thead><tr style="background:var(--bg); position:sticky; top:0;">
           <th>Огноо</th><th>ДДТД</th><th>Харилцагч</th><th>Төрөл</th>
-          <th class="num">Цэвэр</th><th class="num">НӨАТ</th>
+          <th>Данс</th><th class="num">Цэвэр</th><th class="num">НӨАТ</th>
         </tr></thead>
         <tbody>${p.to_create.slice(0, 200).map(d => `
           <tr>
@@ -10596,6 +10599,9 @@ function openEbarimtDocsModal(p) {
             <td style="font-size:10.5px;">${(d.receipt_id || '').slice(-12)}</td>
             <td>${d.party || '—'}${d.party_tin ? ` <span class="muted">(${d.party_tin})</span>` : ''}</td>
             <td>${d.kind === 'sales' ? 'Борлуулалт' : 'Худалдан авалт'}</td>
+            <td style="font-size:11px;">
+              ${d.kind === 'sales' ? '5101' : `<b style="color:${d.account_source === 'fallback' ? 'var(--warning)' : 'var(--text-main)'}">${d.expense_account}</b>`}
+              ${d.account_matched ? `<div class="muted" style="font-size:10px;">«${d.account_matched}»</div>` : ''}</td>
             <td class="num">${fmt(d.net_minor)}</td>
             <td class="num">${fmt(d.vat_minor)}</td>
           </tr>`).join('')}</tbody>
@@ -10669,6 +10675,104 @@ async function commitEbarimtDocuments() {
         <button class="btn secondary" onclick="hideModal(); reportsTab()">Тайлан харах</button>
       </div>
     </div>`;
+}
+
+// --- Нийлүүлэгч → зардлын данс: нэг удаа зааж өгвөл дүрэм болж хадгалагдана --
+window._ebAccountOptions = null;
+
+async function _ebExpenseAccounts() {
+  if (window._ebAccountOptions) return window._ebAccountOptions;
+  const accs = await api(`/companies/${companyId}/accounts`);
+  window._ebAccountOptions = (accs || []).filter(
+    a => a.is_postable && (a.code[0] === '7' || a.code[0] === '6'));
+  return window._ebAccountOptions;
+}
+
+function _ebAccountSelect(idx, current) {
+  const opts = (window._ebAccountOptions || []).map(a =>
+    `<option value="${a.code}" ${a.code === current ? 'selected' : ''}>${a.code} · ${a.name}</option>`
+  ).join('');
+  return `<select class="input-field eb-acc-sel" data-idx="${idx}"
+            style="height:28px; font-size:11px; padding:2px 6px; min-width:230px;">
+      <option value="">— сонгоогүй —</option>${opts}</select>`;
+}
+
+function renderEbarimtSupplierPanel(p) {
+  const un = p.unclassified_suppliers || [];
+  const c = p.classification || {};
+  const byAcc = p.by_account || [];
+  const pct = c.purchase_amount_minor
+    ? Math.round((c.classified_amount_minor / c.purchase_amount_minor) * 100) : 100;
+
+  return `
+    <div style="margin-bottom:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+      <div style="padding:8px 12px; background:var(--bg); font-size:12px; font-weight:700;">
+        <i class="fa-solid fa-sitemap" style="color:var(--primary)"></i>
+        Зардлын дансны ангилал — ${c.classified_supplier_count || 0}/${c.supplier_count || 0}
+        нийлүүлэгч (дүнгээр ${pct}%)
+      </div>
+      ${byAcc.length ? `
+        <div style="padding:8px 12px; font-size:11.5px; display:flex; flex-wrap:wrap; gap:10px;">
+          ${byAcc.map(b => `<span>${b.account_code}: <b>${fmt(b.amount_minor)}</b>
+            <span class="muted">(${b.count}ш)</span></span>`).join('')}
+        </div>` : ''}
+      ${un.length ? `
+        <div style="border-top:1px solid var(--border); padding:8px 12px;">
+          <div style="font-size:11.5px; margin-bottom:6px;">
+            <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i>
+            Дараах нийлүүлэгчид ангилагдаагүй. Нэг удаа зааж өгвөл дүрэм болж
+            хадгалагдаж, дараагийн сард автоматаар ангилагдана.
+          </div>
+          <div style="max-height:220px; overflow-y:auto;">
+            <table style="width:100%; font-size:11.5px;">
+              <thead><tr style="background:var(--bg);">
+                <th style="text-align:left;">Нийлүүлэгч</th><th class="num">Дүн</th>
+                <th style="width:250px;">Зардлын данс</th>
+              </tr></thead>
+              <tbody>${un.map((s, i) => `
+                <tr>
+                  <td>${s.party || '—'}
+                    ${s.is_individual ? '<span class="pill warn" style="font-size:10px;">иргэн</span>' : ''}
+                    <div class="muted" style="font-size:10.5px;">${s.party_tin || ''} · ${s.count}ш</div></td>
+                  <td class="num">${fmt(s.amount_minor)}</td>
+                  <td>${_ebAccountSelect(i, '')}</td>
+                </tr>`).join('')}</tbody>
+            </table>
+          </div>
+          <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span class="muted" style="font-size:11px;">
+              Иргэнээс худалдан авалтад ХХОАТ суутгах эсэхийг тусад нь шалгана уу.</span>
+            <button class="btn btn-xs" onclick="saveEbarimtSupplierAccounts()">
+              <i class="fa-solid fa-floppy-disk"></i> Хадгалаад дахин тооцох</button>
+          </div>
+        </div>` : `
+        <div style="padding:8px 12px; font-size:11.5px; color:var(--ok);">
+          ✓ Бүх нийлүүлэгч ангилагдсан.</div>`}
+    </div>`;
+}
+
+async function saveEbarimtSupplierAccounts() {
+  const plan = window._ebarimtDocsPlan;
+  if (!plan) return;
+  const un = plan.unclassified_suppliers || [];
+  const items = [];
+  document.querySelectorAll('.eb-acc-sel').forEach(sel => {
+    const idx = parseInt(sel.getAttribute('data-idx'), 10);
+    const s = un[idx];
+    if (sel.value && s && s.party) {
+      items.push({ keyword: s.party, account_code: sel.value });
+    }
+  });
+  if (!items.length) {
+    alert('Данс сонгоно уу.');
+    return;
+  }
+  const r = await post(`/companies/${companyId}/ebarimt/supplier-accounts`, { items });
+  if (!r) return;
+  if (r.failed && r.failed.length) {
+    alert(r.failed.map(f => `${f.keyword}: ${f.error}`).join('\n'));
+  }
+  await previewEbarimtDocuments();     // дүрэм тооцогдсон шинэ төлөвлөгөө
 }
 
 // --- 2 дахь алхам: банкны гүйлгээг авлага/өглөгийн хаалт болгох ------------

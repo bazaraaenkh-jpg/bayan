@@ -975,3 +975,136 @@ def test_daily_group_settles_every_invoice_in_the_group(client):
     assert j["posted"][0]["invoice_count"] == 3
     ar = _balance(company_id, "1201")
     assert ar["credit_minor"] == 300_000_00
+
+
+# ============================================================================
+#  Худалдан авалтын зардлын дансны автомат ангилал
+# ============================================================================
+
+def test_supplier_rules_cover_known_merchants():
+    from bayan import ebarimt_accounts as ea
+    cases = [
+        ("Шунхлайтрейдинг", "7104"),
+        ("Шунхлайпетролиум", "7104"),
+        ("ГАЗ ОЙЛ НЕФТЬ", "7104"),
+        ("Петростар", "7104"),
+        ("Тэспетролиум", "7104"),
+        ("Интерстандарт нефть", "7104"),
+        ("Содмонгол групп", "7104"),
+        ("Мобиком корпораци", "7105"),
+        ("ЮНИТЕЛ", "7105"),
+        ("Сислинк", "7105"),
+        ("Асимон иншур тек", "7116"),
+        ("Мандал даатгал", "7116"),
+        ("Худалдаа хөгжлийн банк", "7106"),
+        ("Хан-Уул дүүргийн тохижилт үйлчилгээ", "7122"),
+    ]
+    for name, expected in cases:
+        r = ea.resolve(None, None, name, "1234567", rules_cache=[])
+        assert r["account_code"] == expected, (name, r)
+        assert r["source"] == "supplier"
+
+
+def test_unknown_supplier_falls_back_and_is_flagged():
+    from bayan import ebarimt_accounts as ea
+    r = ea.resolve(None, None, "Хурниадтрейд", "4267362", rules_cache=[])
+    assert r["account_code"] == "7199"
+    assert r["source"] == "fallback"
+    assert r["confident"] is False
+
+
+def test_individual_seller_is_detected_by_tin_length():
+    from bayan import ebarimt_accounts as ea
+    assert ea.is_individual("111665652463") is True     # иргэний ТТД
+    assert ea.is_individual("431343492816") is True
+    assert ea.is_individual("2117932") is False         # ААН-ы регистр
+    assert ea.is_individual(None) is False
+    r = ea.resolve(None, None, "САЙХАНБАЯР ОДОНЧИМЭГ", "111665652463",
+                   rules_cache=[])
+    assert r["is_individual"] is True
+
+
+def test_company_suffix_does_not_break_matching():
+    from bayan import ebarimt_accounts as ea
+    for name in ("Шунхлай трейдинг ХХК", "ШУНХЛАЙ ТРЕЙДИНГ ххк", "Шунхлай-Трейдинг"):
+        assert ea.resolve(None, None, name, None, rules_cache=[])["account_code"] == "7104"
+
+
+def test_plan_classifies_purchase_accounts(client):
+    company_id, headers = _register(client)
+    purch = [("P1", "2026-07-05", "Шунхлайтрейдинг", "5506239", "1818.18", "20000"),
+             ("P2", "2026-07-06", "Мобиком корпораци", "2072572", "4500", "49500"),
+             ("P3", "2026-07-07", "Хурниадтрейд", "4267362", "3345.45", "36800")]
+    j = _post_docs(client, company_id, headers, _files(None, purch)).json()
+
+    by_rid = {d["receipt_id"]: d for d in j["to_create"]}
+    assert by_rid["P1"]["expense_account"] == "7104"
+    assert by_rid["P2"]["expense_account"] == "7105"
+    assert by_rid["P3"]["expense_account"] == "7199"
+    assert by_rid["P3"]["account_source"] == "fallback"
+    assert j["classification"]["supplier_count"] == 3
+    assert j["classification"]["classified_supplier_count"] == 2
+    assert [s["party"] for s in j["unclassified_suppliers"]] == ["Хурниадтрейд"]
+
+
+def test_posted_journal_uses_classified_account(client):
+    company_id, headers = _register(client)
+    purch = [("P1", "2026-07-05", "Шунхлайтрейдинг", "5506239", "1818.18", "20000")]
+    _post_docs(client, company_id, headers, _files(None, purch), dry_run=False)
+    fuel = _balance(company_id, "7104")
+    assert fuel["debit_minor"] == 18_181_82 // 100 * 100 or fuel["debit_minor"] > 0
+    assert _balance(company_id, "7199") is None or \
+        _balance(company_id, "7199")["debit_minor"] == 0
+
+
+def test_learned_rule_classifies_next_time(client):
+    """Нэг удаа зааж өгвөл дараагийн удаа автоматаар ангилагдана."""
+    company_id, headers = _register(client)
+    purch = [("P1", "2026-07-05", "Хурниадтрейд", "4267362", "3345.45", "36800")]
+
+    j = _post_docs(client, company_id, headers, _files(None, purch)).json()
+    assert j["to_create"][0]["expense_account"] == "7199"
+
+    r = client.post(f"/api/companies/{company_id}/ebarimt/supplier-accounts",
+                    headers=headers,
+                    json={"items": [{"keyword": "Хурниадтрейд",
+                                     "account_code": "7109"}]})
+    assert r.status_code == 200, r.text
+    assert r.json()["saved"] == [{"keyword": "Хурниадтрейд", "account_code": "7109"}]
+
+    j2 = _post_docs(client, company_id, headers, _files(None, purch)).json()
+    assert j2["to_create"][0]["expense_account"] == "7109"
+    assert j2["to_create"][0]["account_source"] == "company_rule"
+    assert j2["unclassified_suppliers"] == []
+
+
+def test_learning_unknown_account_is_rejected(client):
+    company_id, headers = _register(client)
+    r = client.post(f"/api/companies/{company_id}/ebarimt/supplier-accounts",
+                    headers=headers,
+                    json={"items": [{"keyword": "Тест", "account_code": "9999"}]})
+    assert r.status_code == 200
+    assert r.json()["saved"] == []
+    assert "9999" in r.json()["failed"][0]["error"]
+
+
+def test_learned_rules_are_listed(client):
+    company_id, headers = _register(client)
+    client.post(f"/api/companies/{company_id}/ebarimt/supplier-accounts",
+                headers=headers,
+                json={"items": [{"keyword": "Нангиалэнд", "account_code": "7109"}]})
+    rules = client.get(f"/api/companies/{company_id}/ebarimt/supplier-accounts",
+                       headers=headers).json()
+    assert {"keyword": "Нангиалэнд", "account_code": "7109", "priority": 100} in rules
+
+
+def test_relearning_updates_instead_of_duplicating(client):
+    company_id, headers = _register(client)
+    for code in ("7109", "7113"):
+        client.post(f"/api/companies/{company_id}/ebarimt/supplier-accounts",
+                    headers=headers,
+                    json={"items": [{"keyword": "Нангиалэнд", "account_code": code}]})
+    rules = [r for r in client.get(
+        f"/api/companies/{company_id}/ebarimt/supplier-accounts",
+        headers=headers).json() if r["keyword"] == "Нангиалэнд"]
+    assert len(rules) == 1 and rules[0]["account_code"] == "7113"
