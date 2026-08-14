@@ -101,14 +101,25 @@ def post_invoice(
     expense_account: str = "7199",
     actor_id: str | None = None,
     is_wholesale: bool = False,
+    vat_minor: int | None = None,
+    city_tax_minor: int | None = None,
+    memo: str | None = None,
 ) -> Invoice:
-    vat = net_minor * VAT_RATE // 100 if with_vat else 0
+    # eBarimt-ын баримт дээрх НӨАТ нь цэвэр дүнгийн 10% ЯГ гардаггүй
+    # (13,181.82 гэх мэт бутархай) тул дүнг нь шууд өгөх боломжтой —
+    # эс тэгвэл 1 мөнгөний зөрүү 100+ баримт дээр хуримтлагдаж, ТТ-03а
+    # ерөнхий дэвтэртэй тэнцэхээ болино.
+    vat = vat_minor if vat_minor is not None else (
+        net_minor * VAT_RATE // 100 if with_vat else 0)
 
     from .models import Company
     c = session.get(Company, company_id)
     city_tax = 0
     city_tax_acc = "3106"
-    if c and getattr(c, "city_tax_payer", False) and kind == InvoiceKind.sales and not is_wholesale:
+    if city_tax_minor is not None:
+        city_tax = city_tax_minor
+        city_tax_acc = getattr(c, "city_tax_account", "3106") or "3106" if c else "3106"
+    elif c and getattr(c, "city_tax_payer", False) and kind == InvoiceKind.sales and not is_wholesale:
         city_tax = net_minor * 1 // 100
         city_tax_acc = getattr(c, "city_tax_account", "3106") or "3106"
 
@@ -151,7 +162,11 @@ def post_invoice(
         lines = [ledger.LineInput(expense_account, debit_minor=net_minor,
                                   description=f"Нэхэмжлэх {number}")]
         if vat:
-            lines.append(ledger.LineInput("1205", debit_minor=vat,
+            # 1203 «НӨАТ-ын авлага» — pipeline.VAT_INPUT_CODE ба
+            # etax.build_tt03a-гийн тулгалт хоёулаа 1203 дебитийг шалгадаг.
+            # Өмнө нь 1205 «Татвар, НДШ-ийн авлага» руу бичдэг байсан тул
+            # ТТ-03а-гийн VAT_INPUT шалгуур үргэлж унаж, илгээлт блоклогддог байв.
+            lines.append(ledger.LineInput("1203", debit_minor=vat,
                                           description=f"НӨАТ {number}"))
         lines.append(ledger.LineInput("3101", credit_minor=net_minor + vat,
                                       counterparty_id=counterparty_id,
@@ -159,7 +174,7 @@ def post_invoice(
 
     entry = ledger.post_entry(session, company_id, issue_date, lines,
                               source_type=SourceType.manual, source_id=inv.id,
-                              memo=f"Нэхэмжлэх {number}", actor_id=actor_id)
+                              memo=memo or f"Нэхэмжлэх {number}", actor_id=actor_id)
     inv.journal_entry_id = entry.id
     session.flush()
     return inv

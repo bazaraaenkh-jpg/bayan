@@ -624,3 +624,156 @@ def test_vat_block_does_not_break_reconciliation_response(client):
     j = r.json()
     assert j["ok"] is True and j["vat"] is not None
     assert j["total_ebarimt_count"] == 1
+
+
+# ============================================================================
+#  eBarimt → нэхэмжлэх + журнал → ТТ-03а
+# ============================================================================
+
+def _sales_csv(rows):
+    """(ДДТД, огноо, харилцагч, ТТД, НӨАТ, нийт) → ААН-ы борлуулалтын экспорт."""
+    body = "".join(f"{d},{dt},{p},{tin},{v},{t},Энгийн,ПОС,Илгээгдсэн\n"
+                   for d, dt, p, tin, v, t in rows)
+    return (B2B_HEADER + body).encode("utf-8")
+
+
+def _purchase_csv(rows):
+    body = "".join(f"{d},{dt},{p},{tin},{v},{t},Энгийн,ПОС,Илгээгдсэн\n"
+                   for d, dt, p, tin, v, t in rows)
+    return (B2B_HEADER + body).encode("utf-8")
+
+
+def _post_docs(client, company_id, headers, files, **form):
+    data = {"mode": "excel"}
+    data.update({k: str(v).lower() if isinstance(v, bool) else v
+                 for k, v in form.items()})
+    return client.post(f"/api/companies/{company_id}/ebarimt/post-documents",
+                       headers=headers, data=data, files=files)
+
+
+def _files(sales=None, purchases=None):
+    out = []
+    if sales:
+        out.append(("files", ("Байгууллага хоорондын гүйлгээ (борлуулалт).xlsx",
+                              _sales_csv(sales), "text/csv")))
+    if purchases:
+        out.append(("files", ("Байгууллага хоорондын гүйлгээ (худалдан авалт).xlsx",
+                              _purchase_csv(purchases), "text/csv")))
+    return out
+
+
+SALES = [("S1", "2026-07-05", "Мандал даатгал", "5473489", "13181.82", "145000"),
+         ("S2", "2026-07-09", "ОБА транс", "6296327", "36727.27", "404000")]
+PURCH = [("P1", "2026-07-08", "Хангамж ХХК", "2117932", "67363.64", "741000")]
+
+
+def test_dry_run_creates_nothing(client):
+    company_id, headers = _register(client)
+    r = _post_docs(client, company_id, headers, _files(SALES, PURCH))
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["dry_run"] is True
+    assert len(j["to_create"]) == 3
+    assert j["totals"]["sales_count"] == 2
+    assert j["totals"]["sales_vat_minor"] == 1_318_182 + 3_672_727
+    assert j["period"] == "2026-07"
+    # Дэвтэрт юу ч бичигдээгүй
+    tb = client.get(f"/api/companies/{company_id}/vat/tt03a?year=2026&month=7",
+                    headers=headers).json()
+    assert tb["rows"]["26_nogduulsan_tatvar"] == 0
+
+
+def test_posting_makes_tt03a_match_ebarimt(client):
+    """Бичсэний дараа ТТ-03а нь баримтуудын дүнтэй ЯГ тэнцэнэ."""
+    company_id, headers = _register(client)
+    r = _post_docs(client, company_id, headers, _files(SALES, PURCH), dry_run=False)
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["created_count"] == 3
+    assert j["failed"] == []
+
+    tt = client.get(f"/api/companies/{company_id}/vat/tt03a?year=2026&month=7",
+                    headers=headers).json()["rows"]
+    # Ногдуулсан НӨАТ = баримтууд дээрх дүн (10%-иар дахин тооцоогүй)
+    assert tt["26_nogduulsan_tatvar"] == 1_318_182 + 3_672_727
+    assert tt["42_tolson_noat"] == 6_736_364
+    assert tt["1_niit_borluulalt"] == (145_000_00 - 1_318_182) + (404_000_00 - 3_672_727)
+
+
+def test_posted_vat_ties_to_general_ledger(client):
+    """3105 кредит ба 1203 дебит нь маягттай тэнцэж, etax-ийн шалгуур давна."""
+    company_id, headers = _register(client)
+    _post_docs(client, company_id, headers, _files(SALES, PURCH), dry_run=False)
+
+    from bayan import etax
+    s = apimod.SessionLocal()
+    try:
+        pkg = etax.build_tt03a(s, company_id, 2026, 7)
+    finally:
+        s.close()
+    ties = {c.code: c for c in pkg.checks if c.code in ("VAT_OUTPUT", "VAT_INPUT")}
+    assert ties["VAT_OUTPUT"].ok, ties["VAT_OUTPUT"].detail
+    assert ties["VAT_INPUT"].ok, ties["VAT_INPUT"].detail
+
+
+def test_rerun_is_idempotent(client):
+    """Дахин ажиллуулахад ДДТД-ээр таньж давхар бүртгэхгүй."""
+    company_id, headers = _register(client)
+    _post_docs(client, company_id, headers, _files(SALES), dry_run=False)
+    r = _post_docs(client, company_id, headers, _files(SALES), dry_run=False, force=True)
+    j = r.json()
+    assert j["created_count"] == 0
+    assert j["already_exists_count"] == 2
+
+
+def test_second_posting_blocked_without_force(client):
+    """Тухайн сард НӨАТ-ын бичилт байвал давхар бүртгэлээс хамгаална."""
+    company_id, headers = _register(client)
+    _post_docs(client, company_id, headers, _files(SALES), dry_run=False)
+    r = _post_docs(client, company_id, headers,
+                   _files([("S9", "2026-07-20", "Шинэ ХХК", "111", "909.09", "10000")]),
+                   dry_run=False)
+    assert r.status_code == 409
+    assert "давхар" in r.json()["detail"].lower() or "3105" in r.json()["detail"]
+
+
+def test_dry_run_warns_about_existing_vat_movement(client):
+    company_id, headers = _register(client)
+    _post_docs(client, company_id, headers, _files(SALES), dry_run=False)
+    j = _post_docs(client, company_id, headers,
+                   _files([("S9", "2026-07-20", "Шинэ ХХК", "111", "909.09", "10000")])
+                   ).json()
+    assert j["existing_vat_movement"]["3105_credit"] > 0
+    assert any("ХОЁР ДАХИН" in w for w in j["warnings"])
+
+
+def test_counterparty_created_once_per_tin(client):
+    company_id, headers = _register(client)
+    rows = [("S1", "2026-07-05", "Мандал даатгал", "5473489", "909.09", "10000"),
+            ("S2", "2026-07-06", "Мандал даатгал", "5473489", "909.09", "10000")]
+    _post_docs(client, company_id, headers, _files(rows), dry_run=False)
+    cps = client.get(f"/api/companies/{company_id}/counterparties",
+                     headers=headers).json()
+    mandal = [c for c in cps if c.get("reg_no") == "5473489"]
+    assert len(mandal) == 1
+
+
+def test_receipt_without_ddtd_is_skipped_not_posted(client):
+    company_id, headers = _register(client)
+    data = ("Огноо,Нийт дүн\n2026-07-05,100000\n").encode("utf-8")
+    r = _post_docs(client, company_id, headers,
+                   [("files", ("Байгууллагын орлого.csv", data, "text/csv"))])
+    j = r.json()
+    assert j["to_create"] == []
+    assert j["skipped"] and j["skipped"][0]["reason"] == "ДДТД байхгүй"
+
+
+def test_vat_comparison_is_zero_after_posting(client):
+    """Бичсэний дараа eBarimt ↔ дэвтрийн зөрүү тэглэгдэнэ."""
+    company_id, headers = _register(client)
+    r = _post_docs(client, company_id, headers, _files(SALES, PURCH), dry_run=False)
+    v = r.json()["vat"]
+    assert v is not None
+    for line in v["lines"]:
+        assert line["diff_minor"] == 0, line
+    assert v["net_payable_minor"] == v["book_net_payable_minor"]

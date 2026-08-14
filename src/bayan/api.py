@@ -28,8 +28,8 @@ from pydantic import BaseModel
 from sqlalchemy import delete as sa_delete, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from . import (assets, auth, ebarimt, ebarimt_match, fx, inventory, ledger,
-               partners, reports, storage, vat, wip)
+from . import (assets, auth, ebarimt, ebarimt_docs, ebarimt_match, fx, inventory,
+               ledger, partners, reports, storage, vat, wip)
 from .amounts import parse_amount, parse_date
 from .classify import bucket, classify_batch
 from .coa_seed import add_bank_gl_account, seed_company, setup_company
@@ -3832,31 +3832,12 @@ def sync_ebarimt_purchases(company_id: str, year: int, month: int,
     return {"synced_count": len(invoices), "new_added_count": added}
 
 
-@app.post("/api/companies/{company_id}/ebarimt/reconcile-bank")
-def reconcile_ebarimt_with_bank(
-    company_id: str,
-    mode: str = Form("api"),
-    year: int = Form(2026),
-    month: int = Form(7),
-    files: list[UploadFile] = File(None),
-    datasets: list[str] = Form(None),
-    date_from: str = Form(None),
-    date_to: str = Form(None),
-    allow_mock: bool = Form(False),
-    daily_aggregate: bool = Form(True),
-    ctx: dict = Depends(company_guard("post")),
-    db: Session = Depends(get_db)
-):
-    """eBarimt-ын 4 тайланг (ААН/иргэн × орлого/зарлага) банкны хуулгатай тулгана.
+def _collect_ebarimt_items(mode, files, datasets, year, month, allow_mock):
+    """eBarimt-ын файл/API-аас баримтуудыг цуглуулж, ДДТД-ээр давхардлыг цэвэрлэнэ.
 
-    Файл тус бүрийн төрлийг нэрээр нь (эсвэл `datasets` талбараар) таньж,
-    орлогын падааныг зөвхөн мөнгө ОРСОН, зарлагынхыг зөвхөн мөнгө ГАРСАН
-    гүйлгээтэй тулгана.
+    Тулгалт ба бүртгэл үүсгэх хоёр endpoint ижил өгөгдлөөс ажиллах ёстой — эс тэгвэл
+    дэлгэц дээр харагдсан ба дэвтэрт буусан тоо зөрнө.
     """
-    from datetime import datetime, time as dtime, timedelta
-
-    from .models import BankTxn
-
     ebarimt_items: list[dict] = []
     file_reports: list[dict] = []
 
@@ -3970,6 +3951,36 @@ def reconcile_ebarimt_with_bank(
         n = dup_by_file.get(rep.get("file"))
         if n:
             rep["duplicates_removed"] = n
+    return ebarimt_items, file_reports, duplicate_count
+
+
+@app.post("/api/companies/{company_id}/ebarimt/reconcile-bank")
+def reconcile_ebarimt_with_bank(
+    company_id: str,
+    mode: str = Form("api"),
+    year: int = Form(2026),
+    month: int = Form(7),
+    files: list[UploadFile] = File(None),
+    datasets: list[str] = Form(None),
+    date_from: str = Form(None),
+    date_to: str = Form(None),
+    allow_mock: bool = Form(False),
+    daily_aggregate: bool = Form(True),
+    ctx: dict = Depends(company_guard("post")),
+    db: Session = Depends(get_db)
+):
+    """eBarimt-ын 4 тайланг (ААН/иргэн × орлого/зарлага) банкны хуулгатай тулгана.
+
+    Файл тус бүрийн төрлийг нэрээр нь (эсвэл `datasets` талбараар) таньж,
+    орлогын падааныг зөвхөн мөнгө ОРСОН, зарлагынхыг зөвхөн мөнгө ГАРСАН
+    гүйлгээтэй тулгана.
+    """
+    from datetime import datetime, time as dtime, timedelta
+
+    from .models import BankTxn
+
+    ebarimt_items, file_reports, duplicate_count = _collect_ebarimt_items(
+        mode, files, datasets, year, month, allow_mock)
 
     # ---- Банкны гүйлгээг зөвхөн хамаарах хугацаанаас авна ------------------
     # Өмнө нь компанийн БҮХ түүхийг татдаг байсан тул «eBarimt дутуу» гэсэн
@@ -4117,6 +4128,62 @@ def reconcile_ebarimt_with_bank(
             "daily_aggregate": daily_aggregate,
         },
         "items": items_detail
+    }
+
+
+@app.post("/api/companies/{company_id}/ebarimt/post-documents")
+def post_ebarimt_documents(
+    company_id: str,
+    mode: str = Form("excel"),
+    year: int = Form(2026),
+    month: int = Form(7),
+    files: list[UploadFile] = File(None),
+    datasets: list[str] = Form(None),
+    allow_mock: bool = Form(False),
+    dry_run: bool = Form(True),
+    force: bool = Form(False),
+    expense_account: str = Form(ebarimt_docs.DEFAULT_EXPENSE_ACCOUNT),
+    ctx: dict = Depends(company_guard("post")),
+    db: Session = Depends(get_db)
+):
+    """eBarimt-ын баримтуудыг нэхэмжлэх + журналын бичилт болгон буулгана.
+
+    Ингэснээр ТТ-03а нь баримтуудаас автоматаар гарч, 3105/1203 дансны
+    хөдөлгөөнтэй тэнцэнэ (etax-ийн тулгалт давна).
+
+    ӨГӨГДМӨЛ НЬ dry_run=true — юу ч бичихгүй, зөвхөн төлөвлөгөө буцаана.
+    Бичихийн тулд dry_run=false өгнө. Тухайн сард НӨАТ-ын бичилт аль хэдийн
+    байвал (банкны хуулгаа орлогоор ангилсан бол) force=true шаардана.
+    """
+    ebarimt_items, file_reports, duplicate_count = _collect_ebarimt_items(
+        mode, files, datasets, year, month, allow_mock)
+
+    if dry_run:
+        p = ebarimt_docs.plan(db, company_id, ebarimt_items, expense_account)
+        return {
+            "ok": True, "dry_run": True,
+            "files": file_reports, "duplicate_count": duplicate_count,
+            **p,
+        }
+
+    try:
+        res = ebarimt_docs.create(db, company_id, ebarimt_items, expense_account,
+                                  force=force, actor_id=ctx.get("uid"))
+    except ebarimt_docs.DocumentError as e:
+        raise HTTPException(409, str(e))
+    except ledger.LedgerError as e:
+        raise HTTPException(422, str(e))
+
+    vat_after = None
+    if res["period"]:
+        y, m = int(res["period"][:4]), int(res["period"][5:7])
+        vat_after = vat.compare_with_book(db, company_id, ebarimt_items, y, m)
+
+    return {
+        "ok": True, "dry_run": False,
+        "files": file_reports, "duplicate_count": duplicate_count,
+        "vat": vat_after,
+        **res,
     }
 
 

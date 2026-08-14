@@ -10484,13 +10484,187 @@ function openEbarimtBankReconModal(res) {
       <div style="font-size:12px; color:var(--text-muted);">
         <i class="fa-solid fa-circle-info"></i>
         Энэ бол <b>тулгалтын тайлан</b> — ${res.matched_count} баримт банкны гүйлгээтэй таарлаа.
-        Журналын бичилт үүсээгүй: ангилалт, батлалтыг «Ангилал» хэсгээс хийнэ.
+        Бүртгэлд буулгах хүртэл журналын бичилт үүсэхгүй.
       </div>
-      <button class="btn secondary" onclick="hideModal()">Хаах</button>
+      <div style="display:flex; gap:8px;">
+        ${res.mode === 'excel' ? `
+          <button class="btn" onclick="previewEbarimtDocuments()">
+            <i class="fa-solid fa-file-invoice"></i> Бүртгэлд буулгах</button>` : ''}
+        <button class="btn secondary" onclick="hideModal()">Хаах</button>
+      </div>
     </div>
   `;
   filterEbarimtReconTab('all');
   showModal();
+}
+
+// --- eBarimt баримтуудыг нэхэмжлэх + журнал болгон буулгах -------------------
+// Хоёр алхамт: эхлээд dry_run=true-гээр төлөвлөгөө харуулна, дараа нь батална.
+// Ингэснээр давхар бүртгэл үүсэх эрсдэлийг хэрэглэгч нүдээрээ шалгана.
+
+function _ebarimtDocsForm(extra) {
+  const fd = new FormData();
+  fd.append('mode', 'excel');
+  for (const e of (window._selectedEbarimtFiles || [])) {
+    fd.append('files', e.file);
+    fd.append('datasets', e.dataset || '');
+  }
+  Object.entries(extra || {}).forEach(([k, v]) => fd.append(k, String(v)));
+  return fd;
+}
+
+async function _ebarimtDocsCall(extra) {
+  const r = await fetch(`/api/companies/${companyId}/ebarimt/post-documents`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + token() },
+    body: _ebarimtDocsForm(extra)
+  });
+  const text = await r.text();
+  let j = null;
+  try { j = JSON.parse(text); } catch (_) {}
+  return { ok: r.ok, status: r.status, data: j, raw: text };
+}
+
+async function previewEbarimtDocuments() {
+  if (!window._selectedEbarimtFiles || !window._selectedEbarimtFiles.length) {
+    alert('Файлууд сонгогдоогүй байна. eBarimt тайлангаа дахин сонгож тулгана уу.');
+    return;
+  }
+  const res = await _ebarimtDocsCall({ dry_run: true });
+  if (!res.ok || !res.data) {
+    alert((res.data && res.data.detail) || `Серверийн алдаа (${res.status})`);
+    return;
+  }
+  openEbarimtDocsModal(res.data);
+}
+
+function openEbarimtDocsModal(p) {
+  window._ebarimtDocsPlan = p;
+  $('#modalCard').style.width = '860px';
+  const t = p.totals || {};
+  const risky = (p.existing_vat_movement || {});
+  const hasRisk = (risky['3105_credit'] || 0) > 0 || (risky['1203_debit'] || 0) > 0;
+
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h2><i class="fa-solid fa-file-invoice" style="color:var(--primary)"></i>
+        Баримтуудыг бүртгэлд буулгах — урьдчилсан харагдац</h2>
+      <button class="btn secondary btn-xs" onclick="hideModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div style="font-size:12px; margin-bottom:12px; line-height:1.6;">
+      <b>${p.period || '—'}</b> сарын <b>${p.to_create.length}</b> баримтаас нэхэмжлэх
+      үүсгэж, журналын бичилт хийнэ:
+      <div style="margin-top:6px; font-family:monospace; font-size:11.5px; background:var(--bg); padding:8px 10px; border-radius:6px;">
+        борлуулалт: Дт 1201 нийт / Кт 5101 цэвэр / Кт 3105 НӨАТ<br>
+        худалдан авалт: Дт зардал цэвэр / Дт 1203 НӨАТ / Кт 3101 нийт
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+      <div style="background:var(--bg); padding:10px; border-radius:8px;">
+        <div style="font-size:11.5px; font-weight:700;">Борлуулалт (${t.sales_count || 0})</div>
+        <div style="font-size:12px;">цэвэр ${fmt(t.sales_net_minor || 0)}</div>
+        <div style="font-size:12px;">НӨАТ <b>${fmt(t.sales_vat_minor || 0)}</b> → Кт 3105</div>
+      </div>
+      <div style="background:var(--bg); padding:10px; border-radius:8px;">
+        <div style="font-size:11.5px; font-weight:700;">Худалдан авалт (${t.purchase_count || 0})</div>
+        <div style="font-size:12px;">цэвэр ${fmt(t.purchase_net_minor || 0)}</div>
+        <div style="font-size:12px;">НӨАТ <b>${fmt(t.purchase_vat_minor || 0)}</b> → Дт 1203</div>
+      </div>
+    </div>
+
+    ${(p.warnings || []).length ? `
+      <div style="margin-bottom:12px; padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.55;
+           background:rgba(245,158,11,.1); border:1px solid var(--warning);">
+        ${p.warnings.map(w => `<div><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i> ${w}</div>`).join('')}
+      </div>` : ''}
+
+    ${p.skipped && p.skipped.length ? `
+      <div style="margin-bottom:12px; font-size:11.5px;" class="muted">
+        ${p.skipped.length} баримт алгасагдана (${[...new Set(p.skipped.map(s => s.reason))].join(', ')}).
+      </div>` : ''}
+
+    <div style="max-height:240px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:14px;">
+      <table style="width:100%; font-size:12px;">
+        <thead><tr style="background:var(--bg); position:sticky; top:0;">
+          <th>Огноо</th><th>ДДТД</th><th>Харилцагч</th><th>Төрөл</th>
+          <th class="num">Цэвэр</th><th class="num">НӨАТ</th>
+        </tr></thead>
+        <tbody>${p.to_create.slice(0, 200).map(d => `
+          <tr>
+            <td>${d.date}</td>
+            <td style="font-size:10.5px;">${(d.receipt_id || '').slice(-12)}</td>
+            <td>${d.party || '—'}${d.party_tin ? ` <span class="muted">(${d.party_tin})</span>` : ''}</td>
+            <td>${d.kind === 'sales' ? 'Борлуулалт' : 'Худалдан авалт'}</td>
+            <td class="num">${fmt(d.net_minor)}</td>
+            <td class="num">${fmt(d.vat_minor)}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>
+
+    ${hasRisk ? `
+      <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-bottom:10px; cursor:pointer;">
+        <input type="checkbox" id="eb_docs_force" style="width:16px; height:16px;">
+        <span>Давхар бүртгэлийн эрсдэлийг ойлгож байна — тухайн сард НӨАТ-ын бичилт
+          аль хэдийн байгаа ч үргэлжлүүлнэ</span>
+      </label>` : ''}
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="muted" style="font-size:11.5px;">Одоогоор юу ч бичигдээгүй.</div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn secondary" onclick="hideModal()">Цуцлах</button>
+        <button class="btn" id="eb_docs_go" onclick="commitEbarimtDocuments()"
+                ${p.to_create.length ? '' : 'disabled'}>
+          <i class="fa-solid fa-check"></i> ${p.to_create.length} баримтыг бүртгэх</button>
+      </div>
+    </div>`;
+  showModal();
+}
+
+async function commitEbarimtDocuments() {
+  const force = $('#eb_docs_force') ? $('#eb_docs_force').checked : false;
+  const btn = $('#eb_docs_go');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Бүртгэж байна...'; }
+
+  const res = await _ebarimtDocsCall({ dry_run: false, force });
+  if (!res.ok || !res.data) {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Дахин оролдох'; }
+    alert((res.data && res.data.detail) || `Серверийн алдаа (${res.status})`);
+    return;
+  }
+  const d = res.data;
+  const v = d.vat;
+  const clean = v && v.lines && v.lines.every(l => l.diff_minor === 0);
+
+  $('#modalCard').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h2><i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> Бүртгэгдлээ</h2>
+      <button class="btn secondary btn-xs" onclick="hideModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div style="font-size:13px; line-height:1.7; margin-bottom:12px;">
+      <b>${d.created_count}</b> нэхэмжлэх + журналын бичилт үүслээ (${d.period}).
+      ${d.already_exists_count ? `<br>${d.already_exists_count} баримт өмнө нь бүртгэгдсэн тул алгасав.` : ''}
+      ${d.skipped_count ? `<br>${d.skipped_count} баримт алгасагдав (ДДТД/огноо дутуу).` : ''}
+      ${d.failed && d.failed.length ? `<br><span style="color:var(--danger)">${d.failed.length} баримт амжилтгүй боллоо.</span>` : ''}
+    </div>
+    ${d.failed && d.failed.length ? `
+      <div style="max-height:140px; overflow-y:auto; font-size:11.5px; border:1px solid var(--border);
+           border-radius:6px; padding:8px; margin-bottom:12px;">
+        ${d.failed.map(f => `<div><b>${(f.receipt_id||'').slice(-12)}</b> — ${f.error}</div>`).join('')}
+      </div>` : ''}
+    ${v ? `
+      <div style="padding:10px 12px; border-radius:8px; font-size:12px; line-height:1.6;
+           background:${clean ? 'rgba(16,185,129,.1)' : 'rgba(239,68,68,.08)'};
+           border:1px solid ${clean ? 'var(--ok)' : 'var(--danger)'};">
+        ${clean
+          ? '✓ ТТ-03а нь eBarimt-ын дүнтэй бүрэн тэнцлээ — 3105 кредит, 1203 дебитийн хөдөлгөөнтэй тулгагдана.'
+          : 'ТТ-03а нь eBarimt-ын дүнтэй бүрэн тэнцээгүй байна — тулгалтын дэлгэцээс зөрүүг шалгана уу.'}
+        <div style="margin-top:6px;">Төлөх НӨАТ: <b>${fmt(v.net_payable_minor)}</b></div>
+      </div>` : ''}
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+      <button class="btn secondary" onclick="hideModal()">Хаах</button>
+      <button class="btn" onclick="hideModal(); reportsTab()">Тайлан харах</button>
+    </div>`;
 }
 
 // --- 1. Landed Cost Allocation Handler ---
