@@ -8799,7 +8799,11 @@ function wipAct(action) {
     if (v.qty) body.qty = +v.qty;
     if (v.amt) body.amount_minor = Math.round(+v.amt*100);
     const j = await post(`/companies/${companyId}/wip/action`, body);
-    if (j) { alert(`${j.order_no}: ${j.status}, ДҮ үлдэгдэл ${fmt(j.wip_balance_minor)}`); render(); }
+    if (j) {
+      let msg = `${j.order_no}: ${j.status}, ДҮ үлдэгдэл ${fmt(j.wip_balance_minor)}`;
+      if (j.warning) msg += `\n\n⚠ ${j.warning}`;
+      alert(msg); render();
+    }
   });
 }
 

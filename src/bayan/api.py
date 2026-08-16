@@ -1193,6 +1193,7 @@ def wip_action(company_id: str, body: WipActionIn,
         wip.WorkOrder.order_no == body.order_no))
     if not order:
         raise HTTPException(404, f"Захиалга олдсонгүй: {body.order_no}")
+    warning = None
     try:
         if body.action == "material":
             item = db.scalar(select(inventory.Item).where(
@@ -1203,8 +1204,15 @@ def wip_action(company_id: str, body: WipActionIn,
             wip.issue_materials(db, order, [(item, body.qty)], body.entry_date)
         elif body.action == "labor":
             wip.add_labor(db, order, body.amount_minor, body.entry_date)
+            st = wip.absorption_status(db, company_id, wip.LABOR_ACCOUNT)
+            if st["over_absorbed"]:
+                warning = (f"Шингээсэн шууд хөдөлмөр бодит цалингийн зардлаас "
+                           f"{-st['variance_minor'] / 100:,.0f}₮-өөр давсан байна")
         elif body.action == "overhead":
-            wip.apply_overhead(db, order, body.amount_minor, body.entry_date)
+            st = wip.apply_overhead(db, order, body.amount_minor, body.entry_date)
+            if st["over_absorbed"]:
+                warning = (f"Шингээсэн НЗ бодит зардлаас "
+                           f"{-st['variance_minor'] / 100:,.0f}₮-өөр давсан байна")
         elif body.action == "complete":
             wip.complete(db, order, body.qty, body.entry_date)
         else:
@@ -1212,7 +1220,8 @@ def wip_action(company_id: str, body: WipActionIn,
     except (wip.WipError, inventory.InventoryError) as e:
         raise HTTPException(422, str(e))
     return {"order_no": order.order_no, "status": order.status.value,
-            "wip_balance_minor": order.wip_balance_minor}
+            "wip_balance_minor": order.wip_balance_minor,
+            "warning": warning}
 
 
 class AllocateOverheadIn(BaseModel):
@@ -4354,6 +4363,17 @@ def fx_revalue(company_id: str, body: FxRevalueIn,
 def wip_report(company_id: str, ctx: dict = Depends(company_guard("read")),
                db: Session = Depends(get_db)):
     return wip.wip_balance_report(db, company_id)
+
+
+@app.get("/api/companies/{company_id}/wip/absorption")
+def wip_absorption(company_id: str, as_of: date | None = None,
+                   ctx: dict = Depends(company_guard("read")),
+                   db: Session = Depends(get_db)):
+    """НЗ (7108) ба шууд хөдөлмөрийн (7101) шингээлтийн зөрүү — хаалтын хяналт."""
+    return {
+        "overhead": wip.absorption_status(db, company_id, wip.OH_ACCOUNT, as_of),
+        "labor": wip.absorption_status(db, company_id, wip.LABOR_ACCOUNT, as_of),
+    }
 
 
 @app.get("/api/companies/{company_id}/wip/orders/{order_id}/variance")
