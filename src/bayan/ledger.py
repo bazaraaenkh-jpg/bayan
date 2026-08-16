@@ -299,12 +299,20 @@ def reverse_entry(session: Session, entry_id: str,
     acc_codes = {a.id: a.code for a in session.scalars(
         select(Account).where(Account.company_id == original.company_id))}
 
+    # Мөрийн БҮХ шинжийг хуулна. counterparty_id-г орхивол GL-ийн 1201 тэглэгдээд
+    # харилцагчийн дэд данс нээлттэй үлдэж, зээлийн хязгаар/тооцооны акт/дэд
+    # дансны тулгалт гажина. amount_currency-г орхивол ханшийн дахин үнэлгээ
+    # буцаагдсан валютын үлдэгдлийг хиймлээр дахин үнэлдэг.
     rev_lines = [
         LineInput(
             account_code=acc_codes[l.account_id],
             debit_minor=l.credit_minor,   # эсрэгээр
             credit_minor=l.debit_minor,
             description=f"Reversal: {l.description or ''}".strip(),
+            counterparty_id=l.counterparty_id,
+            cost_center_id=l.cost_center_id,
+            currency=l.currency,
+            amount_currency=l.amount_currency,
         )
         for l in original.lines
     ]

@@ -13247,10 +13247,21 @@ async function openFinancialHealthIndexModal() {
   $('#modalOverlay').style.display = 'flex';
 }
 
-// 4. Download Employee Payslip PDF
-function downloadPayslipPdf() {
-  const name = prompt("Ажилтны нэр:", "Б. Болдмаа") || "Б. Болдмаа";
-  window.open(`/api/companies/${companyId}/payroll/payslip-pdf?employee_name=${encodeURIComponent(name)}&token=${token()}`, '_blank');
+// 4. Download Employee Payslip
+async function downloadPayslipPdf() {
+  const emps = await api(`/companies/${companyId}/employees`);
+  if (!emps || !emps.length) { alert('Ажилтан бүртгэгдээгүй байна.'); return; }
+  const now = new Date();
+  showForm('Цалингийн хуудас татах', [
+    {k:'emp', label:`Ажилтны код (${emps.map(e=>e.code).join(', ')})`, value: emps[0].code},
+    {k:'year', label:'Он', type:'number', value: String(now.getFullYear())},
+    {k:'month', label:'Сар', type:'number', value: String(now.getMonth()+1)},
+  ], async v => {
+    const e = emps.find(x => x.code === v.emp.trim());
+    if (!e) { alert('Ажилтан олдсонгүй'); return; }
+    window.open(`/api/companies/${companyId}/payroll/payslip-pdf` +
+      `?employee_id=${e.id}&year=${+v.year}&month=${+v.month}&token=${token()}`, '_blank');
+  });
 }
 
 // ================================================================= PHASE 65 UI MODALS (10 MEGA ENTERPRISE MODALS)

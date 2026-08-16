@@ -428,7 +428,11 @@ def cash_flow_statement(
                 JournalEntry.company_id == company_id,
                 JournalEntry.entry_date >= d_from,
                 JournalEntry.entry_date <= d_to,
-                JournalEntry.status == EntryStatus.posted,
+                # trial_balance-тай ИЖИЛ шүүлт: буцаагдсан бичилт эх
+                # бичилттэйгээ цуцлагддаг тул хоёуланг нь авна. Зөвхөн posted-ыг
+                # авбал эх бичилт унаад буцаалт нь тоологдож, СТ-4-ийн
+                # net_change мөнгөний бодит өөрчлөлттэй тэнцэхээ болдог байв.
+                JournalEntry.status != EntryStatus.draft,
                 JournalLine.account_id.in_(cash_acc_ids)
             )
             .options(selectinload(JournalEntry.lines))

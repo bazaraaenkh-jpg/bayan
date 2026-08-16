@@ -2969,7 +2969,7 @@ def list_classifier_rules(company_id: str,
 
 @app.delete("/api/companies/{company_id}/classifier-rules/{rule_id}")
 def delete_classifier_rule(company_id: str, rule_id: str,
-                           ctx: dict = Depends(company_guard("delete")),
+                           ctx: dict = Depends(company_guard("admin")),
                            db: Session = Depends(get_db)):
     from .models import ClassifierRule
     r = db.scalar(select(ClassifierRule).where(ClassifierRule.company_id == company_id, ClassifierRule.id == rule_id))
@@ -3012,7 +3012,8 @@ def create_loyalty_card(company_id: str, body: LoyaltyCardIn,
 def list_loyalty_cards(company_id: str,
                         ctx: dict = Depends(company_guard("read")),
                         db: Session = Depends(get_db)):
-    from .models import LoyaltyCard, Counterparty
+    from .models import LoyaltyCard
+    from .partners import Counterparty
     rows = db.scalars(select(LoyaltyCard).where(LoyaltyCard.company_id == company_id)).all()
     res = []
     for r in rows:
@@ -4417,7 +4418,7 @@ def wip_absorption(company_id: str, as_of: date | None = None,
 
 @app.get("/api/companies/{company_id}/wip/orders/{order_id}/variance")
 def get_work_order_variance(company_id: str, order_id: str,
-                            ctx: dict = Depends(company_guard("get")),
+                            ctx: dict = Depends(company_guard("read")),
                             db: Session = Depends(get_db)):
     from .wip import WorkOrder, TechCard, TechCardLine
     from .inventory import Item, StockMove, MoveKind
@@ -5741,7 +5742,7 @@ def receive_transfer_api(company_id: str, body: ReceiveTransferIn,
 
 @app.get("/api/companies/{company_id}/inventory/transfer/pending")
 def get_pending_transfers(company_id: str,
-                           ctx: dict = Depends(company_guard("get")),
+                           ctx: dict = Depends(company_guard("read")),
                            db: Session = Depends(get_db)):
     from .inventory import StockMove, Item, Warehouse
     from sqlalchemy import select
@@ -6446,7 +6447,7 @@ def get_balance_confirmation_act(company_id: str, cp_id: str, db: Session = Depe
     <div style="font-family: Arial, sans-serif; padding:20px; color:#1e293b; max-width:750px; margin:auto;">
         <h2 style="text-align:center; margin-bottom:4px;">ТООЦООНЫ ҮЛДЭГДЛИЙН БАТАЛГААЖУУЛСАН АКТ</h2>
         <p style="text-align:center; font-size:13px; color:#64748b; margin-top:0;">Огноо: {date.today().isoformat()}</p>
-            Нэг талаас <b>{comp.name if comp else 'Манай Байгууллага'}</b>, нөгөө талаас <b>{cp.name}</b> (РД: {cp.register_no or '—'}) 
+            Нэг талаас <b>{comp.name if comp else 'Манай Байгууллага'}</b>, нөгөө талаас <b>{cp.name}</b> (РД: {cp.reg_no or '—'}) 
             бид тооцооны үлдэгдлийг тулган шалгаж дараах дүнгээр баталгаажуулав.
         </p>
         
@@ -7317,35 +7318,60 @@ def get_financial_health_index(company_id: str, db: Session = Depends(get_db), c
 
 # 4. Employee Payslip PDF Generator
 @app.get("/api/companies/{company_id}/payroll/payslip-pdf")
-def generate_payslip_pdf(company_id: str, employee_name: str = "Б. Болдмаа", db: Session = Depends(get_db), ctx=Depends(company_guard("read"))):
+def generate_payslip_pdf(company_id: str, employee_id: str, year: int, month: int,
+                         db: Session = Depends(get_db),
+                         ctx=Depends(company_guard("read"))):
+    """Цалингийн хуудас — БОДИТ бодогдсон цалингаас.
+
+    Өмнө нь бүх дүн нь хатуу бичсэн хуурамч утга байсан бөгөөд ажилтны
+    кирилл нэрийг Content-Disposition толгойд шууд хийдэг тул latin-1
+    кодчилолд унадаг байв (RFC 5987 filename* ашиглав).
+    """
     import io
+    from urllib.parse import quote
     from fastapi.responses import StreamingResponse
-    
-    # Generate mock PDF/text payload
-    pdf_content = f"""==================================================
-              BAYAN AI — ЦАЛИНГИЙН МЭДЭЭЛЛИЙН ПҮҮС
+    from . import salary as salary_mod
+
+    emp = get_owned(db, salary_mod.Employee, employee_id, company_id)
+    line = db.scalar(select(salary_mod.PayrollLine).where(
+        salary_mod.PayrollLine.company_id == company_id,
+        salary_mod.PayrollLine.employee_id == employee_id,
+        salary_mod.PayrollLine.year == year,
+        salary_mod.PayrollLine.month == month))
+    if line is None:
+        raise HTTPException(
+            404, f"{year}-{month:02d} сард энэ ажилтны цалин бодогдоогүй байна")
+
+    comp = db.get(Company, company_id)
+    name = f"{emp.last_name} {emp.first_name}".strip()
+
+    def f(v):
+        return f"{v / 100:>18,.2f} ₮"
+
+    content = f"""==================================================
+{(comp.name if comp else 'Байгууллага'):^50}
+{'ЦАЛИНГИЙН ХУУДАС':^50}
 ==================================================
-Ажилтан: {employee_name}
-Сар: 2026 оны 07 сар
+Ажилтан: {name} ({emp.code})
+Сар: {year} оны {month:02d} сар
 --------------------------------------------------
-Үндсэн цалин:                2,500,000.00 ₮
-Урамшуулал (Bonus):            350,000.00 ₮
---------------------------------------------------
-НИЙТ БОДОГДСОН ЦАЛИН:        2,850,000.00 ₮
+НИЙТ БОДОГДСОН ЦАЛИН: {f(line.gross_minor)}
 --------------------------------------------------
 Суутгал:
- - НДШ (11.5%):                327,750.00 ₮
- - ХХОАТ (10%):                252,225.00 ₮
- - Урьдчилгаа тооцоо:           500,000.00 ₮
+ - НДШ (ажилтан):     {f(line.ndsh_employee_minor)}
+ - ХХОАТ:             {f(line.hhoat_minor)}
 --------------------------------------------------
-ГАРТ ОЛГОХ ЦЭВЭР ЦАЛИН:      1,769,025.00 ₮
+ГАРТ ОЛГОХ ЦЭВЭР ЦАЛИН:{f(line.net_minor)}
 ==================================================
+Ажил олгогчийн НДШ:   {f(line.ndsh_employer_minor)}
 """
-    stream = io.BytesIO(pdf_content.encode("utf-8"))
+    fname = f"Payslip_{emp.code}_{year}-{month:02d}.txt"
     return StreamingResponse(
-        stream,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=Payslip_{employee_name.replace(' ', '_')}.pdf"}
+        io.BytesIO(content.encode("utf-8")),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition":
+                 f"attachment; filename={fname}; "
+                 f"filename*=UTF-8''{quote(fname)}"}
     )
 
 # ================================================================= PHASE 65 ENDPOINTS (10 MEGA ENTERPRISE FEATURES)

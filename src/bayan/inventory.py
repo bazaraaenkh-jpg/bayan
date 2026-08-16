@@ -222,6 +222,8 @@ def transfer(session: Session, company_id: str, item: Item, from_warehouse_id: s
     """Агуулах хооронд бараа шилжүүлэх (Сорсоос хасаад, гарсан өртгөөр нь таргет руу нэмнэ)."""
     if qty <= 0:
         raise InventoryError("Шилжүүлэх тоо хэмжээ буруу")
+    if from_warehouse_id == to_warehouse_id:
+        raise InventoryError("Эх ба очих агуулах ижил байна")
 
     comp = session.get(Company, company_id)
     method = comp.inventory_method if comp else "average"
