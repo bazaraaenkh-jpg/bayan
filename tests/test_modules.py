@@ -110,7 +110,9 @@ def test_invoice_and_aging(session, company):
                                   as_of=date(2026, 3, 15))
     assert len(aging) == 1
     assert aging[0]["overdue_days"] == 49
-    assert aging[0]["buckets"][1] == 1_100_000_00    # 31-60 хоногийн сагс
+    # buckets[0] = хугацаа болоогүй, дараа нь 0-30 / 31-60 / …
+    assert aging[0]["buckets"][0] == 0
+    assert aging[0]["buckets"][2] == 1_100_000_00    # 31-60 хоногийн сагс
 
 
 # ------------------------------------------------------------ СТ-1 / СТ-2

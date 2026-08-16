@@ -4,7 +4,10 @@
     {
       "name": "bayan-api",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "bayan.api"],
+      "runtimeArgs": [
+        "-c",
+        "import sys; sys.path.insert(0, 'src'); import uvicorn; from bayan.api import app; uvicorn.run(app, host='127.0.0.1', port=8377)"
+      ],
       "port": 8377
     }
   ]

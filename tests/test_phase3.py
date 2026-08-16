@@ -751,12 +751,20 @@ def test_audit_segregation_of_duties_invoice(session):
     from fastapi import HTTPException
     import pytest
     
+    from bayan.auth import Membership
+
     c = setup_company(session, "SoD Co", "retail", is_vat_payer=False)
+    # SoD нь батлах өөр хүн байгаа компанид л хэрэгжинэ — ганц хэрэглэгчтэй
+    # компанид хэрэглэвэл нэхэмжлэх огт үүсгэх боломжгүй болно
+    session.add_all([
+        Membership(user_id="user-123", company_id=c.id, role="accountant"),
+        Membership(user_id="user-999", company_id=c.id, role="chief_accountant"),
+    ])
     # Counterparty created by user-123
     cp = Counterparty(company_id=c.id, name="SoD Supplier", reg_no="9998887", created_by="user-123")
     session.add(cp)
     session.flush()
-    
+
     body = InvoiceIn(
         counterparty_id=cp.id,
         kind="purchase",
@@ -774,6 +782,16 @@ def test_audit_segregation_of_duties_invoice(session):
     
     # Try as user-999; should succeed
     res = create_invoice(c.id, body, ctx={"uid": "user-999", "role": "accountant"}, db=session)
+    assert "id" in res
+
+    # Борлуулалтын нэхэмжлэхэд SoD хамаарахгүй (мөнгө гарахгүй) —
+    # үүсгэсэн хэрэглэгч өөрөө нэхэмжилж чадна
+    sales_body = InvoiceIn(
+        counterparty_id=cp.id, kind="sales", number="S-101",
+        issue_date=date(2026, 3, 1), due_date=date(2026, 3, 31),
+        net_minor=10000,
+    )
+    res = create_invoice(c.id, sales_body, ctx={"uid": "user-123", "role": "accountant"}, db=session)
     assert "id" in res
 
 

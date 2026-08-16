@@ -32,7 +32,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import ebarimt_accounts, ledger
-from .partners import Counterparty, Invoice, InvoiceKind, PartnerKind, post_invoice
+from .partners import (Counterparty, Invoice, InvoiceKind, InvoicePayment,
+                       PartnerKind, post_invoice)
 
 #: Худалдан авалтын өгөгдмөл зардлын данс (нягтлан дараа нь ангилна)
 DEFAULT_EXPENSE_ACCOUNT = "7199"
@@ -482,6 +483,12 @@ def settle(session: Session, company_id: str, plans: list[dict],
 
         for m in members:
             m["invoice"].paid_minor += m["amount_minor"]
+            # Төлбөрийн он сар өдрийг бүртгэнэ — эс тэгвэл өнгөрсөн үеийн
+            # насжилтын тайлан хожим хийгдсэн төлбөрийг ч хассан байна
+            session.add(InvoicePayment(
+                company_id=company_id, invoice_id=m["invoice"].id,
+                pay_date=entry_date, amount_minor=m["amount_minor"],
+                journal_entry_id=entry.id))
         txn.reconciled = True
         txn.reconciled_line_id = entry.lines[0].id if getattr(entry, "lines", None) else None
 

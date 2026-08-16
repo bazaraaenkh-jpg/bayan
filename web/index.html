@@ -6115,7 +6115,7 @@ async function reportsTab() {
     api(`/companies/${companyId}/balance-sheet?as_of=${window._repTo}`),
     api(`/companies/${companyId}/income-statement?date_from=${window._repFrom}&date_to=${window._repTo}`),
     api(`/companies/${companyId}/vat/tt03a?year=${window._repFrom.split('-')[0]}`),
-    api(`/companies/${companyId}/aging?kind=sales`),
+    api(`/companies/${companyId}/aging?kind=sales&as_of=${window._repTo}`),
     api(`/companies/${companyId}/equity-statement?date_from=${window._repFrom}&date_to=${window._repTo}`).catch(() => null),
     api(`/companies/${companyId}/cash-flow?date_from=${window._repFrom}&date_to=${window._repTo}`).catch(() => null),
     api(`/companies/${companyId}/stock`).catch(() => [])
@@ -6548,12 +6548,13 @@ async function reportsTab() {
         <div style="overflow-x:auto">
           <table>
             <tr><th>Харилцагч</th><th>Нэхэмжлэх</th><th class="num">Хэтэрсэн хоног</th>
+            <th class="num">Хугацаа болоогүй</th>
             <th class="num">0-30</th><th class="num">31-60</th><th class="num">61-90</th>
             <th class="num">91-120</th><th class="num">120+</th></tr>
             ${aging.map(a=>`<tr><td>${a.counterparty}</td><td>${a.number}</td>
             <td class="num">${a.overdue_days}</td>
             ${a.buckets.map(b=>`<td class="num">${b?fmt(b):'—'}</td>`).join('')}</tr>`).join('')
-            || '<tr><td colspan="8" class="muted" style="text-align:center; padding:18px">Нээлттэй авлага байхгүй байна.</td></tr>'}
+            || '<tr><td colspan="9" class="muted" style="text-align:center; padding:18px">Нээлттэй авлага байхгүй байна.</td></tr>'}
           </table>
         </div>
       </div>
@@ -8364,6 +8365,24 @@ function payrollRun() {
   });
 }
 
+function invoicePay(invoiceId, number, outstandingMinor) {
+  showForm(`${number} — төлбөр бүртгэх`, [
+    {k:'amt', label:`Дүн (₮), үлдэгдэл ${fmt(outstandingMinor)}`, type:'number',
+     value: (outstandingMinor/100).toString()},
+    {k:'acc', label:'Мөнгөний данс (ж: 1101)', value:'1101'},
+    {k:'d', label:'Төлсөн огноо', type:'date', value: today()},
+  ], async v => {
+    const j = await post(`/companies/${companyId}/invoices/${invoiceId}/pay`, {
+      amount_minor: Math.round(+v.amt*100), pay_date: v.d,
+      bank_account: v.acc.trim() || '1101'});
+    if (j) {
+      alert(j.settled ? `${j.number}: бүрэн төлөгдөж хаагдлаа`
+                      : `${j.number}: үлдэгдэл ${fmt(j.outstanding_minor)}`);
+      partnersTab();
+    }
+  });
+}
+
 // ---------------------------------------------------- Partners Tab
 async function partnersTab() {
   const [parts, invs, schedules, contracts] = await Promise.all([
@@ -8426,15 +8445,19 @@ async function partnersTab() {
       <h2>Нэхэмжлэхүүд & Төлбөрийн хуваарь</h2>
       <table>
         <tr><th>№</th><th>Төрөл</th><th>Харилцагч</th><th>Огноо</th>
-        <th class="num">Нийт дүн</th><th class="num">Төлөгдсөн</th><th style="width:140px; text-align:center;">Үйлдэл</th></tr>
+        <th class="num">Нийт дүн</th><th class="num">Төлөгдсөн</th><th class="num">Үлдэгдэл</th>
+        <th style="width:230px; text-align:center;">Үйлдэл</th></tr>
         ${invs.map(i=>`<tr><td><b>${i.number}</b></td>
         <td>${i.kind==='sales'?'Борлуулалт':'Худалдан авалт'}</td>
         <td>${i.counterparty}</td><td>${i.issue_date}</td>
         <td class="num">${fmt(i.total_minor)}</td><td class="num">${fmt(i.paid_minor)}</td>
+        <td class="num">${i.outstanding_minor ? fmt(i.outstanding_minor)
+          : '<span class="badge ok">хаагдсан</span>'}</td>
         <td style="text-align:center;">
-          <button class="btn btn-xs secondary" style="padding:4px 8px; font-size:11px;" onclick="openPaymentScheduleModal('${i.id}', '${i.number}', ${i.total_minor})"><i class="fa-solid fa-calendar-days"></i> Хуваарь үүсгэх</button>
+          ${i.outstanding_minor ? `<button class="btn btn-xs" style="padding:4px 8px; font-size:11px;" onclick="invoicePay('${i.id}', '${i.number}', ${i.outstanding_minor})"><i class="fa-solid fa-money-bill-transfer"></i> Төлбөр</button>` : ''}
+          <button class="btn btn-xs secondary" style="padding:4px 8px; font-size:11px;" onclick="openPaymentScheduleModal('${i.id}', '${i.number}', ${i.total_minor})"><i class="fa-solid fa-calendar-days"></i> Хуваарь</button>
         </td></tr>`).join('')
-        || '<tr><td colspan="7" class="muted" style="text-align:center">Нэхэмжлэх одоогоор байхгүй байна.</td></tr>'}
+        || '<tr><td colspan="8" class="muted" style="text-align:center">Нэхэмжлэх одоогоор байхгүй байна.</td></tr>'}
       </table>
     </div>
 

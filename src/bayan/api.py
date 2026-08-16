@@ -3268,11 +3268,20 @@ def create_invoice(company_id: str, body: InvoiceIn,
     cp = None
     if body.counterparty_id:
         cp = get_owned(db, Counterparty, body.counterparty_id, company_id)
-    if cp and cp.created_by == ctx["uid"]:
-        raise HTTPException(
-            400,
-            "Үүргийн тусгаарлалт (SoD) зөрчигдлөө: Харилцагчийг үүсгэсэн хэрэглэгч тухайн харилцагчийн зардлын нэхэмжлэхийг батлахыг хориглоно."
-        )
+    # Үүргийн тусгаарлалт (SoD) — зөвхөн ХУДАЛДАН АВАЛТЫН нэхэмжлэхэд, мөн
+    # тухайн компанид өөр батлах хүн байгаа тохиолдолд. Борлуулалтын
+    # нэхэмжлэхэд хамааралгүй (мөнгө гарахгүй), мөн ганц хэрэглэгчтэй
+    # компанид хэрэглэвэл нэхэмжлэх огт үүсгэх боломжгүй болно.
+    if cp and cp.created_by == ctx["uid"] and body.kind == "purchase":
+        from .auth import Membership
+        approvers = db.scalars(select(Membership).where(
+            Membership.company_id == company_id,
+            Membership.role.in_(("owner", "chief_accountant", "accountant")))).all()
+        if len({m.user_id for m in approvers}) > 1:
+            raise HTTPException(
+                400,
+                "Үүргийн тусгаарлалт (SoD) зөрчигдлөө: Харилцагчийг үүсгэсэн хэрэглэгч тухайн харилцагчийн зардлын нэхэмжлэхийг батлахыг хориглоно."
+            )
         
     if body.kind == "purchase" and total_minor > 500_000_000:
         if ctx["role"] not in ("owner", "chief_accountant"):
@@ -3299,13 +3308,35 @@ def invoice_list(company_id: str, ctx: dict = Depends(company_guard("read")),
     from .partners import Counterparty, Invoice
     names = {p.id: p.name for p in db.scalars(select(Counterparty).where(
         Counterparty.company_id == company_id))}
-    return [{"number": i.number, "kind": i.kind.value,
+    return [{"id": i.id, "number": i.number, "kind": i.kind.value,
              "counterparty": names.get(i.counterparty_id, "?"),
              "issue_date": i.issue_date.isoformat(),
              "due_date": i.due_date.isoformat(),
-             "total_minor": i.total_minor, "paid_minor": i.paid_minor}
+             "total_minor": i.total_minor, "paid_minor": i.paid_minor,
+             "outstanding_minor": i.outstanding_minor}
             for i in db.scalars(select(Invoice).where(
                 Invoice.company_id == company_id))]
+
+
+class InvoicePayIn(BaseModel):
+    amount_minor: int
+    pay_date: date
+    bank_account: str = "1101"
+
+
+@app.post("/api/companies/{company_id}/invoices/{invoice_id}/pay")
+def pay_invoice_api(company_id: str, invoice_id: str, body: InvoicePayIn,
+                    ctx: dict = Depends(company_guard("post")),
+                    db: Session = Depends(get_db)):
+    """Нэхэмжлэхийн төлбөр бүртгэх — авлага/өглөгийн мөчлөгийг хаана."""
+    from .ledger import LedgerError
+    inv = get_owned(db, partners.Invoice, invoice_id, company_id)
+    try:
+        return partners.pay_invoice(db, company_id, inv, body.amount_minor,
+                                    body.pay_date, body.bank_account,
+                                    actor_id=ctx["uid"])
+    except (LedgerError, ValueError) as e:
+        raise HTTPException(422, str(e))
 
 
 # ---------------------------------------------------------------- тайлан
@@ -4475,11 +4506,19 @@ def stock(company_id: str, ctx: dict = Depends(company_guard("read")),
 
 
 @app.get("/api/companies/{company_id}/aging")
-def aging(company_id: str, kind: str = "sales",
+def aging(company_id: str, kind: str = "sales", as_of: date | None = None,
           ctx: dict = Depends(company_guard("read")),
           db: Session = Depends(get_db)):
     from .partners import InvoiceKind, aging_report
-    return aging_report(db, company_id, InvoiceKind(kind), date.today())
+    return aging_report(db, company_id, InvoiceKind(kind), as_of or date.today())
+
+
+@app.get("/api/companies/{company_id}/subledger-reconciliation")
+def subledger_reconciliation(company_id: str, as_of: date | None = None,
+                             ctx: dict = Depends(company_guard("read")),
+                             db: Session = Depends(get_db)):
+    """Нэхэмжлэхийн дэд данс ↔ GL 1201/3101 тулгалт."""
+    return partners.subledger_reconciliation(db, company_id, as_of)
 
 
 @app.get("/api/companies/{company_id}/vat/tt03a")
@@ -6619,40 +6658,68 @@ def calculate_ar_provisioning(company_id: str, req: ARProvisionReq, db: Session 
         )
     ).all()
     
+    # Хоцрогдлыг ТООЦООНЫ огноогоор бодно (өмнө нь date.today() ашигладаг тул
+    # өнгөрсөн үеийн нөөц өнөөдрийн насжилтаар бодогддог байв)
     provision_minor = 0
-    today_dt = date.today()
-    
     for inv in invs:
-        unpaid = inv.total_minor - inv.paid_minor
+        if inv.issue_date > p_date:
+            continue
+        unpaid = inv.total_minor - partners.paid_as_of(db, inv, p_date)
         if unpaid > 0:
-            days_overdue = (today_dt - inv.due_date).days
+            days_overdue = (p_date - inv.due_date).days
             if days_overdue > 90:
                 provision_minor += int(unpaid * 0.50)  # 50% provision for >90 days
             elif days_overdue > 60:
                 provision_minor += int(unpaid * 0.20)  # 20% provision for 61-90 days
             elif days_overdue > 30:
                 provision_minor += int(unpaid * 0.05)  # 5% provision for 31-60 days
-                
-    acc_exp = _get_account_by_code(db, company_id, "7109") or _get_account_by_code(db, company_id, "7199")
+
+    # 7121 «Найдваргүй авлагын зардал» — өмнө нь 7109 руу бичдэг байсан нь
+    # дансны төлөвлөгөөнд «Бичиг хэргийн зардал» тул зардал холилддог байв
+    acc_exp = _get_account_by_code(db, company_id, "7121") or _get_account_by_code(db, company_id, "7199")
     acc_res = _get_account_by_code(db, company_id, "1209") or _get_account_by_code(db, company_id, "1201")
-    
+
+    # Нөөц нь ХУРИМТЛАГДСАН үлдэгдэл (allowance) — өмнө бичсэнийг давхарлахгүй,
+    # зөвхөн зөрүүг нь бичнэ. Эс тэгвэл сар бүр ажиллуулахад нөөц хуримтлагдаж
+    # авлага сөрөг болдог байв.
+    existing = 0
+    if acc_res:
+        row = next((r for r in ledger.trial_balance(db, company_id, None, p_date)
+                    if r["code"] == acc_res.code), None)
+        if row:
+            existing = row["credit_minor"] - row["debit_minor"]
+    delta = provision_minor - existing
+
     entry_id = None
-    if provision_minor > 0 and acc_exp and acc_res:
-        l_inputs = [
-            ledger.LineInput(account_code=acc_exp.code, debit_minor=provision_minor, credit_minor=0),
-            ledger.LineInput(account_code=acc_res.code, debit_minor=0, credit_minor=provision_minor)
-        ]
+    if delta != 0 and acc_exp and acc_res:
+        if delta > 0:      # нөөц нэмэгдэв
+            l_inputs = [
+                ledger.LineInput(account_code=acc_exp.code, debit_minor=delta),
+                ledger.LineInput(account_code=acc_res.code, credit_minor=delta),
+            ]
+        else:              # авлага төлөгдөж нөөц суларлаа
+            l_inputs = [
+                ledger.LineInput(account_code=acc_res.code, debit_minor=-delta),
+                ledger.LineInput(account_code=acc_exp.code, credit_minor=-delta),
+            ]
         e = ledger.post_entry(
             db, company_id, p_date, l_inputs,
-            source_type=SourceType.manual, memo=f"Эргэлзээтэй авлагын хасагдуул нөөц тооцоо (7109)"
+            source_type=SourceType.manual,
+            memo=f"Эргэлзээтэй авлагын хасагдуул нөөцийн тохируулга ({acc_exp.code})"
         )
         entry_id = e.id
-        
+
     return {
         "provision_date": req.provision_date,
         "provision_amount": provision_minor / 100,
+        "previous_provision": existing / 100,
+        "adjustment": delta / 100,
         "gl_entry_id": entry_id,
-        "message": f"Эргэлзээтэй авлагын нөөц {(provision_minor/100):,.2f} ₮ автоматаар бодогдож Журналд бичигдэв."
+        "message": (f"Эргэлзээтэй авлагын нөөц {(provision_minor/100):,.2f} ₮ "
+                    f"(тохируулга {(delta/100):+,.2f} ₮) Журналд бичигдэв."
+                    if delta else
+                    f"Эргэлзээтэй авлагын нөөц {(provision_minor/100):,.2f} ₮ — "
+                    f"өөрчлөлт байхгүй тул шинэ бичилт хийгээгүй.")
     }
 
 
