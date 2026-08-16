@@ -203,6 +203,20 @@ def run_payroll(session: Session, company_id: str, year: int, month: int,
     if not employees:
         return {"count": 0}
 
+    # Тухайн сард аль хэдийн цалин бодогдсон ажилтныг алгасна (ТТ-11 импорттой
+    # ижил хамгаалалт). Өмнө нь хяналтгүй байсан тул товч дахин дарахад нэг
+    # сарын цалин 2-3 дахин бичигдэж, ажилтанд төлөх өглөг хэдэн дахин болдог байв.
+    already = {p.employee_id for p in session.scalars(select(PayrollLine).where(
+        PayrollLine.company_id == company_id,
+        PayrollLine.year == year, PayrollLine.month == month))}
+    skipped = [e for e in employees if e.id in already]
+    employees = [e for e in employees if e.id not in already]
+    if not employees:
+        return {"count": 0, "skipped_existing": len(skipped),
+                "message": (f"{year}-{month:02d} сарын цалин аль хэдийн "
+                            f"бодогдсон ({len(skipped)} ажилтан) — "
+                            f"давхар бичилт хийгээгүй.")}
+
     # Тухайн сарын цагийн бүртгэлүүд
     ts_list = session.scalars(select(TimeSheet).where(
         TimeSheet.company_id == company_id,
@@ -226,9 +240,13 @@ def run_payroll(session: Session, company_id: str, year: int, month: int,
         ot_hours = ts.overtime_hours
         hol_hours = ts.holiday_hours
         
+        # Амралтын дундаж — ӨМНӨХ 12 сарын түүх. Тухайн сарын мөрийг
+        # (дахин бодолтын үед) оруулбал дундаж өөрөө өөрөөсөө бодогдоно.
         hist = session.scalars(
             select(PayrollLine)
-            .where(PayrollLine.employee_id == e.id)
+            .where(PayrollLine.company_id == company_id,
+                   PayrollLine.employee_id == e.id,
+                   (PayrollLine.year * 12 + PayrollLine.month) < year * 12 + month)
             .order_by(PayrollLine.year.desc(), PayrollLine.month.desc())
             .limit(12)
         ).all()
@@ -259,9 +277,22 @@ def run_payroll(session: Session, company_id: str, year: int, month: int,
             manual_gross_minor=ov.get("gross")
         )
         
+        # Гараар зассан утга журналын тэнцвэрийг эвдэж болно: бичилт нь
+        # Дт 7101 gross / Кт 3102 net + Кт 3103 НДШ + Кт 3104 ХХОАТ тул
+        # net = gross − НДШ(АА) − ХХОАТ адилтгал заавал хангагдана. Өмнө нь
+        # шалгадаггүй тул post_entry «Дебит ≠ Кредит» гээд БҮХ ажилтны цалин
+        # унадаг, ямар ажилтнаас болсон нь мэдэгддэггүй байв.
+        if c["net"] != c["gross"] - c["ndsh_emp"] - c["hhoat"]:
+            raise LedgerError(
+                f"{e.last_name} {e.first_name}: гараар зассан утга тэнцэхгүй "
+                f"байна. Нийт {c['gross'] / 100:,.2f}₮ − НДШ "
+                f"{c['ndsh_emp'] / 100:,.2f}₮ − ХХОАТ {c['hhoat'] / 100:,.2f}₮ "
+                f"= {(c['gross'] - c['ndsh_emp'] - c['hhoat']) / 100:,.2f}₮ "
+                f"байх ёстой ч гарт олгох дүн {c['net'] / 100:,.2f}₮ гэж өгсөн.")
+
         for k in totals:
             totals[k] += c[k]
-            
+
         plines.append(PayrollLine(
             company_id=company_id, employee_id=e.id, year=year, month=month,
             gross_minor=c["gross"], ndsh_employee_minor=c["ndsh_emp"],
@@ -286,4 +317,5 @@ def run_payroll(session: Session, company_id: str, year: int, month: int,
         session.add(p)
         
     session.flush()
-    return {"count": len(employees), "entry_id": entry.id, **totals}
+    return {"count": len(employees), "skipped_existing": len(skipped),
+            "entry_id": entry.id, **totals}

@@ -7940,11 +7940,15 @@ async function downloadAssetsTemplate() {
 
 function assetRetire(assetId, assetLabel) {
   showForm(`Үндсэн хөрөнгө хасах: ${assetLabel}`, [
-    {k:'date', label:'Ашиглалтаас хассан огноо', type:'date', value: today()}
+    {k:'date', label:'Ашиглалтаас хассан огноо', type:'date', value: today()},
+    {k:'price', label:'Борлуулсан үнэ (₮) — хаясан бол 0', type:'number', value:'0'}
   ], async v => {
-    const res = await post(`/companies/${companyId}/assets/${assetId}/retire`, {retire_date: v.date});
+    const res = await post(`/companies/${companyId}/assets/${assetId}/retire`,
+      {retire_date: v.date, proceeds_minor: Math.round((+v.price || 0)*100)});
     if (res && res.ok) {
-      alert("Үндсэн хөрөнгийг ашиглалтаас хасаж журналын бичилт үүсгэлээ.");
+      alert(`Ашиглалтаас хаслаа.\nҮлдэх өртөг ${fmt(res.book_value_minor)}` +
+            (res.gain_minor ? `\nОлз ${fmt(res.gain_minor)}`
+                            : `\nГарз ${fmt(res.loss_minor)}`));
       assetsTab();
     }
   });

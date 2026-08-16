@@ -53,13 +53,26 @@ def test_asset_revaluation_decrease(client):
         "life_months": 12, "in_service_from": "2026-01-01"
     }).json()
 
+    # Дахин үнэлгээний нэмэгдэл (4104) байхгүй тул бууралт бүхэлдээ П/А-д
+    # гарз болно — өмнө нь 4104-ийг шалгалтгүй дебитэлж өмч сөрөг болгодог байв
     r = client.post(f"/api/companies/{cid}/assets/{asst['id']}/revalue", headers=headers, json={
         "new_value": "8000", "revalue_date": "2026-03-01"
     })
     assert r.status_code == 200
 
     tb = {r["code"]: r["balance_minor"] for r in client.get(f"/api/companies/{cid}/trial-balance", headers=headers).json()}
-    assert "4104" in tb or "2502" in tb
+    assert tb.get("4104", 0) == 0
+    assert tb["7199"] == 200000          # 10,000 → 8,000 бууралт
+    assert tb["2501"] == 800000
+
+    # Эхлээд өсгөж нэмэгдэл үүсгэвэл дараагийн бууралт ЭХЛЭЭД түүнийг шавхана
+    client.post(f"/api/companies/{cid}/assets/{asst['id']}/revalue", headers=headers, json={
+        "new_value": "12000", "revalue_date": "2026-04-01"})
+    client.post(f"/api/companies/{cid}/assets/{asst['id']}/revalue", headers=headers, json={
+        "new_value": "9000", "revalue_date": "2026-05-01"})
+    tb = {r["code"]: r["balance_minor"] for r in client.get(f"/api/companies/{cid}/trial-balance", headers=headers).json()}
+    assert tb.get("4104", 0) == 100000   # 400,000 нэмэгдлээс 300,000 шавхагдав
+    assert tb["7199"] == 200000          # нэмэлт гарз үүсээгүй
 
 def test_landed_costs_allocation_hits_inventory_and_payables(client):
     j = _register(client, "landed@x.mn", "Landed Co")

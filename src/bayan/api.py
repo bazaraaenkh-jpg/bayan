@@ -1538,7 +1538,11 @@ def register_asset(company_id: str, body: AssetIn,
                    ctx: dict = Depends(company_guard("post")),
                    db: Session = Depends(get_db)):
     from . import assets as assets_mod
-    a = assets_mod.register_asset(db, company_id, **body.model_dump())
+    from .ledger import LedgerError
+    try:
+        a = assets_mod.register_asset(db, company_id, **body.model_dump())
+    except (assets_mod.AssetError, LedgerError) as e:
+        raise HTTPException(422, str(e))
     return {"id": a.id, "monthly_minor": a.monthly_depreciation_minor}
 
 
@@ -1563,6 +1567,7 @@ def depreciate(company_id: str, body: DepreciateIn,
 
 class RetireAssetIn(BaseModel):
     retire_date: date
+    proceeds_minor: int = 0
 
 
 @app.post("/api/companies/{company_id}/assets/{asset_id}/retire")
@@ -1570,14 +1575,17 @@ def retire_asset_api(company_id: str, asset_id: str, body: RetireAssetIn,
                      ctx: dict = Depends(company_guard("post")),
                      db: Session = Depends(get_db)):
     from . import assets as assets_mod
+    from .ledger import LedgerError
     try:
-        assets_mod.retire_asset(db, company_id, asset_id, body.retire_date)
+        res = assets_mod.retire_asset(db, company_id, asset_id,
+                                      body.retire_date, body.proceeds_minor)
         db.commit()
-        return {"ok": True, "message": "Үндсэн хөрөнгийг ашиглалтаас хаслаа"}
+        return {"ok": True, **res,
+                "message": "Үндсэн хөрөнгийг ашиглалтаас хаслаа"}
     except assets_mod.AssetError as e:
         raise HTTPException(400, str(e))
-    except Exception as e:
-        raise HTTPException(500, f"Алдаа гарлаа: {e}")
+    except LedgerError as e:
+        raise HTTPException(422, str(e))
 
 
 class EmployeeIn(BaseModel):
@@ -6331,10 +6339,10 @@ def revalue_asset(company_id: str, asset_id: str, req: AssetRevalueReq, db: Sess
     asset.cost_minor = new_cost_minor
     r_date = parse_date(req.revalue_date, "%Y-%m-%d").date()
     
-    asset_code = asset.gl_account or "2502"
+    asset_code = asset.gl_account or "2501"
     _require_account(db, company_id, asset_code)
     _require_account(db, company_id, "4104")
-    
+
     if diff_minor > 0:
         ledger.post_entry(
             db, company_id, r_date,
@@ -6345,40 +6353,59 @@ def revalue_asset(company_id: str, asset_id: str, req: AssetRevalueReq, db: Sess
             source_type=SourceType.manual, memo=f"Үндсэн хөрөнгийн дахин үнэлгээ: {asset.name}", actor_id=ctx["uid"]
         )
     elif diff_minor < 0:
+        # Бууралт нь ЭХЛЭЭД өмнө хуримтлуулсан дахин үнэлгээний нэмэгдлийг
+        # (4104) шавхаж, ХЭТЭРСЭН хэсэг нь П/А-д гарз болно. Өмнө нь нөөц
+        # байгаа эсэхийг үл харгалзан 4104-ийг дебитлэдэг тул өмч сөрөг
+        # болж, гарз орлогын тайланд огт харагддаггүй байв.
+        down = abs(diff_minor)
+        row = next((r for r in ledger.trial_balance(db, company_id, None, r_date)
+                    if r["code"] == "4104"), None)
+        surplus = max((row["credit_minor"] - row["debit_minor"]) if row else 0, 0)
+        from_surplus = min(down, surplus)
+        to_expense = down - from_surplus
+        lines = []
+        if from_surplus:
+            lines.append(ledger.LineInput("4104", debit_minor=from_surplus, description=f"ҮН дахин үнэлгээний нэмэгдэл бууруулав: {asset.name}"))
+        if to_expense:
+            _require_account(db, company_id, "7199")
+            lines.append(ledger.LineInput("7199", debit_minor=to_expense, description=f"ҮН үнэ цэнийн бууралтын гарз: {asset.name}"))
+        lines.append(ledger.LineInput(asset_code, credit_minor=down, description=f"ҮН дахин үнэлгээний бууралт: {asset.name}"))
         ledger.post_entry(
-            db, company_id, r_date,
-            lines=[
-                ledger.LineInput("4104", debit_minor=abs(diff_minor), description=f"ҮН дахин үнэлгээний бууралт: {asset.name}"),
-                ledger.LineInput(asset_code, credit_minor=abs(diff_minor), description=f"ҮН дахин үнэлгээний бууралт: {asset.name}")
-            ],
+            db, company_id, r_date, lines=lines,
             source_type=SourceType.manual, memo=f"Үндсэн хөрөнгийн дахин үнэлгээний бууралт: {asset.name}", actor_id=ctx["uid"]
         )
-            
+
     db.commit()
     return {"id": asset.id, "name": asset.name, "new_cost": asset.cost_minor / 100}
 
 @app.post("/api/companies/{company_id}/assets/{asset_id}/dispose")
 def dispose_asset(company_id: str, asset_id: str, req: AssetDisposeReq, db: Session = Depends(get_db), ctx=Depends(company_guard("post"))):
+    """Ашиглалтаас хасах — assets.retire_asset дээр нэгтгэв.
+
+    Өмнө нь энэ endpoint хуримтлагдсан элэгдлийг үл тоомсорлож БҮТЭН өртгийг
+    гарзад бичдэг (2509 үүрд өлгөөтэй үлддэг), борлуулалтын үнийг (sale_price)
+    огт ашигладаггүй байв.
+    """
     asset = get_owned(db, assets.FixedAsset, asset_id, company_id)
-        
-    asset.active = False
     d_date = parse_date(req.dispose_date, "%Y-%m-%d").date()
-    
-    asset_code = asset.gl_account or "2502"
-    _require_account(db, company_id, asset_code)
-    _require_account(db, company_id, "7199")
-    
-    ledger.post_entry(
-        db, company_id, d_date,
-        lines=[
-            ledger.LineInput("7199", debit_minor=asset.cost_minor, description=f"Үндсэн хөрөнгө ашиглалтаас хассан: {asset.name}"),
-            ledger.LineInput(asset_code, credit_minor=asset.cost_minor, description=f"Үндсэн хөрөнгө ашиглалтаас хассан: {asset.name}")
-        ],
-        source_type=SourceType.manual, memo=f"Үндсэн хөрөнгө ашиглалтаас хасалт: {asset.name}", actor_id=ctx["uid"]
-    )
-        
+    proceeds = parse_amount(req.sale_price) if req.sale_price else 0
+
+    _require_account(db, company_id, asset.gl_account or "2501")
+    _require_account(db, company_id, "2509")
+    try:
+        res = assets.retire_asset(db, company_id, asset_id, d_date,
+                                  proceeds_minor=proceeds)
+    except assets.AssetError as e:
+        raise HTTPException(400, str(e))
+    except ledger.LedgerError as e:
+        raise HTTPException(422, str(e))
+
     db.commit()
-    return {"id": asset.id, "status": "disposed", "message": f"{asset.name} үндсэн хөрөнгийг ашиглалтаас хасаж данснаас хасав."}
+    return {"id": asset.id, "status": "disposed", **res,
+            "message": (f"{asset.name}: үлдэх өртөг "
+                        f"{res['book_value_minor'] / 100:,.2f}₮, "
+                        f"олз {res['gain_minor'] / 100:,.2f}₮ / "
+                        f"гарз {res['loss_minor'] / 100:,.2f}₮")}
 
 
 # 2. Counterparty Balance Confirmation Act Generator
