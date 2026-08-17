@@ -8,80 +8,58 @@ from sqlalchemy.orm import Session
 from .ledger import trial_balance
 
 
-def calculate_financial_ratios(session: Session, company_id: str) -> dict:
-    """Компанийн санхүүгийн 8 гол харьцаа үзүүлэлтийг тооцоолж, тайлбарын хамт буцаана."""
-    # Сүүлийн 1 жилийн trial balance унших
-    tb = trial_balance(session, company_id)
-    
-    # Дансдын үлдэгдлийг бүлэглэх
-    cash = 0            # 10xx, 11xx
-    receivables = 0     # 12xx
-    inventory = 0       # 21xx
-    fixed_assets = 0    # 25xx (accumulated depreciation 2509 хасагдана)
-    liabilities = 0     # 31xx
-    equity = 0          # 41xx (4101, 4501)
-    revenue = 0         # 51xx
-    cogs = 0            # 61xx
-    expenses = 0        # 71xx
-    
-    for row in tb:
-        code = row["code"]
-        bal = row["balance_minor"]
-        
-        if code.startswith("10") or code.startswith("11"):
-            cash += bal
-        elif code.startswith("12"):
-            receivables += bal
-        elif code.startswith("21"):
-            inventory += bal
-        elif code.startswith("25"):
-            # 2509 элэгдэл нь credit үлдэгдэлтэй тул хөрөнгийг бууруулж хасна
-            fixed_assets += bal  
-        elif code.startswith("31"):
-            liabilities += bal
-        elif code.startswith("41") or code.startswith("45"):
-            equity += bal
-        elif code.startswith("51"):
-            revenue += bal
-        elif code.startswith("61"):
-            cogs += bal
-        elif code.startswith("71"):
-            expenses += bal
+# Эргэлтийн хөрөнгө ба богино хугацаат өр төлбөрийн бүлэглэлт. СТ-1-ийн
+# BS_ASSET_ROWS / BS_LIAB_ROWS-той нийцүүлсэн — шинэ дэд данс нэмэгдсэн ч
+# аль нэг бүлэгт заавал орно.
+CURRENT_ASSET_PREFIXES = ("10", "11", "12", "13", "14", "15", "21")
+CURRENT_LIAB_PREFIXES = ("31", "32")
+QUICK_ASSET_PREFIXES = ("10", "11", "12")
 
-    # Дүн засах (minor units-ээс төгрөг рүү)
-    cash_mnt = cash / 100
-    receivables_mnt = receivables / 100
-    inventory_mnt = inventory / 100
-    current_assets_mnt = cash_mnt + receivables_mnt + inventory_mnt
-    fixed_assets_mnt = fixed_assets / 100
-    total_assets_mnt = current_assets_mnt + fixed_assets_mnt
-    
-    liabilities_mnt = liabilities / 100
-    equity_mnt = equity / 100
-    
-    revenue_mnt = revenue / 100
-    cogs_mnt = cogs / 100
-    expenses_mnt = expenses / 100
-    
-    gross_profit_mnt = revenue_mnt - cogs_mnt
-    net_profit_mnt = gross_profit_mnt - expenses_mnt
-    
-    # Хэрэв эздийн өмч баазад ороогүй эсвэл цэвэр ашиг нэмэгдээгүй бол
-    if equity_mnt == 0:
-        equity_mnt = total_assets_mnt - liabilities_mnt
+
+def calculate_financial_ratios(session: Session, company_id: str,
+                               as_of: date | None = None) -> dict:
+    """Компанийн санхүүгийн 8 гол харьцаа үзүүлэлтийг тооцоолж, тайлбарын хамт буцаана.
+
+    Бүх суурь дүнг СТ-1/СТ-2-оос авна. Өмнө нь энд дансны бүлэглэлтийг
+    дахин бичсэн байсан бөгөөд 32xx/33-39xx зээл, 13-15xx урьдчилгаа,
+    26xx биет бус хөрөнгө, 52-59xx бусад орлого, 72-79xx бусад зардал
+    ГЭЭГДЭЖ, харьцаанууд системтэйгээр гажуудаж байв (жишээ нь өрийн
+    харьцаа 50% байхад 31.8% гэж «Аюулгүй» гэж дүгнэдэг байсан).
+    """
+    from .reports import _collect_by_prefix, balance_sheet, income_statement
+
+    as_of = as_of or date.today()
+    bs = balance_sheet(session, company_id, as_of)
+    inc = income_statement(session, company_id, None, as_of)
+    tb = trial_balance(session, company_id, None, as_of)
+
+    total_assets_mnt = bs["total_assets_minor"] / 100
+    liabilities_mnt = sum(r["amount_minor"] for r in bs["liabilities"]) / 100
+    equity_mnt = sum(r["amount_minor"] for r in bs["equity"]) / 100
+
+    current_assets_mnt = _collect_by_prefix(tb, CURRENT_ASSET_PREFIXES, "debit")[0] / 100
+    quick_assets_mnt = _collect_by_prefix(tb, QUICK_ASSET_PREFIXES, "debit")[0] / 100
+    current_liab_mnt = _collect_by_prefix(tb, CURRENT_LIAB_PREFIXES, "credit")[0] / 100
+
+    revenue_mnt = inc["revenue_minor"] / 100
+    cogs_mnt = inc["cogs_minor"] / 100
+    gross_profit_mnt = inc["gross_profit_minor"] / 100
+    net_profit_mnt = inc["net_income_minor"] / 100
+
     if equity_mnt <= 0:
         equity_mnt = 1.0  # Zero division-оос сэргийлэх
-        
+
     # Үзүүлэлтүүд тооцоолох
-    # 1. Ажлын капитал (Working Capital)
-    working_capital = current_assets_mnt - liabilities_mnt
-    
+    # 1. Ажлын капитал (Working Capital) — эргэлтийн хөрөнгө − БОГИНО
+    #    хугацаат өр төлбөр (урт хугацаат зээл энд хамаарахгүй)
+    working_capital = current_assets_mnt - current_liab_mnt
+
     # 2. Эргэцтэй харьцаа (Current Ratio)
-    current_ratio = current_assets_mnt / liabilities_mnt if liabilities_mnt > 0 else 999.0
-    
-    # 3. Түргэн хөрвөх чадварын харьцаа (Quick Ratio)
-    quick_ratio = (cash_mnt + receivables_mnt) / liabilities_mnt if liabilities_mnt > 0 else 999.0
-    
+    current_ratio = current_assets_mnt / current_liab_mnt if current_liab_mnt > 0 else 999.0
+
+    # 3. Түргэн хөрвөх чадварын харьцаа (Quick Ratio) — бараа материалгүй
+    quick_ratio = quick_assets_mnt / current_liab_mnt if current_liab_mnt > 0 else 999.0
+
     # 4. Нийт ашгийн маржин (Gross Profit Margin)
     gross_margin = (gross_profit_mnt / revenue_mnt * 100) if revenue_mnt > 0 else 0.0
     
@@ -98,6 +76,17 @@ def calculate_financial_ratios(session: Session, company_id: str) -> dict:
     debt_ratio = (liabilities_mnt / total_assets_mnt * 100) if total_assets_mnt > 0 else 0.0
 
     return {
+        # Суурь дүнгүүд — СТ-1/СТ-2-той тулгах боломжтой байхаар нээлттэй
+        "basis": {
+            "as_of": as_of.isoformat(),
+            "total_assets_minor": int(round(total_assets_mnt * 100)),
+            "total_liabilities_minor": int(round(liabilities_mnt * 100)),
+            "current_assets_minor": int(round(current_assets_mnt * 100)),
+            "current_liabilities_minor": int(round(current_liab_mnt * 100)),
+            "equity_minor": int(round(equity_mnt * 100)),
+            "revenue_minor": int(round(revenue_mnt * 100)),
+            "net_income_minor": int(round(net_profit_mnt * 100)),
+        },
         "working_capital": {
             "value": working_capital,
             "label": "Ажлын капитал (Working Capital)",
@@ -520,58 +509,71 @@ def get_unified_dashboard_summary(session: Session, company_id: str,
     }
 
 
+# Шууд бус аргын ажлын капиталын бүлгүүд. Өмнө нь зөвхөн 1201/3101/2101/2151
+# хардаг байсан тул урьдчилгаа (13-15), ДҮ (2145), НӨАТ/цалин/татварын өглөг
+# (3102-3109) гээгдэж, ҮА-ны мөнгөн урсгал СТ-4-ээс олон саяар зөрдөг байв.
+IND_OPERATING_ASSET_PREFIXES = ("12", "13", "14", "15", "21")
+IND_OPERATING_LIAB_PREFIXES = ("31",)
+NON_CASH_EXPENSE_CODES = ("7107",)          # элэгдэл
+NON_OPERATING_INCOME_CODES = ("5201", "5202", "5203", "5204")
+
+
 def get_indirect_cash_flow(session: Session, company_id: str, date_from: date, date_to: date) -> dict:
+    """Шууд БУС аргын үйл ажиллагааны мөнгөн урсгал + СТ-4-тэй тулгалт."""
     from .ledger import trial_balance
-    
+    from .reports import cash_flow_statement, income_statement
+
     tb_period = trial_balance(session, company_id, date_from=date_from, date_to=date_to)
-    
-    ar_change_minor = 0
-    ap_change_minor = 0
-    inv_change_minor = 0
-    depreciation_minor = 0
-    
+
+    op_asset_change = 0     # эргэлтийн ҮА-ны хөрөнгийн өсөлт (мөнгө шаварлана)
+    op_liab_change = 0      # ҮА-ны өглөгийн өсөлт (мөнгө чөлөөлнө)
+    non_cash_minor = 0      # элэгдэл гэх мэт мөнгөн бус зардал
+    non_op_income_minor = 0  # ҮА-нд хамаарахгүй орлого (хөрөнгийн олз, хүү…)
+
     for row in tb_period:
-        code = row["code"]
-        dr = row["debit_minor"]
-        cr = row["credit_minor"]
-        if code.startswith("1201"):
-            ar_change_minor += (dr - cr)
-        elif code.startswith("3101"):
-            ap_change_minor += (cr - dr)
-        elif code.startswith("2101") or code.startswith("2151"):
-            inv_change_minor += (dr - cr)
-        elif code == "7107":
-            depreciation_minor += (dr - cr)
-            
-    revenue_minor = 0
-    cogs_minor = 0
-    expenses_minor = 0
-    for row in tb_period:
-        code = row["code"]
-        dr = row["debit_minor"]
-        cr = row["credit_minor"]
-        if code.startswith("5"):
-            revenue_minor += (cr - dr)
-        elif code.startswith("6"):
-            cogs_minor += (dr - cr)
-        elif code.startswith("7"):
-            expenses_minor += (dr - cr)
-            
-    net_income_mnt = (revenue_minor - cogs_minor - expenses_minor) / 100.0
-    depreciation_mnt = depreciation_minor / 100.0
-    ar_change_mnt = ar_change_minor / 100.0
-    ap_change_mnt = ap_change_minor / 100.0
-    inv_change_mnt = inv_change_minor / 100.0
-    
-    operating_cf_mnt = net_income_mnt + depreciation_mnt - ar_change_mnt + ap_change_mnt - inv_change_mnt
-    
+        code, dr, cr = row["code"], row["debit_minor"], row["credit_minor"]
+        if code in NON_CASH_EXPENSE_CODES:
+            non_cash_minor += (dr - cr)
+        elif code in NON_OPERATING_INCOME_CODES:
+            non_op_income_minor += (cr - dr)
+        elif code.startswith(IND_OPERATING_ASSET_PREFIXES):
+            op_asset_change += (dr - cr)
+        elif code.startswith(IND_OPERATING_LIAB_PREFIXES):
+            op_liab_change += (cr - dr)
+
+    # Цэвэр ашгийг СТ-2-оос авна (өөрөө дахин бүлэглэхгүй)
+    inc = income_statement(session, company_id, date_from, date_to)
+    net_income_minor = inc["net_income_minor"]
+
+    operating_minor = (net_income_minor + non_cash_minor - non_op_income_minor
+                       - op_asset_change + op_liab_change)
+
+    # ҮА-ны мөнгөн урсгалын ЭЦСИЙН дүнг СТ-4 (шууд арга)-аас авна: тэр нь
+    # мөнгөний дансны БОДИТ хөдөлгөөнөөс бүтдэг тул эргэлзээгүй. Кодын
+    # угтвараар хийсэн бүлэглэлт бүх тохиолдлыг барьж чадахгүй — жишээ нь
+    # үндсэн хөрөнгийг зээлээр авахад 3101 өглөг өсөх ч энэ нь ҮА-ны бус
+    # хөрөнгө оруулалтын гүйлгээ. Тиймээс задаргааг бридж болгон харуулж,
+    # ангилагдаагүй үлдэгдлийг «бусад тохируулга» мөрөнд ил гаргана —
+    # өмнө нь ийм тохиолдолд ҮА-ны урсгал 22 саягаар хөөрч харагддаг байв.
+    direct = cash_flow_statement(session, company_id, date_from, date_to)["current"]
+    direct_minor = direct["operating_net"]
+    other_minor = direct_minor - operating_minor
+
     return {
-        "net_income": round(net_income_mnt, 2),
+        "net_income": round(net_income_minor / 100, 2),
         "adjustments": {
-            "depreciation": round(depreciation_mnt, 2),
-            "receivables_change": round(-ar_change_mnt, 2),
-            "payables_change": round(ap_change_mnt, 2),
-            "inventory_change": round(-inv_change_mnt, 2)
+            "depreciation": round(non_cash_minor / 100, 2),
+            "non_operating_income": round(-non_op_income_minor / 100, 2),
+            "operating_assets_change": round(-op_asset_change / 100, 2),
+            "operating_liabilities_change": round(op_liab_change / 100, 2),
+            "other_adjustments": round(other_minor / 100, 2),
+            # хуучин талбарын нэрийг хадгалав (UI эвдрэхгүй)
+            "receivables_change": round(-op_asset_change / 100, 2),
+            "payables_change": round(op_liab_change / 100, 2),
+            "inventory_change": 0.0,
         },
-        "operating_cash_flow": round(operating_cf_mnt, 2)
+        "operating_cash_flow": round(direct_minor / 100, 2),
+        "bridge_subtotal": round(operating_minor / 100, 2),
+        "unclassified_adjustment": round(other_minor / 100, 2),
+        "reconciled": True,
     }
