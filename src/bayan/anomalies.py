@@ -60,17 +60,23 @@ def duplicate_payments(session, company_id: str, d_from: date,
     rows = session.execute(
         select(JournalEntry.id, JournalEntry.entry_date, JournalEntry.memo,
                Account.code, Account.name, JournalLine.credit_minor,
-               JournalLine.debit_minor)
+               JournalLine.debit_minor, JournalLine.counterparty_id)
         .join(JournalLine, JournalLine.entry_id == JournalEntry.id)
         .join(Account, Account.id == JournalLine.account_id)
         .where(JournalEntry.company_id == company_id,
                JournalEntry.status != EntryStatus.draft,
+               # ЗАССАН бичилтийг давхардал гэж дуудахгүй: буцаагдсан эх
+               # бичилт ба түүний буцаалт хоёулаа дэвтэрт үлддэг тул нэг л
+               # удаа бодитоор төлсөн мөнгө «хоёр төлөлт» шиг харагддаг байв
+               JournalEntry.status != EntryStatus.reversed,
+               JournalEntry.reversal_of.is_(None),
                JournalEntry.entry_date >= d_from,
                JournalEntry.entry_date <= d_to)).all()
 
     # Мөнгө ГАРСАН бичилтүүд: 10/11 дансны кредит
     payments = [
-        {"entry_id": r[0], "date": r[1], "memo": r[2] or "", "amount": r[5]}
+        {"entry_id": r[0], "date": r[1], "memo": r[2] or "", "amount": r[5],
+         "counterparty_id": r[7]}
         for r in rows if r[3].startswith(("10", "11")) and r[5]
     ]
 
@@ -81,6 +87,12 @@ def duplicate_payments(session, company_id: str, d_from: date,
             if a["amount"] != b["amount"] or a["entry_id"] == b["entry_id"]:
                 continue
             if abs((a["date"] - b["date"]).days) > DUPLICATE_WINDOW_DAYS:
+                continue
+            # ӨӨР харилцагч руу явсан ижил дүн нь давхардал биш (жишээ нь
+            # хоёр түрээслүүлэгчид ижил түрээс). Харилцагч нь мэдэгдэхгүй
+            # тохиолдолд л зөвхөн дүн/огнооны шинжээр сэжиглэнэ.
+            if (a["counterparty_id"] and b["counterparty_id"]
+                    and a["counterparty_id"] != b["counterparty_id"]):
                 continue
             key = tuple(sorted((a["entry_id"], b["entry_id"])))
             if key in seen_pairs:
@@ -134,6 +146,10 @@ def misposted_accounts(session, company_id: str, d_from: date,
         .join(Account, Account.id == JournalLine.account_id)
         .where(JournalEntry.company_id == company_id,
                JournalEntry.status != EntryStatus.draft,
+               # Зассан ангилалтыг дахин зэмлэхгүй — буцаагдсан бичилт ба
+               # түүний буцаалтыг хоёуланг нь орхино
+               JournalEntry.status != EntryStatus.reversed,
+               JournalEntry.reversal_of.is_(None),
                JournalEntry.source_type == SourceType.bank_txn,
                JournalEntry.entry_date >= d_from,
                JournalEntry.entry_date <= d_to)).all()
