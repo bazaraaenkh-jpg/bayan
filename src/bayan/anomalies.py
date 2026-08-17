@@ -265,17 +265,30 @@ def vat_anomalies(session, company_id: str, d_from: date,
 
 # ---------------------------------------------------- ирээдүйн огноотой бичилт
 
-def future_entries(session, company_id: str, as_of: date) -> list[Anomaly]:
-    """Ирээдүйн огноотой батлагдсан бичилт — бараг үргэлж бичих алдаа."""
+def future_entries(session, company_id: str, as_of: date,
+                   d_from: date | None = None,
+                   d_to: date | None = None) -> list[Anomaly]:
+    """Ирээдүйн огноотой батлагдсан бичилт — бараг үргэлж бичих алдаа.
+
+    d_from/d_to өгвөл ЗӨВХӨН тухайн хугацааны бичилтүүдийг харна. scan() нь
+    сарын хүрээг дамжуулдаг — эс тэгвэл 2026-03-ын гажилтын тайланд 2027 оны
+    бичилт гарч ирж, «энэ сарын гажилт» гэж ойлгогдоно.
+    """
     from sqlalchemy import select
 
     from .models import EntryStatus, JournalEntry
 
+    q = select(JournalEntry).where(
+        JournalEntry.company_id == company_id,
+        JournalEntry.status != EntryStatus.draft,
+        JournalEntry.entry_date > as_of)
+    if d_from is not None:
+        q = q.where(JournalEntry.entry_date >= d_from)
+    if d_to is not None:
+        q = q.where(JournalEntry.entry_date <= d_to)
+
     found = []
-    for e in session.scalars(select(JournalEntry).where(
-            JournalEntry.company_id == company_id,
-            JournalEntry.status != EntryStatus.draft,
-            JournalEntry.entry_date > as_of)):
+    for e in session.scalars(q):
         found.append(Anomaly(
             code="FUTURE_ENTRY", severity="medium",
             title="Ирээдүйн огноотой бичилт",
@@ -301,7 +314,9 @@ def scan(session, company_id: str, year: int, month: int,
     found += misposted_accounts(session, company_id, d_from, d_to)
     found += payroll_anomalies(session, company_id, year, month)
     found += vat_anomalies(session, company_id, d_from, d_to)
-    found += future_entries(session, company_id, as_of)
+    # Бүх илрүүлэгчийн адил САРЫН хүрээнд — өөр сарын бичилт энэ сарын
+    # тайланд орж ирэхгүй
+    found += future_entries(session, company_id, as_of, d_from, d_to)
 
     found.sort(key=lambda a: (SEVERITY_ORDER.get(a.severity, 9),
                               -abs(a.amount_minor)))

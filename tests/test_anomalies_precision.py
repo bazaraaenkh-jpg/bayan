@@ -139,13 +139,41 @@ def test_scan_aggregates_and_sorts_by_severity(session, company):
     session.add(cp); session.flush()
     _pay(session, company, date(2026, 3, 3), 4_000_000 * M, "P-1", cp.id)
     _pay(session, company, date(2026, 3, 4), 4_000_000 * M, "P-1", cp.id)
-    ledger.post_entry(session, company.id, date(2027, 6, 1), [
-        ledger.LineInput("7103", debit_minor=100_000 * M),
-        ledger.LineInput("1101", credit_minor=100_000 * M)], memo="ирээдүй")
 
     res = anomalies.scan(session, company.id, 2026, 3, as_of=date(2026, 8, 17))
     codes = [a["code"] for a in res["anomalies"]]
     assert codes[0] == "DUPLICATE_PAYMENT"        # high нь эхэнд
-    assert "FUTURE_ENTRY" in codes
     assert res["by_severity"]["high"] == 1
     assert res["total"] == len(res["anomalies"])
+
+
+def test_scan_keeps_future_entries_within_the_month(session, company):
+    """Өөр сарын ирээдүйн бичилт тухайн сарын тайланд орохгүй."""
+    _cash(session, company)
+    ledger.post_entry(session, company.id, date(2027, 6, 1), [
+        ledger.LineInput("7103", debit_minor=100_000 * M),
+        ledger.LineInput("1101", credit_minor=100_000 * M)], memo="2027 оны бичилт")
+    as_of = date(2026, 8, 17)
+
+    # 2026-03 сарын багц — 2027 оны бичилт хамаарахгүй
+    res = anomalies.scan(session, company.id, 2026, 3, as_of=as_of)
+    assert [a["code"] for a in res["anomalies"]] == []
+
+    # 2027-06 сарын багц — тэнд л харагдана
+    res = anomalies.scan(session, company.id, 2027, 6, as_of=as_of)
+    assert [a["code"] for a in res["anomalies"]] == ["FUTURE_ENTRY"]
+
+    # Хүрээгүй дуудвал өмнөх шигээ бүх ирээдүйн бичилтийг харна
+    assert len(anomalies.future_entries(session, company.id, as_of)) == 1
+
+
+def test_scan_flags_future_dated_entry_in_current_month(session, company):
+    """Явж байгаа сард өнөөдрөөс хойш огноотой бичилт баригдана."""
+    _cash(session, company)
+    as_of = date(2026, 8, 17)
+    ledger.post_entry(session, company.id, date(2026, 8, 25), [
+        ledger.LineInput("7103", debit_minor=100_000 * M),
+        ledger.LineInput("1101", credit_minor=100_000 * M)], memo="сарын дараах")
+
+    res = anomalies.scan(session, company.id, 2026, 8, as_of=as_of)
+    assert [a["code"] for a in res["anomalies"]] == ["FUTURE_ENTRY"]
